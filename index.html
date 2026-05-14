@@ -677,9 +677,11 @@ async function handleFiles(fileList) {
     let stage = '준비';
     try {
       const ts = Date.now() + '_' + i;
-      // 한글·영문·숫자·일부 기호만 남기고 나머지는 _ 로 치환
-      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
-      const path = `${currentProduct.id}/${ts}_${safeName}`;
+      // Supabase Storage key 는 ASCII 영문·숫자·일부 기호만 허용 — 한글 포함 시 'Invalid key' 에러
+      // 그래서 저장 경로는 안전한 ASCII 이름으로, 원본 파일명은 DB(file_name) 에 보존
+      const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
+      const ext = extMatch ? extMatch[0].toLowerCase() : '';
+      const path = `${currentProduct.id}/img_${ts}${ext}`;
       console.log('[업로드 시도]', file.name, '→', path);
 
       // 1) Storage 업로드
