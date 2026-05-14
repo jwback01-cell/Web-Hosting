@@ -188,10 +188,14 @@
               <h1 id="product-title" class="text-2xl font-bold tracking-tight"></h1>
               <p id="product-meta" class="text-brand-gray text-sm mt-1"></p>
             </div>
-            <div class="flex gap-2">
-              <button onclick="copyAllUrls()" class="px-4 py-2 rounded-full bg-brand-blue-light text-brand-blue text-sm font-bold hover:bg-brand-blue hover:text-white transition-colors flex items-center gap-2" title="이 제품의 모든 이미지 URL 을 클립보드에 복사">
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="copyAllUrls()" class="px-4 py-2 rounded-full bg-brand-blue-light text-brand-blue text-sm font-bold hover:bg-brand-blue hover:text-white transition-colors flex items-center gap-2" title="이 제품의 모든 이미지 URL 을 줄바꿈으로 구분해 클립보드에 복사">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 전체 URL 복사
+              </button>
+              <button onclick="copyAllHtml()" class="px-4 py-2 rounded-full bg-brand-green-light text-brand-green text-sm font-bold hover:bg-brand-green hover:text-white transition-colors flex items-center gap-2" title="<img> 태그로 변환해 복사 — 쇼핑몰 상세설명 에디터에 바로 붙여넣기">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                전체 HTML 복사
               </button>
               <button onclick="openRenameProductModal()" class="px-4 py-2 rounded-full bg-brand-bg text-brand-black text-sm font-bold hover:bg-brand-border transition-colors">이름 변경</button>
               <button onclick="confirmDeleteProduct()" class="px-4 py-2 rounded-full bg-brand-pink-light text-brand-pink text-sm font-bold hover:bg-brand-pink hover:text-white transition-colors">제품 삭제</button>
@@ -592,6 +596,9 @@ function renderImages() {
             <div class="img-btn" onclick="event.stopPropagation(); copyImageUrl('${im.id}')" title="URL 복사">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             </div>
+            <div class="img-btn" onclick="event.stopPropagation(); copyImageHtml('${im.id}')" title="HTML 태그 복사 (<img>)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
             <div class="img-btn danger" onclick="event.stopPropagation(); confirmDeleteImage('${im.id}')" title="삭제">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
             </div>
@@ -638,6 +645,24 @@ async function copyAllUrls() {
   const text = images.map(im => im.public_url).join('\n');
   await navigator.clipboard.writeText(text);
   toast(`${images.length}개 URL 복사됨`, 'success');
+}
+// HTML <img> 태그 형식으로 복사 — 쇼핑몰 상세설명 에디터에 바로 붙여넣기
+function _imgTag(im) {
+  // alt 속성에 원본 파일명 (HTML 엔티티 이스케이프), src 는 publicURL
+  return `<img src="${im.public_url}" alt="${escapeHtml(im.file_name || '')}" />`;
+}
+async function copyImageHtml(imgId) {
+  const im = images.find(i => i.id === imgId);
+  if (!im) return;
+  await navigator.clipboard.writeText(_imgTag(im));
+  toast('HTML 태그 복사됨', 'success');
+}
+async function copyAllHtml() {
+  if (!images.length) return;
+  // 순서대로 <img> 태그를 줄바꿈으로 구분 (쇼핑몰 에디터에 그대로 붙여넣기 가능)
+  const text = images.map(_imgTag).join('\n');
+  await navigator.clipboard.writeText(text);
+  toast(`${images.length}개 HTML 태그 복사됨`, 'success');
 }
 function confirmDeleteImage(imgId) {
   const im = images.find(i => i.id === imgId);
