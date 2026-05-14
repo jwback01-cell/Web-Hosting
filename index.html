@@ -647,9 +647,10 @@ async function copyAllUrls() {
   toast(`${images.length}개 URL 복사됨`, 'success');
 }
 // HTML <img> 태그 형식으로 복사 — 쇼핑몰 상세설명 에디터에 바로 붙여넣기
-// 길이 최소화: alt 속성과 self-closing 제거 → '<img src="URL">' 만
+// 최단 길이: HTML5 표준의 따옴표 없는 속성값 (URL 에 공백·"·'·=·<·>·` 가 없으므로 안전)
+//   → '<img src=URL>' (11자 래퍼)
 function _imgTag(im) {
-  return `<img src="${im.public_url}">`;
+  return `<img src=${im.public_url}>`;
 }
 async function copyImageHtml(imgId) {
   const im = images.find(i => i.id === imgId);
