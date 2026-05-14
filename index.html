@@ -764,12 +764,21 @@ function openModal(opts) {
   input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); modalConfirm(); } };
 }
 function modalConfirm() {
+  console.log('[modalConfirm] 호출');
   const input = document.getElementById('modal-input');
   const val = input.classList.contains('hidden') ? null : input.value.trim();
+  console.log('[modalConfirm] 입력값:', JSON.stringify(val));
+  const cb = modalCb;
   closeModal();
-  if (modalCb) modalCb(val);
+  if (cb) {
+    console.log('[modalConfirm] callback 실행 중');
+    cb(val);
+  } else {
+    console.warn('[modalConfirm] modalCb 가 비어있음 — 콜백 실행 안 됨');
+  }
 }
 function closeModal() {
+  console.log('[closeModal] 호출');
   document.getElementById('modal-bd').classList.remove('open');
   modalCb = null;
   // 취소 버튼 표시 복원 (showPersistentError 가 숨겨놨을 수 있음)
