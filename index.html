@@ -213,14 +213,27 @@
           </div>
         </label>
 
-        <!-- 이미지 그리드 -->
+        <!-- 메인 이미지 그리드 -->
         <div class="bg-white rounded-4xl panel p-6 md:p-7">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-base"><span id="image-count">0</span>개 이미지</h3>
-            <p class="text-xs text-brand-gray">이미지를 드래그해서 순서 변경</p>
+            <h3 class="font-bold text-base">메인 이미지 <span class="text-brand-gray font-normal text-sm">(<span id="main-count">0</span>개)</span></h3>
+            <p class="text-xs text-brand-gray">드래그로 순서 변경</p>
           </div>
-          <div id="image-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></div>
-          <div id="image-empty" class="hidden text-center py-12 text-brand-gray text-sm">아직 업로드된 이미지가 없습니다.</div>
+          <div id="image-grid-main" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></div>
+          <div id="image-empty-main" class="hidden text-center py-10 text-brand-gray text-sm">아직 메인 이미지가 없습니다.</div>
+        </div>
+
+        <!-- 그룹 이미지 그리드 (파일명이 'Group' 으로 시작하는 이미지) -->
+        <div class="bg-white rounded-4xl panel p-6 md:p-7">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 class="font-bold text-base">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="inline mr-1 -mt-0.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              그룹 이미지 <span class="text-brand-gray font-normal text-sm">(<span id="group-count">0</span>개)</span>
+            </h3>
+            <p class="text-xs text-brand-gray">파일명이 <code class="px-1.5 py-0.5 bg-brand-bg rounded text-brand-black font-mono">Group</code> 으로 시작하면 자동 분류</p>
+          </div>
+          <div id="image-grid-group" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></div>
+          <div id="image-empty-group" class="hidden text-center py-10 text-brand-gray text-sm">아직 그룹 이미지가 없습니다. 'Group' 으로 시작하는 파일을 업로드하세요.</div>
         </div>
       </section>
     </main>
@@ -575,18 +588,12 @@ async function loadImages(productId) {
   images = data || [];
   renderImages();
 }
-function renderImages() {
-  const gridEl  = document.getElementById('image-grid');
-  const emptyEl = document.getElementById('image-empty');
-  const countEl = document.getElementById('image-count');
-  countEl.textContent = images.length;
-  if (!images.length) {
-    gridEl.innerHTML = '';
-    emptyEl.classList.remove('hidden');
-    return;
-  }
-  emptyEl.classList.add('hidden');
-  gridEl.innerHTML = images.map((im, idx) => `
+// 파일명이 'Group' 으로 시작하면 그룹 이미지로 분류 (대소문자 무시)
+function _isGroup(im) {
+  return /^group/i.test(im.file_name || '');
+}
+function _imgCardHtml(im, idx) {
+  return `
     <div class="img-card" data-img-id="${im.id}">
       <img src="${im.public_url}" alt="${escapeHtml(im.file_name)}" loading="lazy">
       <div class="img-overlay">
@@ -609,26 +616,61 @@ function renderImages() {
         </div>
       </div>
     </div>
-  `).join('');
-  // Sortable 초기화 — 드래그로 순서 변경
-  if (window._sortable) window._sortable.destroy();
-  window._sortable = new Sortable(gridEl, {
-    animation: 200,
-    ghostClass: 'sortable-ghost',
-    dragClass: 'sortable-drag',
-    onEnd: handleReorder
+  `;
+}
+function renderImages() {
+  // 두 그룹으로 분리 — 메인(파일명이 Group 으로 시작 안 함) / 그룹(Group 으로 시작)
+  const mainList  = images.filter(im => !_isGroup(im));
+  const groupList = images.filter(im =>  _isGroup(im));
+
+  const mainGridEl  = document.getElementById('image-grid-main');
+  const groupGridEl = document.getElementById('image-grid-group');
+  const mainEmptyEl  = document.getElementById('image-empty-main');
+  const groupEmptyEl = document.getElementById('image-empty-group');
+
+  document.getElementById('main-count').textContent  = mainList.length;
+  document.getElementById('group-count').textContent = groupList.length;
+
+  // 메인
+  if (mainList.length === 0) {
+    mainGridEl.innerHTML = '';
+    mainEmptyEl.classList.remove('hidden');
+  } else {
+    mainEmptyEl.classList.add('hidden');
+    mainGridEl.innerHTML = mainList.map((im, i) => _imgCardHtml(im, i)).join('');
+  }
+  // 그룹
+  if (groupList.length === 0) {
+    groupGridEl.innerHTML = '';
+    groupEmptyEl.classList.remove('hidden');
+  } else {
+    groupEmptyEl.classList.add('hidden');
+    groupGridEl.innerHTML = groupList.map((im, i) => _imgCardHtml(im, i)).join('');
+  }
+
+  // Sortable 두 그리드에 각각 초기화 (각자 자기 순서만 관리)
+  if (window._sortableMain)  window._sortableMain.destroy();
+  if (window._sortableGroup) window._sortableGroup.destroy();
+  window._sortableMain = new Sortable(mainGridEl, {
+    animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+    onEnd: () => handleReorder('main')
+  });
+  window._sortableGroup = new Sortable(groupGridEl, {
+    animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+    onEnd: () => handleReorder('group')
   });
 }
-async function handleReorder() {
-  // DOM 순서대로 새 sort_order 부여 → 일괄 update
-  const cards = [...document.querySelectorAll('#image-grid .img-card')];
-  const newOrder = cards.map((c, i) => ({ id: c.dataset.imgId, sort_order: i + 1 }));
-  // 메모리 즉시 반영 (UX)
+async function handleReorder(kind) {
+  // 해당 그리드의 DOM 순서대로 sort_order 재부여
+  // 메인은 1~999, 그룹은 1001~ 로 범위 분리해 서로 영향 없게
+  const gridEl = document.getElementById(kind === 'group' ? 'image-grid-group' : 'image-grid-main');
+  const base = (kind === 'group') ? 1000 : 0;
+  const cards = [...gridEl.querySelectorAll('.img-card')];
+  const newOrder = cards.map((c, i) => ({ id: c.dataset.imgId, sort_order: base + i + 1 }));
   const map = Object.fromEntries(newOrder.map(o => [o.id, o.sort_order]));
-  images.forEach(im => { im.sort_order = map[im.id]; });
-  images.sort((a, b) => a.sort_order - b.sort_order);
-  renderImages();  // 배지(#1, #2...) 갱신
-  // DB 일괄 update — 가장 안전한 방식: 한 행씩 update
+  images.forEach(im => { if (map[im.id] != null) im.sort_order = map[im.id]; });
+  images.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  renderImages();
   for (const o of newOrder) {
     await sb.from('images').update({ sort_order: o.sort_order }).eq('id', o.id);
   }
