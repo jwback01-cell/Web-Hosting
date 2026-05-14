@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이미지 저장소</title>
+<link rel="preconnect" href="https://cdn.tailwindcss.com">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          'brand-black' : '#1A1A1A',
+          'brand-gray'  : '#8E8E93',
+          'brand-bg'    : '#F9F9FB',
+          'brand-border': '#F2F2F7',
+          'brand-blue'  : '#2196F3',
+          'brand-blue-light': '#E1F0FF',
+          'brand-pink'  : '#FF2D55',
+          'brand-pink-light': '#FFE1EC',
+          'brand-green' : '#00C853',
+          'brand-green-light': '#D4F8E0',
+        },
+        borderRadius: { '4xl': '28px' },
+        fontFamily: { 'sans': ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'] }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background:#F9F9FB; color:#1A1A1A; -webkit-font-smoothing: antialiased; }
+  .panel { box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 24px rgba(0,0,0,0.04); }
+  .glass-nav { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); border: 1px solid #F2F2F7; }
+  .nav-item.active { background:#1A1A1A; color:white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .nav-item:not(.active) { color:#8E8E93; }
+  .nav-item:not(.active):hover { background:#F9F9FB; color:#1A1A1A; }
+
+  /* 이미지 그리드 */
+  .img-card { position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; background:#F2F2F7; border:2px solid transparent; transition:all .2s; cursor:grab; }
+  .img-card:hover { border-color:#1A1A1A; transform: translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,0.08); }
+  .img-card.sortable-ghost { opacity:0.4; }
+  .img-card.sortable-drag { cursor:grabbing; transform:rotate(2deg); }
+  .img-card img { width:100%; height:100%; object-fit:cover; pointer-events:none; }
+  .img-overlay { position:absolute; inset:0; background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%); opacity:0; transition: opacity .2s; display:flex; flex-direction:column; justify-content:space-between; padding:8px; pointer-events:none; }
+  .img-card:hover .img-overlay { opacity:1; }
+  .img-overlay > * { pointer-events:auto; }
+  .img-overlay-top { display:flex; justify-content:space-between; align-items:start; }
+  .img-overlay-bottom { display:flex; gap:6px; align-items:center; justify-content:space-between; }
+  .img-actions { display:flex; gap:4px; }
+  .img-btn { width:30px; height:30px; border-radius:50%; background:rgba(255,255,255,0.95); display:flex; align-items:center; justify-content:center; cursor:pointer; transition: all .15s; }
+  .img-btn:hover { background:#fff; transform: scale(1.1); }
+  .img-btn.danger { color:#FF2D55; }
+  .img-order-badge { background: rgba(26,26,26,0.85); color:white; font-size:11px; font-weight:700; padding:3px 8px; border-radius:8px; min-width:24px; text-align:center; }
+  .img-name { color:white; font-size:11px; font-weight:600; text-shadow:0 1px 2px rgba(0,0,0,0.5); flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* 드롭 존 */
+  .drop-zone { border:2px dashed #C7C7CC; border-radius:20px; padding:32px; text-align:center; cursor:pointer; transition: all .2s; background:#fff; }
+  .drop-zone:hover, .drop-zone.dragover { border-color:#1A1A1A; background:#F9F9FB; }
+
+  /* 토스트 */
+  .toast { position:fixed; bottom:30px; left:50%; transform: translateX(-50%) translateY(20px); background:#1A1A1A; color:white; padding:12px 24px; border-radius:999px; font-weight:600; font-size:14px; opacity:0; pointer-events:none; transition: all .3s; z-index:9999; box-shadow:0 8px 24px rgba(0,0,0,0.25); }
+  .toast.show { opacity:1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background:#00C853; }
+  .toast.error { background:#FF2D55; }
+
+  /* 사이드바 제품 항목 */
+  .product-item { padding:10px 14px; border-radius:14px; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:10px; font-size:14px; }
+  .product-item:hover { background:#F9F9FB; }
+  .product-item.active { background:#1A1A1A; color:white; }
+  .product-item.active .item-count { background:rgba(255,255,255,0.2); color:white; }
+  .item-count { background:#F2F2F7; color:#8E8E93; font-size:11px; font-weight:700; padding:2px 8px; border-radius:999px; }
+
+  /* 모달 */
+  .modal-bd { position:fixed; inset:0; background:rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition: opacity .25s; padding:24px; }
+  .modal-bd.open { opacity:1; pointer-events:all; }
+  .modal-card { background:white; border-radius:24px; width:100%; max-width:440px; padding:24px; box-shadow:0 30px 90px rgba(0,0,0,0.18); transform: scale(0.96); transition: transform .25s; }
+  .modal-bd.open .modal-card { transform: scale(1); }
+
+  /* 업로드 진행률 */
+  .upload-progress { position:fixed; bottom:30px; right:30px; background:white; border-radius:18px; padding:16px 20px; box-shadow:0 12px 32px rgba(0,0,0,0.15); border:1px solid #F2F2F7; min-width:280px; z-index:9000; opacity:0; transform: translateY(20px); transition: all .3s; pointer-events:none; }
+  .upload-progress.show { opacity:1; transform: translateY(0); pointer-events:all; }
+  .progress-bar { height:6px; background:#F2F2F7; border-radius:999px; overflow:hidden; margin-top:8px; }
+  .progress-fill { height:100%; background:linear-gradient(90deg, #2196F3, #00C853); transition: width .25s; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: LOGIN
+══════════════════════════════════════════════════════ -->
+<div id="page-login" class="min-h-screen flex items-center justify-center p-4 bg-brand-bg">
+  <div class="bg-white rounded-4xl panel w-full max-w-md p-8 md:p-10">
+    <div class="flex items-center justify-center mb-6">
+      <div class="w-14 h-14 bg-brand-black rounded-2xl flex items-center justify-center">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+      </div>
+    </div>
+    <h1 class="text-2xl font-bold text-center mb-1">이미지 저장소</h1>
+    <p class="text-brand-gray text-sm text-center mb-8">사내 직원 전용</p>
+
+    <form id="login-form" class="flex flex-col gap-3" onsubmit="event.preventDefault(); doLogin();">
+      <input id="login-email" type="email" placeholder="이메일" required class="px-5 py-3.5 bg-brand-bg rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-brand-black text-sm">
+      <input id="login-password" type="password" placeholder="비밀번호" required class="px-5 py-3.5 bg-brand-bg rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-brand-black text-sm">
+      <div id="login-error" class="hidden text-sm text-brand-pink font-semibold px-1"></div>
+      <button type="submit" id="login-btn" class="bg-brand-black text-white rounded-full py-3.5 font-bold text-sm hover:bg-[#333] transition-colors">로그인</button>
+    </form>
+    <p class="text-[11px] text-brand-gray text-center mt-6">계정은 관리자가 Supabase 대시보드에서 생성합니다.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: MAIN APP
+══════════════════════════════════════════════════════ -->
+<div id="page-main" class="hidden min-h-screen flex flex-col">
+  <header class="px-4 md:px-6 pt-5 pb-3">
+    <nav class="glass-nav rounded-full px-4 md:px-6 py-3.5 flex justify-between items-center w-full">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-brand-black rounded-xl flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <div class="font-black text-[1.15rem] tracking-tight">이미지 저장소</div>
+      </div>
+      <div class="flex items-center gap-4 md:gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-brand-blue-light flex items-center justify-center text-brand-blue font-bold text-sm" id="user-avatar">U</div>
+          <span id="user-email" class="font-semibold text-sm hidden md:block"></span>
+        </div>
+        <div class="h-5 w-px bg-brand-border hidden md:block"></div>
+        <button onclick="doLogout()" class="text-brand-gray hover:text-brand-black flex items-center gap-1.5 text-sm font-semibold transition-colors">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+          <span class="hidden md:block">로그아웃</span>
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <div class="flex-1 flex gap-6 px-4 md:px-6 pb-6">
+    <!-- 사이드바 -->
+    <aside class="w-[280px] shrink-0 bg-white rounded-4xl panel p-5 flex flex-col">
+      <div class="flex items-center justify-between mb-4 px-2">
+        <div class="text-xs font-bold text-brand-gray tracking-wider">제품 목록</div>
+        <button onclick="openNewProductModal()" class="w-7 h-7 rounded-full bg-brand-black text-white hover:bg-[#333] flex items-center justify-center transition-colors" title="새 제품">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      <div class="px-2 mb-2">
+        <input id="product-search" type="text" placeholder="제품 검색" oninput="renderProductList()" class="w-full px-3 py-2 bg-brand-bg rounded-full text-sm outline-none focus:bg-white focus:ring-1 focus:ring-brand-border">
+      </div>
+      <nav id="product-list" class="flex flex-col gap-1 overflow-y-auto flex-1 px-1"></nav>
+    </aside>
+
+    <!-- 메인 -->
+    <main class="flex-1 overflow-y-auto flex flex-col gap-5">
+      <!-- 빈 상태 (제품 미선택) -->
+      <section id="main-empty" class="bg-white rounded-4xl panel p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+        <div class="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center mb-4">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <h2 class="text-xl font-bold mb-2">제품을 선택하거나 새로 만들어주세요</h2>
+        <p class="text-brand-gray text-sm">좌측에서 제품을 선택하면 이미지를 업로드할 수 있습니다.</p>
+      </section>
+
+      <!-- 제품 상세 -->
+      <section id="main-product" class="hidden flex-col gap-5">
+        <div class="bg-white rounded-4xl panel p-6 md:p-7">
+          <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div class="text-xs text-brand-gray font-bold mb-1">제품</div>
+              <h1 id="product-title" class="text-2xl font-bold tracking-tight"></h1>
+              <p id="product-meta" class="text-brand-gray text-sm mt-1"></p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="copyAllUrls()" class="px-4 py-2 rounded-full bg-brand-blue-light text-brand-blue text-sm font-bold hover:bg-brand-blue hover:text-white transition-colors flex items-center gap-2" title="이 제품의 모든 이미지 URL 을 클립보드에 복사">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                전체 URL 복사
+              </button>
+              <button onclick="openRenameProductModal()" class="px-4 py-2 rounded-full bg-brand-bg text-brand-black text-sm font-bold hover:bg-brand-border transition-colors">이름 변경</button>
+              <button onclick="confirmDeleteProduct()" class="px-4 py-2 rounded-full bg-brand-pink-light text-brand-pink text-sm font-bold hover:bg-brand-pink hover:text-white transition-colors">제품 삭제</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 드롭존 -->
+        <label class="drop-zone block" id="drop-zone">
+          <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFiles(event.target.files); event.target.value='';">
+          <div class="flex flex-col items-center gap-2 pointer-events-none">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="font-bold text-sm">이미지를 끌어다 놓거나 클릭해서 업로드</div>
+            <div class="text-xs text-brand-gray">여러 개 한 번에 가능 · jpg, png, webp, gif</div>
+          </div>
+        </label>
+
+        <!-- 이미지 그리드 -->
+        <div class="bg-white rounded-4xl panel p-6 md:p-7">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold text-base"><span id="image-count">0</span>개 이미지</h3>
+            <p class="text-xs text-brand-gray">이미지를 드래그해서 순서 변경</p>
+          </div>
+          <div id="image-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"></div>
+          <div id="image-empty" class="hidden text-center py-12 text-brand-gray text-sm">아직 업로드된 이미지가 없습니다.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- ── 공용 모달 (신규 제품 / 이름 변경 / 확인 다이얼로그) ── -->
+<div id="modal-bd" class="modal-bd" onclick="if(event.target===event.currentTarget) closeModal()">
+  <div class="modal-card">
+    <h3 id="modal-title" class="text-lg font-bold mb-1">제목</h3>
+    <p id="modal-desc" class="text-brand-gray text-sm mb-4 whitespace-pre-line"></p>
+    <input id="modal-input" type="text" class="hidden w-full px-4 py-3 bg-brand-bg rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-brand-black text-sm mb-4">
+    <div class="flex gap-2">
+      <button id="modal-cancel" onclick="closeModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm transition-colors">취소</button>
+      <button id="modal-ok" onclick="modalConfirm()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm transition-colors">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 업로드 진행률 ── -->
+<div id="upload-progress" class="upload-progress">
+  <div class="flex items-center justify-between gap-3 mb-1">
+    <div class="font-bold text-sm" id="upload-progress-title">업로드 중...</div>
+    <div class="text-xs text-brand-gray" id="upload-progress-count"></div>
+  </div>
+  <div class="progress-bar"><div id="upload-progress-fill" class="progress-fill" style="width:0%"></div></div>
+</div>
+
+<!-- ── 토스트 ── -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// Supabase 초기화 — 사용자가 SUPABASE_URL/KEY 를 입력해야 함
+// ════════════════════════════════════════════════════════
+const SUPABASE_URL = window.localStorage.getItem('ih_supabase_url') || 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = window.localStorage.getItem('ih_supabase_key') || 'YOUR_SUPABASE_ANON_KEY';
+const BUCKET_NAME = 'product-images';
+
+// 환경 미설정 시 안내
+if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || !SUPABASE_URL) {
+  setTimeout(() => {
+    const url = prompt('Supabase Project URL 을 입력하세요 (예: https://xxxxx.supabase.co)');
+    if (url) localStorage.setItem('ih_supabase_url', url.trim());
+    const key = prompt('Supabase anon public key 를 입력하세요 (Project Settings → API → anon public)');
+    if (key) localStorage.setItem('ih_supabase_key', key.trim());
+    if (url && key) location.reload();
+  }, 100);
+}
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ════════════════════════════════════════════════════════
+// 상태
+// ════════════════════════════════════════════════════════
+let currentUser   = null;
+let products      = [];   // [{id, name, sort_order}]
+let currentProduct= null; // 현재 선택된 제품 객체
+let images        = [];   // [{id, storage_path, public_url, file_name, sort_order}]
+let modalCb       = null; // 모달 확인 콜백
+
+// ════════════════════════════════════════════════════════
+// 부팅: 세션 확인 → 로그인 or 메인
+// ════════════════════════════════════════════════════════
+(async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session && session.user) {
+    currentUser = session.user;
+    showMain();
+  } else {
+    showLogin();
+  }
+  // 세션 만료 자동 처리
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || !session) showLogin();
+  });
+})();
+
+function showLogin() {
+  document.getElementById('page-login').classList.remove('hidden');
+  document.getElementById('page-main').classList.add('hidden');
+}
+function showMain() {
+  document.getElementById('page-login').classList.add('hidden');
+  document.getElementById('page-main').classList.remove('hidden');
+  // 사용자 아바타/이메일
+  const emailEl = document.getElementById('user-email');
+  const avEl    = document.getElementById('user-avatar');
+  if (currentUser && currentUser.email) {
+    emailEl.textContent = currentUser.email;
+    avEl.textContent = currentUser.email[0].toUpperCase();
+  }
+  loadProducts();
+}
+
+// ════════════════════════════════════════════════════════
+// 인증
+// ════════════════════════════════════════════════════════
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = '로그인 중...';
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    currentUser = data.user;
+    showMain();
+  } catch (e) {
+    errEl.textContent = e.message || '로그인 실패';
+    errEl.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '로그인';
+  }
+}
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  products = []; currentProduct = null; images = [];
+  showLogin();
+}
+
+// ════════════════════════════════════════════════════════
+// 제품 (Products) — Supabase DB 테이블 'products'
+// ════════════════════════════════════════════════════════
+async function loadProducts() {
+  const { data, error } = await sb.from('products').select('*').order('sort_order', { ascending: true });
+  if (error) { toast('제품 목록 로딩 실패: ' + error.message, 'error'); return; }
+  products = data || [];
+  renderProductList();
+  if (currentProduct) {
+    const refreshed = products.find(p => p.id === currentProduct.id);
+    if (refreshed) selectProduct(refreshed); else { currentProduct = null; showEmpty(); }
+  } else {
+    showEmpty();
+  }
+}
+function renderProductList() {
+  const listEl = document.getElementById('product-list');
+  const q = (document.getElementById('product-search').value || '').trim().toLowerCase();
+  const filtered = q ? products.filter(p => p.name.toLowerCase().includes(q)) : products;
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="text-center py-8 text-brand-gray text-xs">${q ? '검색 결과 없음' : '아직 제품이 없습니다.<br>위 + 버튼으로 추가하세요.'}</div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(p => {
+    const active = currentProduct && currentProduct.id === p.id;
+    return `<div class="product-item ${active ? 'active' : ''}" onclick="selectProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span class="flex-1 truncate font-semibold">${escapeHtml(p.name)}</span>
+      <span class="item-count">${p.image_count || 0}</span>
+    </div>`;
+  }).join('');
+}
+async function selectProduct(p) {
+  currentProduct = p;
+  document.getElementById('main-empty').classList.add('hidden');
+  document.getElementById('main-product').classList.remove('hidden');
+  document.getElementById('main-product').classList.add('flex');
+  document.getElementById('product-title').textContent = p.name;
+  document.getElementById('product-meta').textContent = `최근 수정: ${formatDate(p.updated_at || p.created_at)}`;
+  renderProductList();
+  await loadImages(p.id);
+}
+function showEmpty() {
+  document.getElementById('main-empty').classList.remove('hidden');
+  document.getElementById('main-product').classList.add('hidden');
+  document.getElementById('main-product').classList.remove('flex');
+}
+function openNewProductModal() {
+  openModal({
+    title: '새 제품 만들기',
+    desc: '제품 이름을 입력하세요. 이름은 나중에 변경할 수 있습니다.',
+    showInput: true,
+    inputPlaceholder: '예: MSI MD241PW',
+    onOk: async (name) => {
+      if (!name) return;
+      const nextOrder = products.length ? Math.max(...products.map(p => p.sort_order || 0)) + 1 : 1;
+      const { data, error } = await sb.from('products').insert({ name, sort_order: nextOrder }).select().single();
+      if (error) { toast('생성 실패: ' + error.message, 'error'); return; }
+      await loadProducts();
+      selectProduct(data);
+      toast('제품 생성 완료', 'success');
+    }
+  });
+}
+function openRenameProductModal() {
+  if (!currentProduct) return;
+  openModal({
+    title: '제품 이름 변경',
+    desc: '',
+    showInput: true,
+    inputValue: currentProduct.name,
+    onOk: async (name) => {
+      if (!name || name === currentProduct.name) return;
+      const { error } = await sb.from('products').update({ name, updated_at: new Date().toISOString() }).eq('id', currentProduct.id);
+      if (error) { toast('수정 실패: ' + error.message, 'error'); return; }
+      await loadProducts();
+      toast('이름 변경 완료', 'success');
+    }
+  });
+}
+function confirmDeleteProduct() {
+  if (!currentProduct) return;
+  openModal({
+    title: '제품 삭제',
+    desc: `"${currentProduct.name}" 과(와) 모든 이미지를 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`,
+    okText: '삭제',
+    danger: true,
+    onOk: async () => {
+      // 1) Storage 이미지 일괄 삭제
+      if (images.length) {
+        const paths = images.map(im => im.storage_path);
+        await sb.storage.from(BUCKET_NAME).remove(paths);
+      }
+      // 2) DB 제품 삭제 (cascade 로 images 도 삭제됨)
+      const { error } = await sb.from('products').delete().eq('id', currentProduct.id);
+      if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
+      currentProduct = null;
+      images = [];
+      await loadProducts();
+      toast('제품 삭제 완료', 'success');
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// 이미지 (Images)
+// ════════════════════════════════════════════════════════
+async function loadImages(productId) {
+  const { data, error } = await sb.from('images').select('*').eq('product_id', productId).order('sort_order', { ascending: true });
+  if (error) { toast('이미지 목록 로딩 실패: ' + error.message, 'error'); return; }
+  images = data || [];
+  renderImages();
+}
+function renderImages() {
+  const gridEl  = document.getElementById('image-grid');
+  const emptyEl = document.getElementById('image-empty');
+  const countEl = document.getElementById('image-count');
+  countEl.textContent = images.length;
+  if (!images.length) {
+    gridEl.innerHTML = '';
+    emptyEl.classList.remove('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+  gridEl.innerHTML = images.map((im, idx) => `
+    <div class="img-card" data-img-id="${im.id}">
+      <img src="${im.public_url}" alt="${escapeHtml(im.file_name)}" loading="lazy">
+      <div class="img-overlay">
+        <div class="img-overlay-top">
+          <span class="img-order-badge">#${idx + 1}</span>
+          <div class="img-actions">
+            <div class="img-btn" onclick="event.stopPropagation(); copyImageUrl('${im.id}')" title="URL 복사">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </div>
+            <div class="img-btn danger" onclick="event.stopPropagation(); confirmDeleteImage('${im.id}')" title="삭제">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="img-overlay-bottom">
+          <span class="img-name">${escapeHtml(im.file_name)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  // Sortable 초기화 — 드래그로 순서 변경
+  if (window._sortable) window._sortable.destroy();
+  window._sortable = new Sortable(gridEl, {
+    animation: 200,
+    ghostClass: 'sortable-ghost',
+    dragClass: 'sortable-drag',
+    onEnd: handleReorder
+  });
+}
+async function handleReorder() {
+  // DOM 순서대로 새 sort_order 부여 → 일괄 update
+  const cards = [...document.querySelectorAll('#image-grid .img-card')];
+  const newOrder = cards.map((c, i) => ({ id: c.dataset.imgId, sort_order: i + 1 }));
+  // 메모리 즉시 반영 (UX)
+  const map = Object.fromEntries(newOrder.map(o => [o.id, o.sort_order]));
+  images.forEach(im => { im.sort_order = map[im.id]; });
+  images.sort((a, b) => a.sort_order - b.sort_order);
+  renderImages();  // 배지(#1, #2...) 갱신
+  // DB 일괄 update — 가장 안전한 방식: 한 행씩 update
+  for (const o of newOrder) {
+    await sb.from('images').update({ sort_order: o.sort_order }).eq('id', o.id);
+  }
+  toast('순서 저장 완료', 'success');
+}
+async function copyImageUrl(imgId) {
+  const im = images.find(i => i.id === imgId);
+  if (!im) return;
+  await navigator.clipboard.writeText(im.public_url);
+  toast('URL 복사됨', 'success');
+}
+async function copyAllUrls() {
+  if (!images.length) return;
+  const text = images.map(im => im.public_url).join('\n');
+  await navigator.clipboard.writeText(text);
+  toast(`${images.length}개 URL 복사됨`, 'success');
+}
+function confirmDeleteImage(imgId) {
+  const im = images.find(i => i.id === imgId);
+  if (!im) return;
+  openModal({
+    title: '이미지 삭제',
+    desc: `"${im.file_name}" 을(를) 삭제할까요?`,
+    okText: '삭제',
+    danger: true,
+    onOk: async () => {
+      // Storage 에서 먼저 제거
+      await sb.storage.from(BUCKET_NAME).remove([im.storage_path]);
+      // DB 행 제거
+      const { error } = await sb.from('images').delete().eq('id', imgId);
+      if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
+      images = images.filter(i => i.id !== imgId);
+      renderImages();
+      toast('삭제 완료', 'success');
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════
+// 업로드
+// ════════════════════════════════════════════════════════
+async function handleFiles(fileList) {
+  if (!currentProduct) { toast('먼저 제품을 선택해주세요.', 'error'); return; }
+  const files = [...fileList].filter(f => f.type.startsWith('image/'));
+  if (!files.length) { toast('이미지 파일만 업로드 가능합니다.', 'error'); return; }
+  showUploadProgress(files.length);
+  const baseOrder = images.length ? Math.max(...images.map(i => i.sort_order || 0)) : 0;
+  let done = 0, fail = 0;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    updateUploadProgress(i, files.length, file.name);
+    try {
+      const ts = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
+      const path = `${currentProduct.id}/${ts}_${safeName}`;
+      const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, { contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+      const { data: row, error: insErr } = await sb.from('images').insert({
+        product_id: currentProduct.id,
+        storage_path: path,
+        public_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        sort_order: baseOrder + i + 1
+      }).select().single();
+      if (insErr) throw insErr;
+      images.push(row);
+      renderImages();  // 진행 중에도 보이도록
+      done++;
+    } catch (e) {
+      console.error('업로드 실패:', file.name, e);
+      fail++;
+    }
+  }
+  hideUploadProgress();
+  if (fail === 0) toast(`${done}개 업로드 완료`, 'success');
+  else toast(`${done}개 완료, ${fail}개 실패`, fail > 0 ? 'error' : 'success');
+}
+
+// 드롭존 드래그앤드롭 처리
+(function bindDropZone() {
+  const dz = document.getElementById('drop-zone');
+  if (!dz) return;
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dz.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+  });
+})();
+
+// ════════════════════════════════════════════════════════
+// 모달
+// ════════════════════════════════════════════════════════
+function openModal(opts) {
+  const bd     = document.getElementById('modal-bd');
+  const title  = document.getElementById('modal-title');
+  const desc   = document.getElementById('modal-desc');
+  const input  = document.getElementById('modal-input');
+  const ok     = document.getElementById('modal-ok');
+  title.textContent = opts.title || '확인';
+  desc.textContent  = opts.desc  || '';
+  if (opts.showInput) {
+    input.classList.remove('hidden');
+    input.placeholder = opts.inputPlaceholder || '';
+    input.value = opts.inputValue || '';
+    setTimeout(() => { input.focus(); input.select(); }, 100);
+  } else {
+    input.classList.add('hidden');
+  }
+  ok.textContent = opts.okText || '확인';
+  ok.className = 'flex-1 py-3 rounded-full text-white font-bold text-sm transition-colors ' +
+                 (opts.danger ? 'bg-brand-pink hover:bg-[#e91e63]' : 'bg-brand-black hover:bg-[#333]');
+  modalCb = (val) => opts.onOk && opts.onOk(val);
+  bd.classList.add('open');
+  // Enter 키 = 확인
+  input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); modalConfirm(); } };
+}
+function modalConfirm() {
+  const input = document.getElementById('modal-input');
+  const val = input.classList.contains('hidden') ? null : input.value.trim();
+  closeModal();
+  if (modalCb) modalCb(val);
+}
+function closeModal() {
+  document.getElementById('modal-bd').classList.remove('open');
+  modalCb = null;
+}
+
+// ════════════════════════════════════════════════════════
+// 업로드 진행률
+// ════════════════════════════════════════════════════════
+function showUploadProgress(total) {
+  const el = document.getElementById('upload-progress');
+  document.getElementById('upload-progress-count').textContent = `0 / ${total}`;
+  document.getElementById('upload-progress-fill').style.width = '0%';
+  el.classList.add('show');
+}
+function updateUploadProgress(done, total, label) {
+  document.getElementById('upload-progress-count').textContent = `${done} / ${total}`;
+  document.getElementById('upload-progress-title').textContent = label || '업로드 중...';
+  document.getElementById('upload-progress-fill').style.width = (done / total * 100) + '%';
+}
+function hideUploadProgress() {
+  document.getElementById('upload-progress-fill').style.width = '100%';
+  setTimeout(() => document.getElementById('upload-progress').classList.remove('show'), 400);
+}
+
+// ════════════════════════════════════════════════════════
+// 유틸
+// ════════════════════════════════════════════════════════
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function toast(message, kind) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = 'toast' + (kind ? ' ' + kind : '');
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>

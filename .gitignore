@@ -1,0 +1,19 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.vercel/
+
+# 환경변수 / 키 (절대 커밋 금지)
+.env
+.env.*
+*.local
+
+# 백업
+*.bak
+*.bak_*
+백업/
+
+# 로컬 임시
+*.tmp
