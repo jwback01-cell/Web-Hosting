@@ -719,7 +719,27 @@ async function handleFiles(fileList) {
 // ════════════════════════════════════════════════════════
 // 모달
 // ════════════════════════════════════════════════════════
+// 모달 카드 원본 HTML — showConfigPanel 이 innerHTML 을 덮어써도 복구 가능하게
+const _MODAL_ORIGINAL_HTML = `
+  <h3 id="modal-title" class="text-lg font-bold mb-1">제목</h3>
+  <p id="modal-desc" class="text-brand-gray text-sm mb-4 whitespace-pre-line"></p>
+  <input id="modal-input" type="text" class="hidden w-full px-4 py-3 bg-brand-bg rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-brand-black text-sm mb-4">
+  <div class="flex gap-2">
+    <button id="modal-cancel" onclick="closeModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm transition-colors">취소</button>
+    <button id="modal-ok" onclick="modalConfirm()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm transition-colors">확인</button>
+  </div>
+`;
+function _ensureModalShape() {
+  if (document.getElementById('modal-title')) return;  // 정상 상태
+  const card = document.querySelector('#modal-bd .modal-card');
+  if (card) {
+    card.innerHTML = _MODAL_ORIGINAL_HTML;
+    card.style.maxWidth = '';  // showConfigPanel 이 480px 로 늘렸을 수 있음 → 원복
+  }
+}
 function openModal(opts) {
+  console.log('[openModal] 호출:', opts.title);
+  _ensureModalShape();  // 모달이 깨져있으면 복구
   const bd     = document.getElementById('modal-bd');
   const title  = document.getElementById('modal-title');
   const desc   = document.getElementById('modal-desc');
