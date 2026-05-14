@@ -151,9 +151,14 @@
     <aside class="w-[280px] shrink-0 bg-white rounded-4xl panel p-5 flex flex-col">
       <div class="flex items-center justify-between mb-4 px-2">
         <div class="text-xs font-bold text-brand-gray tracking-wider">제품 목록</div>
-        <button onclick="openNewProductModal()" class="w-7 h-7 rounded-full bg-brand-black text-white hover:bg-[#333] flex items-center justify-center transition-colors" title="새 제품">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button onclick="loadProducts()" class="w-7 h-7 rounded-full bg-brand-bg text-brand-gray hover:bg-brand-border flex items-center justify-center transition-colors" title="목록 새로고침">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+          </button>
+          <button onclick="openNewProductModal()" class="w-7 h-7 rounded-full bg-brand-black text-white hover:bg-[#333] flex items-center justify-center transition-colors" title="새 제품">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
       </div>
       <div class="px-2 mb-2">
         <input id="product-search" type="text" placeholder="제품 검색" oninput="renderProductList()" class="w-full px-3 py-2 bg-brand-bg rounded-full text-sm outline-none focus:bg-white focus:ring-1 focus:ring-brand-border">
@@ -369,6 +374,7 @@ function saveSupabaseConfig() {
 function showLogin() {
   document.getElementById('page-login').classList.remove('hidden');
   document.getElementById('page-main').classList.add('hidden');
+  _fillLastEmail();  // 자동 로그인용 — 마지막 이메일 자동 채움
 }
 function showMain() {
   document.getElementById('page-login').classList.add('hidden');
@@ -398,6 +404,8 @@ async function doLogin() {
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
     if (error) throw error;
     currentUser = data.user;
+    // 자동 로그인용 — 이메일 기억 (다음 접속 시 자동 입력)
+    try { localStorage.setItem('ih_last_email', email); } catch(_) {}
     showMain();
   } catch (e) {
     errEl.textContent = e.message || '로그인 실패';
@@ -406,6 +414,19 @@ async function doLogin() {
     btn.disabled = false;
     btn.textContent = '로그인';
   }
+}
+
+// 로그인 페이지 표시 시 — 마지막 이메일 자동 채움
+function _fillLastEmail() {
+  try {
+    const last = localStorage.getItem('ih_last_email') || '';
+    const emailEl = document.getElementById('login-email');
+    if (last && emailEl && !emailEl.value) {
+      emailEl.value = last;
+      // 비밀번호 칸으로 자동 포커스
+      setTimeout(() => document.getElementById('login-password').focus(), 100);
+    }
+  } catch(_) {}
 }
 async function doLogout() {
   await sb.auth.signOut();
@@ -418,8 +439,14 @@ async function doLogout() {
 // 제품 (Products) — Supabase DB 테이블 'products'
 // ════════════════════════════════════════════════════════
 async function loadProducts() {
+  console.log('[loadProducts] 호출');
   const { data, error } = await sb.from('products').select('*').order('sort_order', { ascending: true });
-  if (error) { toast('제품 목록 로딩 실패: ' + error.message, 'error'); return; }
+  if (error) {
+    console.error('[loadProducts] 에러:', error);
+    showPersistentError('제품 목록 로딩 실패', error.message + (error.hint ? '\n💡 ' + error.hint : ''));
+    return;
+  }
+  console.log('[loadProducts] 결과:', data);
   products = data || [];
   renderProductList();
   if (currentProduct) {
@@ -468,13 +495,30 @@ function openNewProductModal() {
     showInput: true,
     inputPlaceholder: '예: MSI MD241PW',
     onOk: async (name) => {
-      if (!name) return;
+      if (!name) { toast('제품 이름을 입력해주세요', 'error'); return; }
+      console.log('[제품 생성] 시도:', name);
       const nextOrder = products.length ? Math.max(...products.map(p => p.sort_order || 0)) + 1 : 1;
-      const { data, error } = await sb.from('products').insert({ name, sort_order: nextOrder }).select().single();
-      if (error) { toast('생성 실패: ' + error.message, 'error'); return; }
-      await loadProducts();
+      const payload = { name, sort_order: nextOrder };
+      // owner_id 도 함께 저장 (현재 사용자) — 일부 RLS 설정에서 필요할 수 있음
+      if (currentUser && currentUser.id) payload.owner_id = currentUser.id;
+      const { data, error } = await sb.from('products').insert(payload).select().single();
+      if (error) {
+        console.error('[제품 생성] 실패:', error);
+        showPersistentError('제품 생성 실패',
+          (error.message || '알 수 없는 오류') +
+          (error.hint ? '\n💡 ' + error.hint : '') +
+          (error.code ? '\n(코드: ' + error.code + ')' : '')
+        );
+        return;
+      }
+      console.log('[제품 생성] 성공:', data);
+      // 낙관적 UI — 즉시 사이드바에 추가
+      products.push(data);
+      renderProductList();
       selectProduct(data);
       toast('제품 생성 완료', 'success');
+      // 백그라운드로 다시 한 번 동기화
+      loadProducts();
     }
   });
 }
@@ -708,6 +752,9 @@ function modalConfirm() {
 function closeModal() {
   document.getElementById('modal-bd').classList.remove('open');
   modalCb = null;
+  // 취소 버튼 표시 복원 (showPersistentError 가 숨겨놨을 수 있음)
+  const c = document.getElementById('modal-cancel');
+  if (c) c.style.display = '';
 }
 
 // ════════════════════════════════════════════════════════
@@ -749,6 +796,22 @@ function toast(message, kind) {
   el.classList.add('show');
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove('show'), 2200);
+}
+// 자동 사라지지 않는 에러 모달 — 사용자가 메시지를 분명히 봐야 할 때
+function showPersistentError(title, body) {
+  console.error('[ERROR]', title, body);
+  openModal({
+    title: '⚠ ' + (title || '오류'),
+    desc: body || '',
+    onOk: () => {},
+    okText: '확인'
+  });
+  // 취소 버튼 숨김 — 에러 확인용이라 한 버튼만 표시
+  const c = document.getElementById('modal-cancel');
+  if (c) c.style.display = 'none';
+  // openModal 이 input 도 같이 처리하니까 input 숨기기
+  document.getElementById('modal-input').classList.add('hidden');
+  // 다음에 일반 모달을 열 때는 다시 표시되도록 restore 는 closeModal 에서
 }
 </script>
 </body>
