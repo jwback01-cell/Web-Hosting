@@ -670,37 +670,94 @@ async function handleFiles(fileList) {
   showUploadProgress(files.length);
   const baseOrder = images.length ? Math.max(...images.map(i => i.sort_order || 0)) : 0;
   let done = 0, fail = 0;
+  const failures = [];  // [{file, stage, message, code}]
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     updateUploadProgress(i, files.length, file.name);
+    let stage = '준비';
     try {
-      const ts = Date.now();
+      const ts = Date.now() + '_' + i;
+      // 한글·영문·숫자·일부 기호만 남기고 나머지는 _ 로 치환
       const safeName = file.name.replace(/[^a-zA-Z0-9가-힣._-]/g, '_');
       const path = `${currentProduct.id}/${ts}_${safeName}`;
-      const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, { contentType: file.type });
+      console.log('[업로드 시도]', file.name, '→', path);
+
+      // 1) Storage 업로드
+      stage = 'Storage 업로드';
+      const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, {
+        contentType: file.type,
+        upsert: false
+      });
       if (upErr) throw upErr;
+
+      // 2) 공개 URL 생성
+      stage = 'URL 생성';
       const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(path);
-      const publicUrl = pub.publicUrl;
-      const { data: row, error: insErr } = await sb.from('images').insert({
+      const publicUrl = pub && pub.publicUrl;
+      if (!publicUrl) throw new Error('공개 URL 을 생성하지 못했습니다.');
+
+      // 3) DB images 테이블 insert
+      stage = 'DB 저장';
+      const payload = {
         product_id: currentProduct.id,
         storage_path: path,
         public_url: publicUrl,
         file_name: file.name,
         file_size: file.size,
         sort_order: baseOrder + i + 1
-      }).select().single();
-      if (insErr) throw insErr;
+      };
+      if (currentUser && currentUser.id) payload.uploaded_by = currentUser.id;
+      const { data: row, error: insErr } = await sb.from('images').insert(payload).select().single();
+      if (insErr) {
+        // DB insert 실패 — 이미 올라간 Storage 파일은 롤백 (고아 방지)
+        try { await sb.storage.from(BUCKET_NAME).remove([path]); } catch(_) {}
+        throw insErr;
+      }
       images.push(row);
-      renderImages();  // 진행 중에도 보이도록
+      renderImages();
       done++;
+      console.log('[업로드 성공]', file.name);
     } catch (e) {
-      console.error('업로드 실패:', file.name, e);
+      console.error('[업로드 실패]', file.name, 'stage=' + stage, e);
+      failures.push({
+        file: file.name,
+        size: file.size,
+        type: file.type,
+        stage,
+        message: (e && e.message) || String(e),
+        code: (e && e.statusCode) || (e && e.code) || ''
+      });
       fail++;
     }
   }
   hideUploadProgress();
-  if (fail === 0) toast(`${done}개 업로드 완료`, 'success');
-  else toast(`${done}개 완료, ${fail}개 실패`, fail > 0 ? 'error' : 'success');
+
+  if (fail === 0) {
+    toast(`${done}개 업로드 완료`, 'success');
+    return;
+  }
+  // 실패 사유를 자세히 보여줌 (한국어 힌트 포함)
+  const lines = failures.map((f, idx) => {
+    const sizeKB = (f.size / 1024).toFixed(0);
+    return `${idx+1}. ${f.file}  (${sizeKB} KB, ${f.type || '?'})\n   · 단계: ${f.stage}\n   · 사유: ${f.message}${f.code ? '  [코드: ' + f.code + ']' : ''}`;
+  });
+  const hint = _ppGuessUploadFix(failures);
+  showPersistentError(
+    `${done}개 업로드 완료 · ${fail}개 실패`,
+    lines.join('\n\n') + (hint ? '\n\n💡 ' + hint : '')
+  );
+}
+
+// 자주 나오는 에러에 대해 친절한 해결 힌트
+function _ppGuessUploadFix(failures) {
+  const msgs = failures.map(f => (f.message || '') + ' ' + (f.code || '')).join(' | ').toLowerCase();
+  if (/exceed|too large|larger|size/.test(msgs)) return '파일이 너무 큽니다. Supabase Free 플랜은 한 파일 50MB 까지 — Storage Settings 의 File size limit 도 확인하세요.';
+  if (/violates row-level security|rls/.test(msgs)) return 'Storage 정책이 빠졌습니다. SQL Editor 에서 storage.objects 의 INSERT 정책(bucket_id = \'product-images\') 이 있는지 확인하세요.';
+  if (/duplicate|already exists/.test(msgs)) return '같은 경로의 파일이 이미 있습니다 (드물게 발생). 다시 시도해 주세요.';
+  if (/jwt|expired|not authenticated|invalid token/.test(msgs)) return '로그인 세션이 만료됐을 수 있습니다. 로그아웃 후 다시 로그인해 보세요.';
+  if (/network|fetch|failed to fetch|connection/.test(msgs)) return '네트워크 오류입니다. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+  if (/mime|content-?type/.test(msgs)) return '이미지가 아닌 파일이 섞였을 수 있습니다. jpg/png/webp/gif 만 가능합니다.';
+  return '';
 }
 
 // 드롭존 드래그앤드롭 처리
