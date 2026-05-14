@@ -594,7 +594,7 @@ function _isGroup(im) {
 }
 function _imgCardHtml(im, idx) {
   return `
-    <div class="img-card" data-img-id="${im.id}">
+    <div class="img-card" data-img-id="${im.id}" onclick="copyImageHtml('${im.id}')" title="클릭 = HTML 복사 / 드래그 = 순서 변경">
       <img src="${im.public_url}" alt="${escapeHtml(im.file_name)}" loading="lazy">
       <div class="img-overlay">
         <div class="img-overlay-top">
@@ -649,16 +649,16 @@ function renderImages() {
   }
 
   // Sortable 두 그리드에 각각 초기화 (각자 자기 순서만 관리)
+  // _suppressClickUntil: 드래그 직후 발생할 수 있는 onclick(HTML 복사) 을 짧게 차단
   if (window._sortableMain)  window._sortableMain.destroy();
   if (window._sortableGroup) window._sortableGroup.destroy();
-  window._sortableMain = new Sortable(mainGridEl, {
+  const sortOpts = (kind) => ({
     animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
-    onEnd: () => handleReorder('main')
+    onStart: () => { window._draggingCard = true; },
+    onEnd:   () => { window._suppressClickUntil = Date.now() + 300; window._draggingCard = false; handleReorder(kind); }
   });
-  window._sortableGroup = new Sortable(groupGridEl, {
-    animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
-    onEnd: () => handleReorder('group')
-  });
+  window._sortableMain  = new Sortable(mainGridEl,  sortOpts('main'));
+  window._sortableGroup = new Sortable(groupGridEl, sortOpts('group'));
 }
 async function handleReorder(kind) {
   // 해당 그리드의 DOM 순서대로 sort_order 재부여
@@ -695,6 +695,9 @@ function _imgTag(im) {
   return `<img src=${im.public_url}>`;
 }
 async function copyImageHtml(imgId) {
+  // 드래그 직후의 잘못된 클릭은 무시 (300ms)
+  if (window._suppressClickUntil && Date.now() < window._suppressClickUntil) return;
+  if (window._draggingCard) return;
   const im = images.find(i => i.id === imgId);
   if (!im) return;
   await navigator.clipboard.writeText(_imgTag(im));
