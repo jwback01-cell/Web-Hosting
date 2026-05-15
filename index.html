@@ -381,7 +381,7 @@
   <button onclick="navImagePreview(1)" id="ip-next" class="absolute right-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors" title="다음 (→)">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
   </button>
-  <img id="ip-img" src="" alt="" class="max-w-[92vw] max-h-[88vh] object-contain shadow-2xl">
+  <img id="ip-img" src="" alt="" onclick="_ipToggleZoom(event)" class="max-w-[92vw] max-h-[88vh] object-contain shadow-2xl" style="cursor: zoom-in;">
   <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
     <button onclick="event.stopPropagation(); _ipCopyUrl()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">URL 복사</button>
     <button onclick="event.stopPropagation(); _ipCopyHtml()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">HTML 복사</button>
@@ -1236,6 +1236,42 @@ function _renderImagePreview() {
   // 좌우 버튼 비활성 표시 (1장일 때)
   document.getElementById('ip-prev').style.display = ordered.length > 1 ? '' : 'none';
   document.getElementById('ip-next').style.display = ordered.length > 1 ? '' : 'none';
+  _ipResetZoom();  // 다른 이미지로 넘어가면 확대 풀기
+}
+// 이미지 확대 ↔ 축소 토글 — 긴 이미지(상세페이지 등) 자세히 보기용
+let _ipZoomed = false;
+function _ipToggleZoom(e) {
+  if (e) e.stopPropagation();
+  if (_ipZoomed) _ipResetZoom();
+  else _ipZoomIn();
+}
+function _ipZoomIn() {
+  if (_ipZoomed) return;
+  _ipZoomed = true;
+  const img  = document.getElementById('ip-img');
+  const wrap = document.getElementById('image-preview');
+  // 화면 너비에 맞춰 확대 (세로로 스크롤) — 긴 상세페이지 이미지에 적합
+  img.style.maxWidth  = '100vw';
+  img.style.maxHeight = 'none';
+  img.style.cursor    = 'zoom-out';
+  wrap.style.overflow    = 'auto';
+  wrap.style.alignItems  = 'flex-start';
+}
+function _ipResetZoom() {
+  if (!_ipZoomed) return;
+  _ipZoomed = false;
+  const img  = document.getElementById('ip-img');
+  const wrap = document.getElementById('image-preview');
+  if (img) {
+    img.style.maxWidth  = '';
+    img.style.maxHeight = '';
+    img.style.cursor    = 'zoom-in';
+  }
+  if (wrap) {
+    wrap.style.overflow   = '';
+    wrap.style.alignItems = '';
+    wrap.scrollTop = 0;
+  }
 }
 function navImagePreview(dir) {
   const ordered = _ipOrdered();
@@ -1247,6 +1283,7 @@ function navImagePreview(dir) {
   _renderImagePreview();
 }
 function closeImagePreview() {
+  _ipResetZoom();
   document.getElementById('image-preview').classList.add('hidden');
   document.body.style.overflow = '';
   _previewImgId = null;
