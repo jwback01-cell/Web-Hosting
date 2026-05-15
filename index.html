@@ -961,7 +961,8 @@ function _collectImagesUnder(node, topSubName, out) {
 }
 
 // ════════════════════════════════════════════════════════
-// 드래그 영역 선택 (Rubber-band) — 빈 공간에서 드래그하면 사각형 안 폴더 선택
+// 빈 공간 클릭=선택 해제 + 드래그=영역 선택 (Rubber-band)
+// 5px 이상 움직여야 드래그로 인식, 그 미만은 단순 클릭으로 처리
 let _rbState = null;
 document.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
@@ -970,28 +971,37 @@ document.addEventListener('mousedown', (e) => {
   if (e.target.closest('.folder-dl-btn')) return;
   if (e.target.closest('#folder-drop-zone')) return;
   e.preventDefault();
-  // Shift/Ctrl 시 기존 선택 유지 — 그 외엔 초기화
+  // Shift/Ctrl 시 기존 선택 유지 — 그 외엔 초기화 (드래그 안 한 빈클릭은 mouseup 에서 처리)
   const additive = e.shiftKey || e.ctrlKey || e.metaKey;
-  const baseIds = additive ? new Set(selectedProductIds) : new Set();
-  const bandEl = document.createElement('div');
-  bandEl.className = 'rubber-band';
-  document.body.appendChild(bandEl);
-  _rbState = { startX: e.clientX, startY: e.clientY, baseIds, bandEl };
+  _rbState = {
+    startX: e.clientX, startY: e.clientY,
+    baseIds: additive ? new Set(selectedProductIds) : new Set(),
+    additive, moved: false, bandEl: null
+  };
   document.addEventListener('mousemove', _rbMove);
   document.addEventListener('mouseup',   _rbEnd);
 });
 function _rbMove(e) {
   if (!_rbState) return;
-  const { startX, startY, baseIds, bandEl } = _rbState;
-  const x = Math.min(e.clientX, startX);
-  const y = Math.min(e.clientY, startY);
-  const w = Math.abs(e.clientX - startX);
-  const h = Math.abs(e.clientY - startY);
-  bandEl.style.left   = x + 'px';
-  bandEl.style.top    = y + 'px';
-  bandEl.style.width  = w + 'px';
-  bandEl.style.height = h + 'px';
-  // 카드별로 사각형과 겹치는지 검사 → 시각적 select 클래스만 토글 (full re-render X)
+  const dx = e.clientX - _rbState.startX;
+  const dy = e.clientY - _rbState.startY;
+  // 5px 이상 이동해야 드래그로 인식 (그 전까진 클릭일 가능성)
+  if (!_rbState.moved) {
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
+    _rbState.moved = true;
+    const bandEl = document.createElement('div');
+    bandEl.className = 'rubber-band';
+    document.body.appendChild(bandEl);
+    _rbState.bandEl = bandEl;
+  }
+  const x = Math.min(e.clientX, _rbState.startX);
+  const y = Math.min(e.clientY, _rbState.startY);
+  const w = Math.abs(dx);
+  const h = Math.abs(dy);
+  _rbState.bandEl.style.left   = x + 'px';
+  _rbState.bandEl.style.top    = y + 'px';
+  _rbState.bandEl.style.width  = w + 'px';
+  _rbState.bandEl.style.height = h + 'px';
   const bandL = x, bandT = y, bandR = x + w, bandB = y + h;
   const cards = document.querySelectorAll('#folder-grid .folder-card');
   cards.forEach(card => {
@@ -999,26 +1009,32 @@ function _rbMove(e) {
     if (!id) return;
     const r = card.getBoundingClientRect();
     const overlaps = !(r.right < bandL || r.left > bandR || r.bottom < bandT || r.top > bandB);
-    const shouldSelect = baseIds.has(id) || overlaps;
+    const shouldSelect = _rbState.baseIds.has(id) || overlaps;
     const isSelected = card.classList.contains('selected');
-    if (shouldSelect && !isSelected) {
-      card.classList.add('selected');
-      card.querySelector('.folder-check')?.setAttribute('title', '선택됨');
-    } else if (!shouldSelect && isSelected) {
-      card.classList.remove('selected');
-      card.querySelector('.folder-check')?.setAttribute('title', '미선택');
-    }
+    if (shouldSelect && !isSelected) card.classList.add('selected');
+    else if (!shouldSelect && isSelected) card.classList.remove('selected');
   });
 }
 function _rbEnd() {
   if (!_rbState) return;
-  // DOM 의 .selected 상태를 selectedProductIds 에 최종 반영
-  selectedProductIds.clear();
-  document.querySelectorAll('#folder-grid .folder-card.selected').forEach(card => {
-    if (card.dataset.productId) selectedProductIds.add(card.dataset.productId);
-  });
-  _renderSelectionBar();
-  if (_rbState.bandEl?.parentElement) _rbState.bandEl.parentElement.removeChild(_rbState.bandEl);
+  const { moved, additive, bandEl } = _rbState;
+  if (!moved) {
+    // 빈 공간 단순 클릭 — Shift/Ctrl 안 눌렀으면 전체 선택 해제
+    if (!additive && selectedProductIds.size > 0) {
+      selectedProductIds.clear();
+      _shiftAnchorId = null;
+      renderFolderGrid();
+      _renderSelectionBar();
+    }
+  } else {
+    // 드래그 종료 — DOM 의 .selected 를 selectedProductIds 에 최종 반영
+    selectedProductIds.clear();
+    document.querySelectorAll('#folder-grid .folder-card.selected').forEach(card => {
+      if (card.dataset.productId) selectedProductIds.add(card.dataset.productId);
+    });
+    _renderSelectionBar();
+  }
+  if (bandEl?.parentElement) bandEl.parentElement.removeChild(bandEl);
   _rbState = null;
   document.removeEventListener('mousemove', _rbMove);
   document.removeEventListener('mouseup',   _rbEnd);
