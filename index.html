@@ -1066,27 +1066,24 @@ document.addEventListener('mousedown', (e) => {
   if (e.target.closest('#image-preview:not(.hidden)')) return;
   if (e.target.closest('#selection-bar')) return;
   if (e.target.closest('#storage-stat')) return;
-  // 어떤 컨텍스트(grid kind)인지 판별
+  // 어떤 컨텍스트인지 판별 — 홈/제품상세 두 가지
   const mainEmpty = document.getElementById('main-empty');
   const mainProd  = document.getElementById('main-product');
   let kind = null;
   if (mainEmpty && !mainEmpty.classList.contains('hidden')) {
-    kind = 'product';  // 홈 뷰
+    kind = 'product';        // 홈 — 제품 폴더만
   } else if (mainProd && !mainProd.classList.contains('hidden')) {
-    // 제품 상세 — 어느 그리드 영역에 가까운지에 따라 결정
-    if (e.target.closest('#image-grid-main, #image-grid-group')) kind = 'image';
-    else if (e.target.closest('#subfolder-grid')) kind = 'subfolder';
-    else kind = 'product-detail';  // 그 외 빈 공간 — 양쪽 선택 모두 해제
+    kind = 'product-detail'; // 제품 상세 — 서브폴더+이미지 둘 다
   }
   if (!kind) return;
   e.preventDefault();
   const additive = e.shiftKey || e.ctrlKey || e.metaKey;
-  const baseIds = additive
-    ? (kind === 'product' ? new Set(selectedProductIds)
-       : kind === 'subfolder' ? new Set(selectedSubfolderIds)
-       : kind === 'image' ? new Set(selectedImageIds)
-       : new Set())
-    : new Set();
+  // 컨텍스트에 맞는 base 선택 ID 보관 (additive 시 유지용)
+  const baseIds = kind === 'product'
+    ? (additive ? new Set(selectedProductIds) : new Set())
+    : (additive
+        ? { sub: new Set(selectedSubfolderIds), img: new Set(selectedImageIds) }
+        : { sub: new Set(), img: new Set() });
   _rbState = {
     startX: e.clientX, startY: e.clientY,
     baseIds, additive, moved: false, bandEl: null, kind
@@ -1115,58 +1112,59 @@ function _rbMove(e) {
   _rbState.bandEl.style.width  = w + 'px';
   _rbState.bandEl.style.height = h + 'px';
   const bandL = x, bandT = y, bandR = x + w, bandB = y + h;
-  // kind 에 따라 어느 grid 의 카드를 검사할지 결정
-  const cfg = _rbKindCfg(_rbState.kind);
-  if (!cfg) return;
-  const cards = document.querySelectorAll(cfg.selector);
-  cards.forEach(card => {
-    const id = card.dataset[cfg.dsKey];
-    if (!id) return;
-    const r = card.getBoundingClientRect();
-    const overlaps = !(r.right < bandL || r.left > bandR || r.bottom < bandT || r.top > bandB);
-    const shouldSelect = _rbState.baseIds.has(id) || overlaps;
-    const isSelected = card.classList.contains('selected');
-    if (shouldSelect && !isSelected) card.classList.add('selected');
-    else if (!shouldSelect && isSelected) card.classList.remove('selected');
-  });
-}
-function _rbKindCfg(kind) {
-  if (kind === 'product')  return { selector: '#folder-grid .folder-card',       dsKey: 'productId',   set: selectedProductIds,   render: renderFolderGrid,    anchor: '_shiftAnchorId' };
-  if (kind === 'subfolder')return { selector: '#subfolder-grid .folder-card',    dsKey: 'subfolderId', set: selectedSubfolderIds, render: renderSubfolderGrid, anchor: '_shiftAnchorSubId' };
-  if (kind === 'image')    return { selector: '#image-grid-main .img-card, #image-grid-group .img-card', dsKey: 'imgId', set: selectedImageIds, render: renderImages, anchor: '_shiftAnchorImgId' };
-  return null;
+  const overlap = (r) => !(r.right < bandL || r.left > bandR || r.bottom < bandT || r.top > bandB);
+  const apply = (cards, dsKey, baseSet) => {
+    cards.forEach(card => {
+      const id = card.dataset[dsKey];
+      if (!id) return;
+      const r = card.getBoundingClientRect();
+      const shouldSelect = baseSet.has(id) || overlap(r);
+      const isSelected = card.classList.contains('selected');
+      if (shouldSelect && !isSelected) card.classList.add('selected');
+      else if (!shouldSelect && isSelected) card.classList.remove('selected');
+    });
+  };
+  if (_rbState.kind === 'product') {
+    apply(document.querySelectorAll('#folder-grid .folder-card'), 'productId', _rbState.baseIds);
+  } else {
+    // 제품 상세 — 서브폴더 + 이미지 모두 검사
+    apply(document.querySelectorAll('#subfolder-grid .folder-card'), 'subfolderId', _rbState.baseIds.sub);
+    apply(document.querySelectorAll('#image-grid-main .img-card, #image-grid-group .img-card'), 'imgId', _rbState.baseIds.img);
+  }
 }
 function _rbEnd() {
   if (!_rbState) return;
   const { moved, additive, bandEl, kind } = _rbState;
   if (!moved) {
-    // 단순 클릭 — 컨텍스트별 선택 해제 (Shift/Ctrl 안 누른 경우만)
+    // 단순 클릭 — 컨텍스트별 선택 해제 (additive 시 유지)
     if (!additive) {
       let changed = false;
-      if (kind === 'product' && selectedProductIds.size) {
-        selectedProductIds.clear(); _shiftAnchorId = null; renderFolderGrid(); changed = true;
-      } else if (kind === 'subfolder' && selectedSubfolderIds.size) {
-        selectedSubfolderIds.clear(); _shiftAnchorSubId = null; renderSubfolderGrid(); changed = true;
-      } else if (kind === 'image' && selectedImageIds.size) {
-        selectedImageIds.clear(); _shiftAnchorImgId = null; renderImages(); changed = true;
-      } else if (kind === 'product-detail') {
-        // 제품 페이지의 일반 빈 영역 — 양쪽 선택 모두 해제
+      if (kind === 'product') {
+        if (selectedProductIds.size) { selectedProductIds.clear(); _shiftAnchorId = null; renderFolderGrid(); changed = true; }
+      } else {
         if (selectedSubfolderIds.size) { selectedSubfolderIds.clear(); _shiftAnchorSubId = null; renderSubfolderGrid(); changed = true; }
         if (selectedImageIds.size)     { selectedImageIds.clear();     _shiftAnchorImgId = null; renderImages();        changed = true; }
       }
       if (changed) _renderSelectionBar();
     }
   } else {
-    // 드래그 종료 — DOM 의 .selected 를 해당 set 에 반영
-    const cfg = _rbKindCfg(kind);
-    if (cfg) {
-      cfg.set.clear();
-      document.querySelectorAll(cfg.selector + '.selected').forEach(card => {
-        const id = card.dataset[cfg.dsKey];
-        if (id) cfg.set.add(id);
+    // 드래그 종료 — DOM 의 .selected 상태를 해당 Set 에 반영
+    if (kind === 'product') {
+      selectedProductIds.clear();
+      document.querySelectorAll('#folder-grid .folder-card.selected').forEach(card => {
+        if (card.dataset.productId) selectedProductIds.add(card.dataset.productId);
       });
-      _renderSelectionBar();
+    } else {
+      selectedSubfolderIds.clear();
+      selectedImageIds.clear();
+      document.querySelectorAll('#subfolder-grid .folder-card.selected').forEach(card => {
+        if (card.dataset.subfolderId) selectedSubfolderIds.add(card.dataset.subfolderId);
+      });
+      document.querySelectorAll('#image-grid-main .img-card.selected, #image-grid-group .img-card.selected').forEach(card => {
+        if (card.dataset.imgId) selectedImageIds.add(card.dataset.imgId);
+      });
     }
+    _renderSelectionBar();
   }
   if (bandEl?.parentElement) bandEl.parentElement.removeChild(bandEl);
   _rbState = null;
