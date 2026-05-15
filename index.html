@@ -651,12 +651,22 @@ function renderProductList() {
   }
   listEl.innerHTML = filtered.map(p => {
     const active = currentProduct && currentProduct.id === p.id;
-    return `<div class="product-item ${active ? 'active' : ''}" onclick="selectProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+    return `<div class="product-item ${active ? 'active' : ''}" data-product-id="${p.id}" onclick="selectProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})" title="${escapeHtml(p.name)} — 드래그로 순서 변경 가능">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       <span class="flex-1 truncate font-semibold">${escapeHtml(p.name)}</span>
       <span class="item-count">${p.image_count || 0}</span>
     </div>`;
   }).join('');
+  // 검색 중이 아닐 때만 드래그 순서 변경 활성 (필터링 중 reorder 는 혼란)
+  const q = (document.getElementById('product-search').value || '').trim();
+  if (!q) {
+    if (window._sidebarSort) window._sidebarSort.destroy();
+    window._sidebarSort = new Sortable(listEl, {
+      animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+      onStart: () => { window._draggingCard = true; },
+      onEnd:   () => { window._suppressClickUntil = Date.now() + 300; window._draggingCard = false; _persistProductOrder('#product-list .product-item'); }
+    });
+  }
 }
 async function selectProduct(p) {
   currentProduct = p;
@@ -1433,6 +1443,9 @@ document.addEventListener('keydown', (e) => {
 let _folderClickTimer = null;
 let _shiftAnchorId = null;  // Shift+클릭 범위 선택의 기준점 — 마지막 일반 클릭
 function onFolderClick(e, p) {
+  // 드래그 직후의 의도치 않은 클릭은 무시 (Sortable 가 설정)
+  if (window._suppressClickUntil && Date.now() < window._suppressClickUntil) return;
+  if (window._draggingCard) return;
   // Shift+클릭 — anchor 부터 현재까지 범위 선택 (즉시 반영, 타이머 X)
   if (e && e.shiftKey && _shiftAnchorId && _shiftAnchorId !== p.id) {
     const ordered = products;  // 표시 순서 = products 배열 순서
@@ -1775,7 +1788,7 @@ function renderFolderGrid() {
     const active = currentProduct && currentProduct.id === p.id;
     const selected = selectedProductIds.has(p.id);
     const safe = JSON.stringify(p).replace(/"/g, '&quot;');
-    return `<div class="folder-card ${active ? 'active' : ''} ${selected ? 'selected' : ''}" data-product-id="${p.id}" onclick="onFolderClick(event, ${safe})" ondblclick="onFolderDblClick(event, ${safe})" title="${escapeHtml(p.name)} — 클릭: 선택 / Shift+클릭: 범위 선택 / 더블클릭: 열기">
+    return `<div class="folder-card ${active ? 'active' : ''} ${selected ? 'selected' : ''}" data-product-id="${p.id}" onclick="onFolderClick(event, ${safe})" ondblclick="onFolderDblClick(event, ${safe})" title="${escapeHtml(p.name)} — 클릭: 선택 / Shift+클릭: 범위 / 더블클릭: 열기 / 드래그: 순서 변경">
       <div class="folder-check" title="${selected ? '선택됨' : '미선택'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
@@ -1787,6 +1800,34 @@ function renderFolderGrid() {
       <div class="folder-count">${p.image_count || 0}개</div>
     </div>`;
   }).join('');
+  // 홈 그리드 드래그 순서 변경
+  if (window._homeGridSort) window._homeGridSort.destroy();
+  window._homeGridSort = new Sortable(gridEl, {
+    animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+    filter: '.folder-check, .folder-dl-btn',
+    preventOnFilter: false,
+    onStart: () => { window._draggingCard = true; },
+    onEnd:   () => { window._suppressClickUntil = Date.now() + 300; window._draggingCard = false; _persistProductOrder('#folder-grid .folder-card'); }
+  });
+}
+
+// 제품 순서 저장 — 사이드바·홈 그리드 둘 다에서 호출
+async function _persistProductOrder(selector) {
+  const cards = [...document.querySelectorAll(selector)];
+  const newOrder = cards.map((c, i) => ({ id: c.dataset.productId, sort_order: i + 1 })).filter(o => o.id);
+  if (!newOrder.length) return;
+  // 메모리 즉시 반영
+  const map = Object.fromEntries(newOrder.map(o => [o.id, o.sort_order]));
+  products.forEach(p => { if (map[p.id] != null) p.sort_order = map[p.id]; });
+  products.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  // 양쪽 모두 재렌더 (시각적으로 동기화)
+  renderProductList();
+  renderFolderGrid();
+  // DB 일괄 업데이트
+  for (const o of newOrder) {
+    await sb.from('products').update({ sort_order: o.sort_order }).eq('id', o.id);
+  }
+  toast('순서 저장 완료', 'success');
 }
 function openNewProductModal() {
   openModal({
