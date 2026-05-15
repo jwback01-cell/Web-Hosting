@@ -350,6 +350,28 @@
   <div class="progress-bar"><div id="upload-progress-fill" class="progress-fill" style="width:0%"></div></div>
 </div>
 
+<!-- ── 이미지 크게 보기 (라이트박스) ── -->
+<div id="image-preview" class="hidden fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===event.currentTarget) closeImagePreview()">
+  <div class="absolute top-5 left-5 right-20 text-white pointer-events-none">
+    <div id="ip-name" class="font-bold text-sm truncate"></div>
+    <div id="ip-counter" class="text-xs text-white/60 mt-1"></div>
+  </div>
+  <button onclick="closeImagePreview()" class="absolute top-5 right-5 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors" title="닫기 (Esc)">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+  <button onclick="navImagePreview(-1)" id="ip-prev" class="absolute left-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors" title="이전 (←)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <button onclick="navImagePreview(1)" id="ip-next" class="absolute right-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors" title="다음 (→)">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+  <img id="ip-img" src="" alt="" class="max-w-[92vw] max-h-[88vh] object-contain shadow-2xl">
+  <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+    <button onclick="event.stopPropagation(); _ipCopyUrl()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">URL 복사</button>
+    <button onclick="event.stopPropagation(); _ipCopyHtml()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">HTML 복사</button>
+  </div>
+</div>
+
 <!-- ── 선택한 폴더 액션 바 (하단 중앙 고정) ── -->
 <div id="selection-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-black text-white rounded-full px-5 py-3 shadow-2xl flex items-center gap-3 z-50">
   <span class="font-bold text-sm"><span id="selection-count">0</span>개 폴더 선택</span>
@@ -936,6 +958,84 @@ function _collectImagesUnder(node, topSubName, out) {
 }
 
 // ════════════════════════════════════════════════════════
+// 이미지 카드 클릭 / 더블클릭 — 클릭=HTML 복사, 더블클릭=크게 보기
+let _imageClickTimer = null;
+function onImageClick(imgId) {
+  // 이미 편집/드래그 중이면 무시 (기존 가드)
+  if (window._suppressClickUntil && Date.now() < window._suppressClickUntil) return;
+  if (window._draggingCard) return;
+  if (_imageClickTimer) {
+    clearTimeout(_imageClickTimer);
+    _imageClickTimer = null;
+    return;  // dblclick 의 일부 — 처리 위임
+  }
+  _imageClickTimer = setTimeout(() => {
+    copyImageHtml(imgId);
+    _imageClickTimer = null;
+  }, 230);
+}
+
+// ── 이미지 크게 보기 (라이트박스) ──────────────────────
+let _previewImgId = null;
+function _ipOrdered() {
+  // 화면 표시 순서대로 (썸네일 → 상세페이지)
+  const main = images.filter(im => !_isGroup(im)).sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+  const grp  = images.filter(im =>  _isGroup(im)).sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+  return [...main, ...grp];
+}
+function openImagePreview(imgId) {
+  if (_imageClickTimer) { clearTimeout(_imageClickTimer); _imageClickTimer = null; }
+  const ordered = _ipOrdered();
+  if (!ordered.find(i => i.id === imgId)) return;
+  _previewImgId = imgId;
+  _renderImagePreview();
+  document.getElementById('image-preview').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function _renderImagePreview() {
+  const ordered = _ipOrdered();
+  const idx = ordered.findIndex(i => i.id === _previewImgId);
+  if (idx < 0) return;
+  const im = ordered[idx];
+  document.getElementById('ip-img').src       = im.public_url;
+  document.getElementById('ip-name').textContent    = im.file_name || '';
+  document.getElementById('ip-counter').textContent = `${idx + 1} / ${ordered.length}` + (_isGroup(im) ? ' · 상세페이지' : ' · 썸네일');
+  // 좌우 버튼 비활성 표시 (1장일 때)
+  document.getElementById('ip-prev').style.display = ordered.length > 1 ? '' : 'none';
+  document.getElementById('ip-next').style.display = ordered.length > 1 ? '' : 'none';
+}
+function navImagePreview(dir) {
+  const ordered = _ipOrdered();
+  if (ordered.length <= 1) return;
+  const idx = ordered.findIndex(i => i.id === _previewImgId);
+  if (idx < 0) return;
+  const next = (idx + dir + ordered.length) % ordered.length;
+  _previewImgId = ordered[next].id;
+  _renderImagePreview();
+}
+function closeImagePreview() {
+  document.getElementById('image-preview').classList.add('hidden');
+  document.body.style.overflow = '';
+  _previewImgId = null;
+}
+function _ipCopyUrl() {
+  const im = images.find(i => i.id === _previewImgId);
+  if (im) { navigator.clipboard.writeText(im.public_url); toast('URL 복사됨', 'success'); }
+}
+function _ipCopyHtml() {
+  const im = images.find(i => i.id === _previewImgId);
+  if (im) { navigator.clipboard.writeText(_imgTag(im)); toast('HTML 태그 복사됨', 'success'); }
+}
+// 키보드 — ESC 닫기, ← → 네비게이션
+document.addEventListener('keydown', (e) => {
+  const open = !document.getElementById('image-preview').classList.contains('hidden');
+  if (!open) return;
+  if (e.key === 'Escape')      closeImagePreview();
+  else if (e.key === 'ArrowLeft')  { e.preventDefault(); navImagePreview(-1); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); navImagePreview(1); }
+});
+
+// ════════════════════════════════════════════════════════
 // 폴더 단일/더블 클릭 — 단일=선택 토글, 더블=폴더 진입
 // 250ms 타이머로 dblclick 과 click 을 구분 (브라우저가 dblclick 도 onclick 2회를 추가로 발사)
 let _folderClickTimer = null;
@@ -1300,7 +1400,7 @@ function _isGroup(im) {
 }
 function _imgCardHtml(im, idx) {
   return `
-    <div class="img-card" data-img-id="${im.id}" onclick="copyImageHtml('${im.id}')" title="클릭 = HTML 복사 / 드래그 = 순서 변경">
+    <div class="img-card" data-img-id="${im.id}" onclick="onImageClick('${im.id}')" ondblclick="openImagePreview('${im.id}')" title="클릭 = HTML 복사 / 더블클릭 = 크게 보기 / 드래그 = 순서 변경">
       <img src="${im.public_url}" alt="${escapeHtml(im.file_name)}" loading="lazy">
       <div class="img-overlay">
         <div class="img-overlay-top">
