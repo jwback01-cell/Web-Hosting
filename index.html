@@ -388,16 +388,20 @@
   </div>
 </div>
 
-<!-- ── 선택한 폴더 액션 바 (하단 중앙 고정) ── -->
-<div id="selection-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-black text-white rounded-full px-5 py-3 shadow-2xl flex items-center gap-3 z-50">
-  <span class="font-bold text-sm" id="selection-count">0</span>
-  <div class="w-px h-5 bg-white/20"></div>
-  <button onclick="selectAllProducts()" class="text-xs text-white/80 hover:text-white font-semibold">전체 선택</button>
-  <button onclick="downloadSelectedProducts()" class="px-4 py-1.5 rounded-full bg-white text-brand-black font-bold text-xs hover:opacity-90 flex items-center gap-1.5">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-    합쳐서 다운로드
+<!-- ── 우클릭 컨텍스트 메뉴 ── -->
+<div id="context-menu" class="hidden fixed z-[150] bg-white rounded-2xl py-1.5 min-w-[200px]" style="box-shadow: 0 12px 36px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05);">
+  <button onclick="ctxAction('download')" class="w-full text-left px-4 py-2.5 text-sm font-semibold hover:bg-brand-bg flex items-center gap-2.5 transition-colors">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    다운로드
   </button>
-  <button onclick="clearProductSelection()" class="text-white/70 hover:text-white text-xs">해제</button>
+  <button onclick="ctxAction('delete')" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-brand-pink hover:bg-brand-pink-light/40 flex items-center gap-2.5 transition-colors">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+    삭제
+  </button>
+  <button onclick="ctxAction('selectAll')" class="w-full text-left px-4 py-2.5 text-sm font-semibold hover:bg-brand-bg flex items-center gap-2.5 transition-colors">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    전체 선택
+  </button>
 </div>
 
 <!-- ── 저장소 사용량 (좌측 하단 고정) ── -->
@@ -776,7 +780,7 @@ function renderSubfolderGrid() {
   gridEl.innerHTML = subfolders.map(sf => {
     const safe = JSON.stringify(sf).replace(/"/g, '&quot;');
     const selected = selectedSubfolderIds.has(sf.id);
-    return `<div class="folder-card ${selected ? 'selected' : ''}" data-subfolder-id="${sf.id}" onclick="onSubfolderClick(event, ${safe})" ondblclick="onSubfolderDblClick(event, ${safe})" oncontextmenu="event.preventDefault(); confirmDeleteSubfolder(${safe})" title="${escapeHtml(sf.name)} — 클릭: 선택 / 더블클릭: 열기 / 우클릭: 삭제">
+    return `<div class="folder-card ${selected ? 'selected' : ''}" data-subfolder-id="${sf.id}" onclick="onSubfolderClick(event, ${safe})" ondblclick="onSubfolderDblClick(event, ${safe})" title="${escapeHtml(sf.name)} — 클릭: 선택 / 더블클릭: 열기 / 우클릭: 메뉴">
       <div class="folder-check" title="${selected ? '선택됨' : '미선택'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
@@ -1041,6 +1045,124 @@ function _collectImagesUnder(node, topSubName, out) {
   }
   for (const sub of node.subfolders) {
     _collectImagesUnder(sub, topSubName, out);
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// 우클릭 컨텍스트 메뉴 — 다운로드 / 삭제 / 전체선택
+function showContextMenu(x, y) {
+  const menu = document.getElementById('context-menu');
+  menu.classList.remove('hidden');
+  const r = menu.getBoundingClientRect();
+  const w = window.innerWidth, h = window.innerHeight;
+  let left = x, top = y;
+  if (left + r.width  > w) left = w - r.width  - 8;
+  if (top  + r.height > h) top  = h - r.height - 8;
+  menu.style.left = Math.max(8, left) + 'px';
+  menu.style.top  = Math.max(8, top)  + 'px';
+}
+function hideContextMenu() {
+  document.getElementById('context-menu').classList.add('hidden');
+}
+function ctxAction(action) {
+  hideContextMenu();
+  if (action === 'download')   downloadSelectedProducts();
+  else if (action === 'delete')    deleteSelected();
+  else if (action === 'selectAll') selectAllProducts();
+}
+document.addEventListener('contextmenu', (e) => {
+  if (document.getElementById('page-main').classList.contains('hidden')) return;
+  if (e.target.closest('.modal-bd.open')) return;
+  if (e.target.closest('#image-preview:not(.hidden)')) return;
+  if (e.target.closest('aside')) return;
+  if (e.target.closest('header')) return;
+  const inMainEmpty   = e.target.closest('#main-empty');
+  const inMainProduct = e.target.closest('#main-product');
+  if (!inMainEmpty && !inMainProduct) return;
+  e.preventDefault();
+  // 우클릭한 카드가 미선택이면 자동 선택 추가 (사용 흐름 자연스럽게)
+  const folderCard = e.target.closest('.folder-card');
+  const imgCard    = e.target.closest('.img-card');
+  if (folderCard) {
+    const pid = folderCard.dataset.productId;
+    const sid = folderCard.dataset.subfolderId;
+    if (pid && !selectedProductIds.has(pid))   { selectedProductIds.add(pid);   _shiftAnchorId    = pid; renderFolderGrid(); }
+    if (sid && !selectedSubfolderIds.has(sid)) { selectedSubfolderIds.add(sid); _shiftAnchorSubId = sid; renderSubfolderGrid(); }
+  } else if (imgCard) {
+    const iid = imgCard.dataset.imgId;
+    if (iid && !selectedImageIds.has(iid))     { selectedImageIds.add(iid);     _shiftAnchorImgId = iid; renderImages(); }
+  }
+  showContextMenu(e.clientX, e.clientY);
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#context-menu')) hideContextMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideContextMenu();
+});
+
+// 선택 항목 삭제 — 제품/서브폴더/이미지 모두 처리
+function deleteSelected() {
+  const total = selectedProductIds.size + selectedSubfolderIds.size + selectedImageIds.size;
+  if (total === 0) { toast('선택된 항목이 없습니다', 'error'); return; }
+  const parts = [];
+  if (selectedProductIds.size)   parts.push(`제품 ${selectedProductIds.size}개`);
+  if (selectedSubfolderIds.size) parts.push(`폴더 ${selectedSubfolderIds.size}개`);
+  if (selectedImageIds.size)     parts.push(`이미지 ${selectedImageIds.size}개`);
+  openModal({
+    title: '선택 항목 삭제',
+    desc: parts.join(', ') + ' 를 삭제할까요?\n이 작업은 되돌릴 수 없습니다.',
+    okText: '삭제', danger: true,
+    onOk: async () => { await _doDeleteSelected(); }
+  });
+}
+async function _doDeleteSelected() {
+  try {
+    showUploadProgress(1);
+    document.getElementById('upload-progress-title').textContent = '삭제 중...';
+    for (const id of selectedProductIds) {
+      const { data: imgs } = await sb.from('images').select('storage_path').eq('product_id', id);
+      if (imgs?.length) {
+        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+      }
+      await sb.from('products').delete().eq('id', id);
+    }
+    for (const id of selectedSubfolderIds) {
+      const { data: imgs } = await sb.from('images').select('storage_path').eq('subfolder_id', id);
+      if (imgs?.length) {
+        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+      }
+      await sb.from('subfolders').delete().eq('id', id);
+    }
+    if (selectedImageIds.size > 0) {
+      const imgIds = [...selectedImageIds];
+      const { data: imgs } = await sb.from('images').select('storage_path').in('id', imgIds);
+      if (imgs?.length) {
+        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+      }
+      await sb.from('images').delete().in('id', imgIds);
+    }
+    selectedProductIds.clear();
+    selectedSubfolderIds.clear();
+    selectedImageIds.clear();
+    _shiftAnchorId = null; _shiftAnchorSubId = null; _shiftAnchorImgId = null;
+    await loadProducts();
+    if (currentProduct) {
+      const stillExists = products.find(p => p.id === currentProduct.id);
+      if (stillExists) {
+        await loadSubfolders(currentProduct.id);
+        if (currentSubfolder && !subfolders.find(s => s.id === currentSubfolder.id)) currentSubfolder = null;
+        await loadImages(currentProduct.id);
+        _renderProductHeader();
+      } else {
+        backToFolders();
+      }
+    }
+    hideUploadProgress();
+    toast('삭제 완료', 'success');
+  } catch (e) {
+    hideUploadProgress();
+    showPersistentError('삭제 실패', e.message || String(e));
   }
 }
 
@@ -1380,17 +1502,7 @@ function selectAllProducts() {
   _renderSelectionBar();
 }
 function _renderSelectionBar() {
-  const bar = document.getElementById('selection-bar');
-  if (!bar) return;
-  const total = selectedProductIds.size + selectedSubfolderIds.size + selectedImageIds.size;
-  if (total === 0) { bar.classList.add('hidden'); return; }
-  // 카운트 표시 — 카테고리별로 분해
-  const parts = [];
-  if (selectedProductIds.size)   parts.push(`제품 ${selectedProductIds.size}`);
-  if (selectedSubfolderIds.size) parts.push(`폴더 ${selectedSubfolderIds.size}`);
-  if (selectedImageIds.size)     parts.push(`이미지 ${selectedImageIds.size}`);
-  document.getElementById('selection-count').textContent = parts.join(' · ');
-  bar.classList.remove('hidden');
+  // 액션 바 제거됨 — 우클릭 컨텍스트 메뉴로 대체
 }
 async function downloadSelectedProducts() {
   if (!window.JSZip) { toast('JSZip 라이브러리 로딩 실패', 'error'); return; }
