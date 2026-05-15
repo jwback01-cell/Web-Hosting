@@ -966,10 +966,22 @@ function _collectImagesUnder(node, topSubName, out) {
 let _rbState = null;
 document.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
-  if (!e.target.closest('#folder-grid')) return;
-  if (e.target.closest('.folder-card')) return;       // 카드 시작은 무시 (개별 click/dblclick)
+  // 메인 홈 뷰가 활성일 때만 동작 (로그인/제품 상세는 무시)
+  const pageMain  = document.getElementById('page-main');
+  const mainEmpty = document.getElementById('main-empty');
+  if (!pageMain || pageMain.classList.contains('hidden')) return;
+  if (!mainEmpty || mainEmpty.classList.contains('hidden')) return;
+  // 무시 영역 — 자체 동작이 있는 요소들
+  if (e.target.closest('.folder-card')) return;       // 카드 시작은 개별 click/dblclick
   if (e.target.closest('.folder-dl-btn')) return;
   if (e.target.closest('#folder-drop-zone')) return;
+  if (e.target.closest('button, a, input, textarea, select, label')) return;
+  if (e.target.closest('aside')) return;              // 좌측 사이드바
+  if (e.target.closest('header')) return;             // 상단 헤더
+  if (e.target.closest('.modal-bd.open')) return;     // 모달
+  if (e.target.closest('#image-preview:not(.hidden)')) return;
+  if (e.target.closest('#selection-bar')) return;
+  if (e.target.closest('#storage-stat')) return;
   e.preventDefault();
   // Shift/Ctrl 시 기존 선택 유지 — 그 외엔 초기화 (드래그 안 한 빈클릭은 mouseup 에서 처리)
   const additive = e.shiftKey || e.ctrlKey || e.metaKey;
