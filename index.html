@@ -337,6 +337,20 @@
   <div class="progress-bar"><div id="upload-progress-fill" class="progress-fill" style="width:0%"></div></div>
 </div>
 
+<!-- ── 저장소 사용량 (좌측 하단 고정) ── -->
+<div id="storage-stat" class="hidden fixed bottom-4 left-4 bg-white rounded-2xl panel px-4 py-3 text-xs flex items-center gap-3 z-50">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>
+  </svg>
+  <div>
+    <div class="font-bold text-brand-black"><span id="storage-used">0 B</span> <span class="text-brand-gray font-normal">/ <span id="storage-total">1 GB</span></span></div>
+    <div class="w-36 h-1.5 bg-brand-bg rounded-full mt-1.5 overflow-hidden">
+      <div id="storage-bar" class="h-full bg-brand-blue rounded-full transition-all" style="width:0%"></div>
+    </div>
+    <div class="text-[10px] text-brand-gray mt-1"><span id="storage-count">0</span>장 · <span id="storage-pct">0</span>%</div>
+  </div>
+</div>
+
 <!-- ── 토스트 ── -->
 <div id="toast" class="toast"></div>
 
@@ -468,6 +482,7 @@ function saveSupabaseConfig() {
 function showLogin() {
   document.getElementById('page-login').classList.remove('hidden');
   document.getElementById('page-main').classList.add('hidden');
+  _hideStorageStat();
   _fillLastEmail();  // 자동 로그인용 — 마지막 이메일 자동 채움
 }
 function showMain() {
@@ -544,6 +559,7 @@ async function loadProducts() {
   products = data || [];
   renderProductList();
   renderFolderGrid();  // 메인의 폴더 그리드도 동기화
+  updateStorageStat();  // 좌측 하단 사용량 갱신
   if (currentProduct) {
     const refreshed = products.find(p => p.id === currentProduct.id);
     if (refreshed) selectProduct(refreshed); else { currentProduct = null; showEmpty(); }
@@ -1274,6 +1290,7 @@ function confirmDeleteImage(imgId) {
       if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
       images = images.filter(i => i.id !== imgId);
       renderImages();
+      updateStorageStat();
       toast('삭제 완료', 'success');
     }
   });
@@ -1354,6 +1371,7 @@ async function handleFiles(fileList) {
     }
   }
   hideUploadProgress();
+  updateStorageStat();  // 사용량 즉시 갱신
 
   if (fail === 0) {
     toast(`${done}개 업로드 완료`, 'success');
@@ -1498,6 +1516,44 @@ function formatDate(iso) {
   const pad = n => String(n).padStart(2,'0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+// 저장소 사용량 — 모든 이미지의 file_size 합계 / 무료 플랜 기준 1GB
+const STORAGE_QUOTA_BYTES = 1024 * 1024 * 1024;  // 1 GB (Supabase Free)
+async function updateStorageStat() {
+  try {
+    // file_size 만 가벼운 select
+    const { data, error } = await sb.from('images').select('file_size');
+    if (error) { console.warn('[storage-stat] 조회 실패', error); return; }
+    let totalBytes = 0;
+    (data || []).forEach(r => { totalBytes += Number(r.file_size) || 0; });
+    const count = (data || []).length;
+    const pct = Math.min(100, totalBytes / STORAGE_QUOTA_BYTES * 100);
+    document.getElementById('storage-used').textContent  = _formatBytes(totalBytes);
+    document.getElementById('storage-total').textContent = _formatBytes(STORAGE_QUOTA_BYTES);
+    document.getElementById('storage-count').textContent = count.toLocaleString('ko-KR');
+    document.getElementById('storage-pct').textContent   = pct.toFixed(1);
+    const bar = document.getElementById('storage-bar');
+    bar.style.width = pct + '%';
+    // 50% 미만 파란, 50~80% 주황, 80% 이상 빨강
+    if (pct >= 80)      bar.style.background = '#FF2D55';
+    else if (pct >= 50) bar.style.background = '#F9AB00';
+    else                bar.style.background = '#2196F3';
+    document.getElementById('storage-stat').classList.remove('hidden');
+  } catch (e) {
+    console.warn('[storage-stat] 예외', e);
+  }
+}
+function _formatBytes(bytes) {
+  if (!bytes) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0, n = bytes;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return (i === 0 ? n.toFixed(0) : n.toFixed(1)) + ' ' + units[i];
+}
+function _hideStorageStat() {
+  const el = document.getElementById('storage-stat');
+  if (el) el.classList.add('hidden');
+}
+
 function toast(message, kind) {
   const el = document.getElementById('toast');
   el.textContent = message;
