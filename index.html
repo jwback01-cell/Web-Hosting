@@ -210,7 +210,7 @@
         <div class="flex items-center justify-between mb-5">
           <div>
             <h2 class="text-xl font-bold tracking-tight">전체 제품</h2>
-            <p class="text-brand-gray text-xs mt-1">폴더를 클릭하면 이미지를 업로드/관리할 수 있습니다.</p>
+            <p class="text-brand-gray text-xs mt-1">한 번 클릭 = 선택 · 더블클릭 = 폴더 열기</p>
           </div>
           <button onclick="openNewProductModal()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] transition-colors flex items-center gap-1.5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -936,6 +936,27 @@ function _collectImagesUnder(node, topSubName, out) {
 }
 
 // ════════════════════════════════════════════════════════
+// 폴더 단일/더블 클릭 — 단일=선택 토글, 더블=폴더 진입
+// 250ms 타이머로 dblclick 과 click 을 구분 (브라우저가 dblclick 도 onclick 2회를 추가로 발사)
+let _folderClickTimer = null;
+function onFolderClick(p) {
+  if (_folderClickTimer) {
+    // 이번 click 은 dblclick 의 일부 — 무시하고 dblclick 이 처리하도록
+    clearTimeout(_folderClickTimer);
+    _folderClickTimer = null;
+    return;
+  }
+  _folderClickTimer = setTimeout(() => {
+    toggleProductSelect(p.id);
+    _folderClickTimer = null;
+  }, 230);
+}
+function onFolderDblClick(p) {
+  if (_folderClickTimer) { clearTimeout(_folderClickTimer); _folderClickTimer = null; }
+  selectProduct(p);
+}
+
+// ════════════════════════════════════════════════════════
 // 다중 선택 — 여러 제품 폴더를 합쳐서 zip 으로 다운로드
 // ════════════════════════════════════════════════════════
 function toggleProductSelect(id) {
@@ -1170,8 +1191,8 @@ function renderFolderGrid() {
     const active = currentProduct && currentProduct.id === p.id;
     const selected = selectedProductIds.has(p.id);
     const safe = JSON.stringify(p).replace(/"/g, '&quot;');
-    return `<div class="folder-card ${active ? 'active' : ''} ${selected ? 'selected' : ''}" onclick="selectProduct(${safe})" title="${escapeHtml(p.name)}">
-      <div class="folder-check" onclick="event.stopPropagation(); toggleProductSelect('${p.id}')" title="다중 선택">
+    return `<div class="folder-card ${active ? 'active' : ''} ${selected ? 'selected' : ''}" onclick="onFolderClick(${safe})" ondblclick="onFolderDblClick(${safe})" title="${escapeHtml(p.name)} — 클릭: 선택 / 더블클릭: 열기">
+      <div class="folder-check" title="${selected ? '선택됨' : '미선택'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
       <button class="folder-dl-btn" onclick="event.stopPropagation(); downloadProductZip('${p.id}', ${JSON.stringify(p.name).replace(/"/g, '&quot;')})" title="zip 으로 다운로드">
