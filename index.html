@@ -109,6 +109,9 @@
   .folder-card.selected .folder-check { opacity:1; background:#1A1A1A; border-color:#1A1A1A; }
   .folder-card.selected .folder-check svg { display:block; }
   .folder-check svg { display:none; width:12px; height:12px; color:white; }
+  /* 드래그 영역 선택 (러버밴드) */
+  #folder-grid { user-select: none; }
+  .rubber-band { position: fixed; background: rgba(33,150,243,0.15); border: 1.5px solid #2196F3; border-radius: 4px; pointer-events: none; z-index: 10000; }
 
   /* 모달 */
   .modal-bd { position:fixed; inset:0; background:rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition: opacity .25s; padding:24px; }
@@ -210,7 +213,7 @@
         <div class="flex items-center justify-between mb-5">
           <div>
             <h2 class="text-xl font-bold tracking-tight">전체 제품</h2>
-            <p class="text-brand-gray text-xs mt-1">한 번 클릭 = 선택 · 더블클릭 = 폴더 열기</p>
+            <p class="text-brand-gray text-xs mt-1">한 번 클릭 = 선택 · 더블클릭 = 폴더 열기 · 빈 공간 드래그 = 영역 선택</p>
           </div>
           <button onclick="openNewProductModal()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] transition-colors flex items-center gap-1.5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -958,6 +961,70 @@ function _collectImagesUnder(node, topSubName, out) {
 }
 
 // ════════════════════════════════════════════════════════
+// 드래그 영역 선택 (Rubber-band) — 빈 공간에서 드래그하면 사각형 안 폴더 선택
+let _rbState = null;
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (!e.target.closest('#folder-grid')) return;
+  if (e.target.closest('.folder-card')) return;       // 카드 시작은 무시 (개별 click/dblclick)
+  if (e.target.closest('.folder-dl-btn')) return;
+  if (e.target.closest('#folder-drop-zone')) return;
+  e.preventDefault();
+  // Shift/Ctrl 시 기존 선택 유지 — 그 외엔 초기화
+  const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+  const baseIds = additive ? new Set(selectedProductIds) : new Set();
+  const bandEl = document.createElement('div');
+  bandEl.className = 'rubber-band';
+  document.body.appendChild(bandEl);
+  _rbState = { startX: e.clientX, startY: e.clientY, baseIds, bandEl };
+  document.addEventListener('mousemove', _rbMove);
+  document.addEventListener('mouseup',   _rbEnd);
+});
+function _rbMove(e) {
+  if (!_rbState) return;
+  const { startX, startY, baseIds, bandEl } = _rbState;
+  const x = Math.min(e.clientX, startX);
+  const y = Math.min(e.clientY, startY);
+  const w = Math.abs(e.clientX - startX);
+  const h = Math.abs(e.clientY - startY);
+  bandEl.style.left   = x + 'px';
+  bandEl.style.top    = y + 'px';
+  bandEl.style.width  = w + 'px';
+  bandEl.style.height = h + 'px';
+  // 카드별로 사각형과 겹치는지 검사 → 시각적 select 클래스만 토글 (full re-render X)
+  const bandL = x, bandT = y, bandR = x + w, bandB = y + h;
+  const cards = document.querySelectorAll('#folder-grid .folder-card');
+  cards.forEach(card => {
+    const id = card.dataset.productId;
+    if (!id) return;
+    const r = card.getBoundingClientRect();
+    const overlaps = !(r.right < bandL || r.left > bandR || r.bottom < bandT || r.top > bandB);
+    const shouldSelect = baseIds.has(id) || overlaps;
+    const isSelected = card.classList.contains('selected');
+    if (shouldSelect && !isSelected) {
+      card.classList.add('selected');
+      card.querySelector('.folder-check')?.setAttribute('title', '선택됨');
+    } else if (!shouldSelect && isSelected) {
+      card.classList.remove('selected');
+      card.querySelector('.folder-check')?.setAttribute('title', '미선택');
+    }
+  });
+}
+function _rbEnd() {
+  if (!_rbState) return;
+  // DOM 의 .selected 상태를 selectedProductIds 에 최종 반영
+  selectedProductIds.clear();
+  document.querySelectorAll('#folder-grid .folder-card.selected').forEach(card => {
+    if (card.dataset.productId) selectedProductIds.add(card.dataset.productId);
+  });
+  _renderSelectionBar();
+  if (_rbState.bandEl?.parentElement) _rbState.bandEl.parentElement.removeChild(_rbState.bandEl);
+  _rbState = null;
+  document.removeEventListener('mousemove', _rbMove);
+  document.removeEventListener('mouseup',   _rbEnd);
+}
+
+// ════════════════════════════════════════════════════════
 // 이미지 카드 클릭 / 더블클릭 — 클릭=HTML 복사, 더블클릭=크게 보기
 let _imageClickTimer = null;
 function onImageClick(imgId) {
@@ -1291,7 +1358,7 @@ function renderFolderGrid() {
     const active = currentProduct && currentProduct.id === p.id;
     const selected = selectedProductIds.has(p.id);
     const safe = JSON.stringify(p).replace(/"/g, '&quot;');
-    return `<div class="folder-card ${active ? 'active' : ''} ${selected ? 'selected' : ''}" onclick="onFolderClick(${safe})" ondblclick="onFolderDblClick(${safe})" title="${escapeHtml(p.name)} — 클릭: 선택 / 더블클릭: 열기">
+    return `<div class="folder-card ${active ? 'active' : ''} ${selected ? 'selected' : ''}" data-product-id="${p.id}" onclick="onFolderClick(${safe})" ondblclick="onFolderDblClick(${safe})" title="${escapeHtml(p.name)} — 클릭: 선택 / 더블클릭: 열기">
       <div class="folder-check" title="${selected ? '선택됨' : '미선택'}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
