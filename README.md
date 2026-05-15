@@ -73,6 +73,27 @@ create policy "auth users full access on images"
   to authenticated using (true) with check (true);
 ```
 
+### 2-1. (선택) 하위 폴더 기능 SQL
+
+제품 안에 하위 폴더(서브폴더)를 만드는 기능을 쓰려면 아래도 실행:
+
+```sql
+create table public.subfolders (
+  id          uuid primary key default gen_random_uuid(),
+  product_id  uuid not null references public.products(id) on delete cascade,
+  name        text not null,
+  sort_order  int default 0,
+  created_at  timestamptz default now()
+);
+create index subfolders_product_idx on public.subfolders(product_id);
+alter table public.subfolders enable row level security;
+create policy "auth users full access on subfolders"
+  on public.subfolders for all to authenticated using (true) with check (true);
+
+alter table public.images add column if not exists subfolder_id uuid references public.subfolders(id) on delete cascade;
+create index if not exists images_subfolder_idx on public.images(subfolder_id);
+```
+
 ### 3. Storage 버킷 생성
 - Storage 메뉴 → New bucket
 - 이름: `product-images`
