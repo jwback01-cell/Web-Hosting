@@ -8,6 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -83,6 +84,18 @@
   .folder-icon { width:64px; height:52px; margin-bottom:6px; flex-shrink:0; }
   .folder-name { font-size:13px; font-weight:600; line-height:1.3; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .folder-count { font-size:11px; color:#8E8E93; margin-top:2px; }
+  /* 폴더 hover 시 우상단 다운로드 버튼 */
+  .folder-card { position: relative; }
+  .folder-dl-btn {
+    position:absolute; top:6px; right:6px; width:26px; height:26px; border-radius:50%;
+    background:rgba(255,255,255,0.95); border:1px solid #F2F2F7;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; transition: opacity .15s, transform .15s; cursor:pointer; color:#1A1A1A;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+  .folder-card:hover .folder-dl-btn { opacity:1; }
+  .folder-dl-btn:hover { transform: scale(1.1); background:#1A1A1A; color:white; }
+  .folder-card.active .folder-dl-btn { background:rgba(255,255,255,0.15); color:white; border-color:rgba(255,255,255,0.2); }
 
   /* 모달 */
   .modal-bd { position:fixed; inset:0; background:rgba(0,0,0,0.3); backdrop-filter: blur(4px); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition: opacity .25s; padding:24px; }
@@ -653,6 +666,9 @@ function renderSubfolderGrid() {
   gridEl.innerHTML = subfolders.map(sf => {
     const safe = JSON.stringify(sf).replace(/"/g, '&quot;');
     return `<div class="folder-card" onclick="enterSubfolder(${safe})" oncontextmenu="event.preventDefault(); confirmDeleteSubfolder(${safe})" title="${escapeHtml(sf.name)} — 우클릭하면 삭제">
+      <button class="folder-dl-btn" onclick="event.stopPropagation(); downloadSubfolderZip('${sf.id}', ${JSON.stringify(sf.name).replace(/"/g, '&quot;')})" title="zip 으로 다운로드">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
       ${folderSvg}
       <div class="folder-name">${escapeHtml(sf.name)}</div>
       <div class="folder-count">${sf.image_count || ''}</div>
@@ -682,6 +698,106 @@ function openNewSubfolderModal() {
     }
   });
 }
+// ════════════════════════════════════════════════════════
+// 폴더 zip 다운로드 — JSZip 사용
+// ════════════════════════════════════════════════════════
+async function downloadProductZip(productId, productName) {
+  if (!window.JSZip) { toast('JSZip 라이브러리 로딩 실패', 'error'); return; }
+  try {
+    // 1) 해당 제품의 모든 이미지 + 서브폴더 조회
+    const [imgsRes, subsRes] = await Promise.all([
+      sb.from('images').select('*').eq('product_id', productId).order('sort_order', { ascending: true }),
+      sb.from('subfolders').select('*').eq('product_id', productId)
+    ]);
+    if (imgsRes.error) { showPersistentError('이미지 조회 실패', imgsRes.error.message); return; }
+    const allImages = imgsRes.data || [];
+    if (!allImages.length) { toast('다운로드할 이미지가 없습니다', 'error'); return; }
+    const subMap = {};
+    (subsRes.data || []).forEach(s => { subMap[s.id] = s.name; });
+
+    // 2) 진행률 표시
+    showUploadProgress(allImages.length);
+    document.getElementById('upload-progress-title').textContent = `zip 만드는 중 — ${productName}`;
+    const zip = new JSZip();
+    let done = 0, fail = 0;
+    for (const im of allImages) {
+      updateUploadProgress(done, allImages.length, im.file_name || '');
+      const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      if (error || !blob) { fail++; continue; }
+      // 파일 경로 결정: 서브폴더 있으면 그 안에, 없으면 루트
+      const folderName = im.subfolder_id ? (subMap[im.subfolder_id] || '_unknown') : '';
+      const safe = _zipSafeName(im.file_name || 'image.png');
+      const fullPath = folderName ? `${_zipSafeName(folderName)}/${safe}` : safe;
+      const finalPath = _dedupePath(zip, fullPath);
+      zip.file(finalPath, blob);
+      done++;
+    }
+    updateUploadProgress(done, allImages.length, 'zip 생성 중...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    hideUploadProgress();
+    _triggerDownload(zipBlob, _zipSafeName(productName) + '.zip');
+    toast(`${done}개 다운로드${fail ? ` (${fail}개 실패)` : ''}`, fail ? 'error' : 'success');
+  } catch (e) {
+    hideUploadProgress();
+    showPersistentError('zip 생성 실패', e.message || String(e));
+  }
+}
+async function downloadSubfolderZip(subfolderId, subfolderName) {
+  if (!window.JSZip) { toast('JSZip 라이브러리 로딩 실패', 'error'); return; }
+  try {
+    const { data: imgs, error } = await sb.from('images').select('*').eq('subfolder_id', subfolderId).order('sort_order', { ascending: true });
+    if (error) { showPersistentError('이미지 조회 실패', error.message); return; }
+    if (!imgs || !imgs.length) { toast('이 폴더에 이미지가 없습니다', 'error'); return; }
+    showUploadProgress(imgs.length);
+    document.getElementById('upload-progress-title').textContent = `zip 만드는 중 — ${subfolderName}`;
+    const zip = new JSZip();
+    let done = 0, fail = 0;
+    for (const im of imgs) {
+      updateUploadProgress(done, imgs.length, im.file_name || '');
+      const { data: blob, error: dlErr } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      if (dlErr || !blob) { fail++; continue; }
+      const finalPath = _dedupePath(zip, _zipSafeName(im.file_name || 'image.png'));
+      zip.file(finalPath, blob);
+      done++;
+    }
+    updateUploadProgress(done, imgs.length, 'zip 생성 중...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    hideUploadProgress();
+    _triggerDownload(zipBlob, _zipSafeName(subfolderName) + '.zip');
+    toast(`${done}개 다운로드${fail ? ` (${fail}개 실패)` : ''}`, fail ? 'error' : 'success');
+  } catch (e) {
+    hideUploadProgress();
+    showPersistentError('zip 생성 실패', e.message || String(e));
+  }
+}
+function _zipSafeName(s) {
+  // Windows·Mac·Linux 모두 안전한 파일/폴더명 — 금지문자 제거
+  return String(s || 'untitled').replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim().slice(0, 100) || 'untitled';
+}
+function _dedupePath(zip, p) {
+  // 같은 이름이 이미 zip 에 있으면 (1), (2) 같이 suffix 붙임
+  if (!zip.file(p) && !zip.folder(p.split('/').slice(0, -1).join('/'))) return p;
+  if (!zip.file(p)) return p;
+  const dot = p.lastIndexOf('.');
+  const base = dot > 0 ? p.slice(0, dot) : p;
+  const ext  = dot > 0 ? p.slice(dot) : '';
+  for (let i = 1; i < 1000; i++) {
+    const candidate = `${base} (${i})${ext}`;
+    if (!zip.file(candidate)) return candidate;
+  }
+  return p;
+}
+function _triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function confirmDeleteSubfolder(sf) {
   openModal({
     title: '하위 폴더 삭제',
@@ -728,6 +844,9 @@ function renderFolderGrid() {
     const active = currentProduct && currentProduct.id === p.id;
     const safe = JSON.stringify(p).replace(/"/g, '&quot;');
     return `<div class="folder-card ${active ? 'active' : ''}" onclick="selectProduct(${safe})" title="${escapeHtml(p.name)}">
+      <button class="folder-dl-btn" onclick="event.stopPropagation(); downloadProductZip('${p.id}', ${JSON.stringify(p.name).replace(/"/g, '&quot;')})" title="zip 으로 다운로드">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
       ${folderSvg}
       <div class="folder-name">${escapeHtml(p.name)}</div>
       <div class="folder-count">${p.image_count || 0}개</div>
