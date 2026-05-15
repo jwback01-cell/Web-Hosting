@@ -42,6 +42,19 @@
   /* 이미지 그리드 */
   .img-card { position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; background:#F2F2F7; border:2px solid transparent; transition:all .2s; cursor:grab; }
   .img-card:hover { border-color:#1A1A1A; transform: translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,0.08); }
+  .img-card.selected { outline: 3px solid #1A1A1A; outline-offset: -1px; }
+  /* 이미지 체크박스 (좌상단, 호버/선택 시 표시) */
+  .img-check {
+    position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:50%;
+    background:white; border:2px solid #C7C7CC; cursor:pointer; z-index:3;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; transition: opacity .15s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
+  .img-card:hover .img-check { opacity:1; }
+  .img-card.selected .img-check { opacity:1; background:#1A1A1A; border-color:#1A1A1A; }
+  .img-card.selected .img-check svg { display:block; }
+  .img-check svg { display:none; width:12px; height:12px; color:white; }
   .img-card.sortable-ghost { opacity:0.4; }
   .img-card.sortable-drag { cursor:grabbing; transform:rotate(2deg); }
   .img-card img { width:100%; height:100%; object-fit:cover; pointer-events:none; }
@@ -377,7 +390,7 @@
 
 <!-- ── 선택한 폴더 액션 바 (하단 중앙 고정) ── -->
 <div id="selection-bar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-black text-white rounded-full px-5 py-3 shadow-2xl flex items-center gap-3 z-50">
-  <span class="font-bold text-sm"><span id="selection-count">0</span>개 폴더 선택</span>
+  <span class="font-bold text-sm" id="selection-count">0</span>
   <div class="w-px h-5 bg-white/20"></div>
   <button onclick="selectAllProducts()" class="text-xs text-white/80 hover:text-white font-semibold">전체 선택</button>
   <button onclick="downloadSelectedProducts()" class="px-4 py-1.5 rounded-full bg-white text-brand-black font-bold text-xs hover:opacity-90 flex items-center gap-1.5">
@@ -444,7 +457,11 @@ let subfolders    = [];   // 현재 제품의 서브폴더들 [{id, product_id, 
 let currentSubfolder = null; // 현재 서브폴더 (null = 제품 루트)
 let images        = [];   // 현재 위치(제품 또는 서브폴더)의 이미지들
 let modalCb       = null; // 모달 확인 콜백
-let selectedProductIds = new Set();  // 다중 선택된 제품 id
+let selectedProductIds   = new Set();  // 홈: 다중 선택된 제품 id
+let selectedSubfolderIds = new Set();  // 제품 안: 다중 선택된 서브폴더 id
+let selectedImageIds     = new Set();  // 제품 안: 다중 선택된 이미지 id
+let _shiftAnchorSubId    = null;
+let _shiftAnchorImgId    = null;
 
 // ════════════════════════════════════════════════════════
 // 부팅: Supabase CDN 대기 → 설정 검증 → 세션 확인 → 로그인 or 메인
@@ -640,20 +657,30 @@ function renderProductList() {
 async function selectProduct(p) {
   currentProduct = p;
   currentSubfolder = null;  // 제품 루트로 진입
+  // 제품 안 선택 초기화 (홈→제품 이동, 또는 다른 제품 이동 시)
+  selectedSubfolderIds.clear();
+  selectedImageIds.clear();
+  _shiftAnchorSubId = null;
+  _shiftAnchorImgId = null;
   document.getElementById('main-empty').classList.add('hidden');
   document.getElementById('main-product').classList.remove('hidden');
   document.getElementById('main-product').classList.add('flex');
   renderProductList();
-  await loadSubfolders(p.id);   // 하위 폴더 먼저 로드
-  await loadImages(p.id);        // 이미지 (서브폴더 정보 사용)
+  await loadSubfolders(p.id);
+  await loadImages(p.id);
   _renderProductHeader();
+  _renderSelectionBar();
 }
 // 서브폴더 진입
 async function enterSubfolder(sf) {
   if (!currentProduct) return;
   currentSubfolder = sf;
+  // 위치 변경 — 이미지 선택 초기화
+  selectedImageIds.clear();
+  _shiftAnchorImgId = null;
   await loadImages(currentProduct.id);
   _renderProductHeader();
+  _renderSelectionBar();
 }
 // 제품 루트로 복귀 (브레드크럼에서)
 async function exitToProductRoot() {
@@ -748,7 +775,11 @@ function renderSubfolderGrid() {
   </svg>`;
   gridEl.innerHTML = subfolders.map(sf => {
     const safe = JSON.stringify(sf).replace(/"/g, '&quot;');
-    return `<div class="folder-card" onclick="enterSubfolder(${safe})" oncontextmenu="event.preventDefault(); confirmDeleteSubfolder(${safe})" title="${escapeHtml(sf.name)} — 우클릭하면 삭제">
+    const selected = selectedSubfolderIds.has(sf.id);
+    return `<div class="folder-card ${selected ? 'selected' : ''}" data-subfolder-id="${sf.id}" onclick="onSubfolderClick(event, ${safe})" ondblclick="onSubfolderDblClick(event, ${safe})" oncontextmenu="event.preventDefault(); confirmDeleteSubfolder(${safe})" title="${escapeHtml(sf.name)} — 클릭: 선택 / 더블클릭: 열기 / 우클릭: 삭제">
+      <div class="folder-check" title="${selected ? '선택됨' : '미선택'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
       <button class="folder-dl-btn" onclick="event.stopPropagation(); downloadSubfolderZip('${sf.id}', ${JSON.stringify(sf.name).replace(/"/g, '&quot;')})" title="zip 으로 다운로드">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
@@ -757,6 +788,35 @@ function renderSubfolderGrid() {
       <div class="folder-count">${sf.image_count || ''}</div>
     </div>`;
   }).join('');
+}
+// 서브폴더 click/dblclick — 폴더와 동일 패턴
+function onSubfolderClick(e, sf) {
+  if (e && e.shiftKey && _shiftAnchorSubId && _shiftAnchorSubId !== sf.id) {
+    const ordered = subfolders;
+    const fromIdx = ordered.findIndex(x => x.id === _shiftAnchorSubId);
+    const toIdx   = ordered.findIndex(x => x.id === sf.id);
+    if (fromIdx >= 0 && toIdx >= 0) {
+      const [lo, hi] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+      for (let i = lo; i <= hi; i++) selectedSubfolderIds.add(ordered[i].id);
+      renderSubfolderGrid();
+      _renderSelectionBar();
+      return;
+    }
+  }
+  if (_folderClickTimer) { clearTimeout(_folderClickTimer); _folderClickTimer = null; return; }
+  _folderClickTimer = setTimeout(() => {
+    if (selectedSubfolderIds.has(sf.id)) selectedSubfolderIds.delete(sf.id);
+    else selectedSubfolderIds.add(sf.id);
+    _shiftAnchorSubId = sf.id;
+    _folderClickTimer = null;
+    renderSubfolderGrid();
+    _renderSelectionBar();
+  }, 230);
+}
+function onSubfolderDblClick(e, sf) {
+  if (e && e.shiftKey) return;
+  if (_folderClickTimer) { clearTimeout(_folderClickTimer); _folderClickTimer = null; }
+  enterSubfolder(sf);
 }
 function openNewSubfolderModal() {
   if (!currentProduct) return;
@@ -990,29 +1050,46 @@ function _collectImagesUnder(node, topSubName, out) {
 let _rbState = null;
 document.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
-  // 메인 홈 뷰가 활성일 때만 동작 (로그인/제품 상세는 무시)
-  const pageMain  = document.getElementById('page-main');
-  const mainEmpty = document.getElementById('main-empty');
+  // 메인 페이지 활성일 때만
+  const pageMain = document.getElementById('page-main');
   if (!pageMain || pageMain.classList.contains('hidden')) return;
-  if (!mainEmpty || mainEmpty.classList.contains('hidden')) return;
   // 무시 영역 — 자체 동작이 있는 요소들
-  if (e.target.closest('.folder-card')) return;       // 카드 시작은 개별 click/dblclick
+  if (e.target.closest('.folder-card')) return;
+  if (e.target.closest('.img-card')) return;
   if (e.target.closest('.folder-dl-btn')) return;
   if (e.target.closest('#folder-drop-zone')) return;
+  if (e.target.closest('#drop-zone')) return;
   if (e.target.closest('button, a, input, textarea, select, label')) return;
-  if (e.target.closest('aside')) return;              // 좌측 사이드바
-  if (e.target.closest('header')) return;             // 상단 헤더
-  if (e.target.closest('.modal-bd.open')) return;     // 모달
+  if (e.target.closest('aside')) return;
+  if (e.target.closest('header')) return;
+  if (e.target.closest('.modal-bd.open')) return;
   if (e.target.closest('#image-preview:not(.hidden)')) return;
   if (e.target.closest('#selection-bar')) return;
   if (e.target.closest('#storage-stat')) return;
+  // 어떤 컨텍스트(grid kind)인지 판별
+  const mainEmpty = document.getElementById('main-empty');
+  const mainProd  = document.getElementById('main-product');
+  let kind = null;
+  if (mainEmpty && !mainEmpty.classList.contains('hidden')) {
+    kind = 'product';  // 홈 뷰
+  } else if (mainProd && !mainProd.classList.contains('hidden')) {
+    // 제품 상세 — 어느 그리드 영역에 가까운지에 따라 결정
+    if (e.target.closest('#image-grid-main, #image-grid-group')) kind = 'image';
+    else if (e.target.closest('#subfolder-grid')) kind = 'subfolder';
+    else kind = 'product-detail';  // 그 외 빈 공간 — 양쪽 선택 모두 해제
+  }
+  if (!kind) return;
   e.preventDefault();
-  // Shift/Ctrl 시 기존 선택 유지 — 그 외엔 초기화 (드래그 안 한 빈클릭은 mouseup 에서 처리)
   const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+  const baseIds = additive
+    ? (kind === 'product' ? new Set(selectedProductIds)
+       : kind === 'subfolder' ? new Set(selectedSubfolderIds)
+       : kind === 'image' ? new Set(selectedImageIds)
+       : new Set())
+    : new Set();
   _rbState = {
     startX: e.clientX, startY: e.clientY,
-    baseIds: additive ? new Set(selectedProductIds) : new Set(),
-    additive, moved: false, bandEl: null
+    baseIds, additive, moved: false, bandEl: null, kind
   };
   document.addEventListener('mousemove', _rbMove);
   document.addEventListener('mouseup',   _rbEnd);
@@ -1021,7 +1098,6 @@ function _rbMove(e) {
   if (!_rbState) return;
   const dx = e.clientX - _rbState.startX;
   const dy = e.clientY - _rbState.startY;
-  // 5px 이상 이동해야 드래그로 인식 (그 전까진 클릭일 가능성)
   if (!_rbState.moved) {
     if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
     _rbState.moved = true;
@@ -1039,9 +1115,12 @@ function _rbMove(e) {
   _rbState.bandEl.style.width  = w + 'px';
   _rbState.bandEl.style.height = h + 'px';
   const bandL = x, bandT = y, bandR = x + w, bandB = y + h;
-  const cards = document.querySelectorAll('#folder-grid .folder-card');
+  // kind 에 따라 어느 grid 의 카드를 검사할지 결정
+  const cfg = _rbKindCfg(_rbState.kind);
+  if (!cfg) return;
+  const cards = document.querySelectorAll(cfg.selector);
   cards.forEach(card => {
-    const id = card.dataset.productId;
+    const id = card.dataset[cfg.dsKey];
     if (!id) return;
     const r = card.getBoundingClientRect();
     const overlaps = !(r.right < bandL || r.left > bandR || r.bottom < bandT || r.top > bandB);
@@ -1051,24 +1130,43 @@ function _rbMove(e) {
     else if (!shouldSelect && isSelected) card.classList.remove('selected');
   });
 }
+function _rbKindCfg(kind) {
+  if (kind === 'product')  return { selector: '#folder-grid .folder-card',       dsKey: 'productId',   set: selectedProductIds,   render: renderFolderGrid,    anchor: '_shiftAnchorId' };
+  if (kind === 'subfolder')return { selector: '#subfolder-grid .folder-card',    dsKey: 'subfolderId', set: selectedSubfolderIds, render: renderSubfolderGrid, anchor: '_shiftAnchorSubId' };
+  if (kind === 'image')    return { selector: '#image-grid-main .img-card, #image-grid-group .img-card', dsKey: 'imgId', set: selectedImageIds, render: renderImages, anchor: '_shiftAnchorImgId' };
+  return null;
+}
 function _rbEnd() {
   if (!_rbState) return;
-  const { moved, additive, bandEl } = _rbState;
+  const { moved, additive, bandEl, kind } = _rbState;
   if (!moved) {
-    // 빈 공간 단순 클릭 — Shift/Ctrl 안 눌렀으면 전체 선택 해제
-    if (!additive && selectedProductIds.size > 0) {
-      selectedProductIds.clear();
-      _shiftAnchorId = null;
-      renderFolderGrid();
-      _renderSelectionBar();
+    // 단순 클릭 — 컨텍스트별 선택 해제 (Shift/Ctrl 안 누른 경우만)
+    if (!additive) {
+      let changed = false;
+      if (kind === 'product' && selectedProductIds.size) {
+        selectedProductIds.clear(); _shiftAnchorId = null; renderFolderGrid(); changed = true;
+      } else if (kind === 'subfolder' && selectedSubfolderIds.size) {
+        selectedSubfolderIds.clear(); _shiftAnchorSubId = null; renderSubfolderGrid(); changed = true;
+      } else if (kind === 'image' && selectedImageIds.size) {
+        selectedImageIds.clear(); _shiftAnchorImgId = null; renderImages(); changed = true;
+      } else if (kind === 'product-detail') {
+        // 제품 페이지의 일반 빈 영역 — 양쪽 선택 모두 해제
+        if (selectedSubfolderIds.size) { selectedSubfolderIds.clear(); _shiftAnchorSubId = null; renderSubfolderGrid(); changed = true; }
+        if (selectedImageIds.size)     { selectedImageIds.clear();     _shiftAnchorImgId = null; renderImages();        changed = true; }
+      }
+      if (changed) _renderSelectionBar();
     }
   } else {
-    // 드래그 종료 — DOM 의 .selected 를 selectedProductIds 에 최종 반영
-    selectedProductIds.clear();
-    document.querySelectorAll('#folder-grid .folder-card.selected').forEach(card => {
-      if (card.dataset.productId) selectedProductIds.add(card.dataset.productId);
-    });
-    _renderSelectionBar();
+    // 드래그 종료 — DOM 의 .selected 를 해당 set 에 반영
+    const cfg = _rbKindCfg(kind);
+    if (cfg) {
+      cfg.set.clear();
+      document.querySelectorAll(cfg.selector + '.selected').forEach(card => {
+        const id = card.dataset[cfg.dsKey];
+        if (id) cfg.set.add(id);
+      });
+      _renderSelectionBar();
+    }
   }
   if (bandEl?.parentElement) bandEl.parentElement.removeChild(bandEl);
   _rbState = null;
@@ -1077,20 +1175,38 @@ function _rbEnd() {
 }
 
 // ════════════════════════════════════════════════════════
-// 이미지 카드 클릭 / 더블클릭 — 클릭=HTML 복사, 더블클릭=크게 보기
+// 이미지 카드 클릭 / 더블클릭 — 클릭=선택 토글, 더블클릭=크게 보기
+//   HTML/URL 복사는 호버 시 나오는 우상단 버튼으로 사용
 let _imageClickTimer = null;
-function onImageClick(imgId) {
-  // 이미 편집/드래그 중이면 무시 (기존 가드)
+function onImageClick(e, imgId) {
+  // 이미 편집/드래그 중이면 무시
   if (window._suppressClickUntil && Date.now() < window._suppressClickUntil) return;
   if (window._draggingCard) return;
+  // Shift+클릭 — anchor 부터 현재까지 범위 선택
+  if (e && e.shiftKey && _shiftAnchorImgId && _shiftAnchorImgId !== imgId) {
+    const ordered = _ipOrdered();  // 표시 순서 (썸네일 → 상세페이지)
+    const fromIdx = ordered.findIndex(x => x.id === _shiftAnchorImgId);
+    const toIdx   = ordered.findIndex(x => x.id === imgId);
+    if (fromIdx >= 0 && toIdx >= 0) {
+      const [lo, hi] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+      for (let i = lo; i <= hi; i++) selectedImageIds.add(ordered[i].id);
+      renderImages();
+      _renderSelectionBar();
+      return;
+    }
+  }
   if (_imageClickTimer) {
     clearTimeout(_imageClickTimer);
     _imageClickTimer = null;
-    return;  // dblclick 의 일부 — 처리 위임
+    return;
   }
   _imageClickTimer = setTimeout(() => {
-    copyImageHtml(imgId);
+    if (selectedImageIds.has(imgId)) selectedImageIds.delete(imgId);
+    else selectedImageIds.add(imgId);
+    _shiftAnchorImgId = imgId;
     _imageClickTimer = null;
+    renderImages();
+    _renderSelectionBar();
   }, 230);
 }
 
@@ -1201,25 +1317,52 @@ function toggleProductSelect(id) {
   _renderSelectionBar();
 }
 function clearProductSelection() {
+  // '해제' 버튼 — 현재 상황의 모든 선택 해제
   selectedProductIds.clear();
+  selectedSubfolderIds.clear();
+  selectedImageIds.clear();
+  _shiftAnchorId = null;
+  _shiftAnchorSubId = null;
+  _shiftAnchorImgId = null;
   renderFolderGrid();
+  if (currentProduct) {
+    renderSubfolderGrid();
+    renderImages();
+  }
   _renderSelectionBar();
 }
 function selectAllProducts() {
-  products.forEach(p => selectedProductIds.add(p.id));
-  renderFolderGrid();
+  // 컨텍스트별 — 홈에선 제품, 제품 안에선 서브폴더+이미지 전체 선택
+  if (currentProduct) {
+    subfolders.forEach(sf => selectedSubfolderIds.add(sf.id));
+    images.forEach(im => selectedImageIds.add(im.id));
+    renderSubfolderGrid();
+    renderImages();
+  } else {
+    products.forEach(p => selectedProductIds.add(p.id));
+    renderFolderGrid();
+  }
   _renderSelectionBar();
 }
 function _renderSelectionBar() {
   const bar = document.getElementById('selection-bar');
   if (!bar) return;
-  const n = selectedProductIds.size;
-  if (n === 0) { bar.classList.add('hidden'); return; }
-  document.getElementById('selection-count').textContent = n;
+  const total = selectedProductIds.size + selectedSubfolderIds.size + selectedImageIds.size;
+  if (total === 0) { bar.classList.add('hidden'); return; }
+  // 카운트 표시 — 카테고리별로 분해
+  const parts = [];
+  if (selectedProductIds.size)   parts.push(`제품 ${selectedProductIds.size}`);
+  if (selectedSubfolderIds.size) parts.push(`폴더 ${selectedSubfolderIds.size}`);
+  if (selectedImageIds.size)     parts.push(`이미지 ${selectedImageIds.size}`);
+  document.getElementById('selection-count').textContent = parts.join(' · ');
   bar.classList.remove('hidden');
 }
 async function downloadSelectedProducts() {
   if (!window.JSZip) { toast('JSZip 라이브러리 로딩 실패', 'error'); return; }
+  // 컨텍스트별 다운로드 — 제품 / 서브폴더 / 이미지
+  if (selectedSubfolderIds.size > 0 || selectedImageIds.size > 0) {
+    return _downloadSelectedInProduct();
+  }
   const ids = [...selectedProductIds];
   if (!ids.length) { toast('선택된 폴더가 없습니다', 'error'); return; }
   try {
@@ -1273,6 +1416,65 @@ async function downloadSelectedProducts() {
     _triggerDownload(zipBlob, `선택폴더_${ids.length}개_${stamp}.zip`);
     toast(`${done}개 다운로드${fail ? `, ${fail}개 실패` : ''}`, fail ? 'error' : 'success');
     // 다운로드 후 선택 자동 해제
+    clearProductSelection();
+  } catch (e) {
+    hideUploadProgress();
+    showPersistentError('합쳐서 다운로드 실패', e.message || String(e));
+  }
+}
+
+// 제품 안에서 선택한 서브폴더/이미지를 zip 으로 다운로드
+async function _downloadSelectedInProduct() {
+  const subIds = [...selectedSubfolderIds];
+  const imgIds = [...selectedImageIds];
+  if (!subIds.length && !imgIds.length) return;
+  try {
+    showUploadProgress(1);
+    document.getElementById('upload-progress-title').textContent = '선택 항목 정보 조회 중...';
+    // 선택된 서브폴더의 모든 이미지
+    let subImages = [];
+    if (subIds.length) {
+      const { data } = await sb.from('images').select('*').in('subfolder_id', subIds).order('sort_order', { ascending: true });
+      subImages = data || [];
+    }
+    // 선택된 개별 이미지 (이미 메모리에 있음)
+    const directImages = images.filter(im => selectedImageIds.has(im.id));
+    // 서브폴더 정보 (이름 매핑)
+    const subMap = {};
+    subfolders.forEach(sf => { if (selectedSubfolderIds.has(sf.id)) subMap[sf.id] = sf.name; });
+    const total = subImages.length + directImages.length;
+    if (!total) { hideUploadProgress(); toast('다운로드할 이미지가 없습니다', 'error'); return; }
+    showUploadProgress(total);
+    document.getElementById('upload-progress-title').textContent = `${total}개 이미지 다운로드 중...`;
+    const zip = new JSZip();
+    let done = 0, fail = 0;
+    // 서브폴더 안의 이미지 — 폴더 단위로 zip 안에 디렉토리 보존
+    for (const im of subImages) {
+      updateUploadProgress(done, total, im.file_name || '');
+      const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      if (error || !blob) { fail++; continue; }
+      const folderName = _zipSafeName(subMap[im.subfolder_id] || '_unknown');
+      const safe = _zipSafeName(im.file_name || 'image.png');
+      zip.file(_dedupePath(zip, `${folderName}/${safe}`), blob);
+      done++;
+    }
+    // 직접 선택된 이미지 — 루트에 평면 배치
+    for (const im of directImages) {
+      updateUploadProgress(done, total, im.file_name || '');
+      const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      if (error || !blob) { fail++; continue; }
+      const safe = _zipSafeName(im.file_name || 'image.png');
+      zip.file(_dedupePath(zip, safe), blob);
+      done++;
+    }
+    updateUploadProgress(done, total, 'zip 생성 중...');
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    hideUploadProgress();
+    const today = new Date();
+    const stamp = today.getFullYear() + String(today.getMonth()+1).padStart(2,'0') + String(today.getDate()).padStart(2,'0');
+    const prefix = currentProduct ? _zipSafeName(currentProduct.name) : '선택';
+    _triggerDownload(zipBlob, `${prefix}_선택_${stamp}.zip`);
+    toast(`${done}개 다운로드${fail ? `, ${fail}개 실패` : ''}`, fail ? 'error' : 'success');
     clearProductSelection();
   } catch (e) {
     hideUploadProgress();
@@ -1534,9 +1736,13 @@ function _isGroup(im) {
   return /^group/i.test(im.file_name || '');
 }
 function _imgCardHtml(im, idx) {
+  const selected = selectedImageIds.has(im.id);
   return `
-    <div class="img-card" data-img-id="${im.id}" onclick="onImageClick('${im.id}')" ondblclick="openImagePreview('${im.id}')" title="클릭 = HTML 복사 / 더블클릭 = 크게 보기 / 드래그 = 순서 변경">
+    <div class="img-card ${selected ? 'selected' : ''}" data-img-id="${im.id}" onclick="onImageClick(event, '${im.id}')" ondblclick="openImagePreview('${im.id}')" title="클릭=선택 / Shift+클릭=범위 / 더블클릭=크게 보기 / 드래그=순서 변경 / 호버 버튼=URL·HTML 복사">
       <img src="${im.public_url}" alt="${escapeHtml(im.file_name)}" loading="lazy">
+      <div class="img-check" title="${selected ? '선택됨' : '미선택'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
       <div class="img-overlay">
         <div class="img-overlay-top">
           <span class="img-order-badge">#${idx + 1}</span>
