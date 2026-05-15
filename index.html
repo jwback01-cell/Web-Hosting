@@ -910,9 +910,11 @@ async function _processFolderTree(tree) {
   showUploadProgress(allImages.length);
   document.getElementById('upload-progress-title').textContent = `'${tree.name}' 업로드 중...`;
   let done = 0, fail = 0;
+  const failures = [];  // 실패 상세 — handleFiles 와 동일 형식
   for (let i = 0; i < allImages.length; i++) {
     const { file, subName } = allImages[i];
     updateUploadProgress(i, allImages.length, file.name);
+    let stage = '준비';
     try {
       const subfolderId = subName ? (subfolderMap[subName] || null) : null;
       const ts = Date.now() + '_' + i;
@@ -920,11 +922,14 @@ async function _processFolderTree(tree) {
       const ext = extMatch ? extMatch[0].toLowerCase() : '';
       const subPath = subfolderId ? `${subfolderId}/` : '';
       const path = `${newProd.id}/${subPath}img_${ts}${ext}`;
+      stage = 'Storage 업로드';
       const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, {
         contentType: file.type, upsert: false
       });
       if (upErr) throw upErr;
+      stage = 'URL 생성';
       const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(path);
+      stage = 'DB 저장';
       const { error: insErr } = await sb.from('images').insert({
         product_id: newProd.id,
         subfolder_id: subfolderId,
@@ -941,13 +946,32 @@ async function _processFolderTree(tree) {
       }
       done++;
     } catch (e) {
-      console.error('[폴더 업로드 실패]', file.name, e);
+      console.error('[폴더 업로드 실패]', file.name, 'stage=' + stage, e);
+      failures.push({
+        file: file.name + (subName ? ` (${subName}/)` : ''),
+        size: file.size, type: file.type, stage,
+        message: (e && e.message) || String(e),
+        code: (e && e.statusCode) || (e && e.code) || ''
+      });
       fail++;
     }
   }
   hideUploadProgress();
   await loadProducts();
-  toast(`'${tree.name}' — ${done}개 업로드${fail ? `, ${fail}개 실패` : ''}`, fail ? 'error' : 'success');
+  if (fail === 0) {
+    toast(`'${tree.name}' — ${done}개 업로드 완료`, 'success');
+    return;
+  }
+  // 실패 사유 상세 모달 (handleFiles 와 동일 형식)
+  const lines = failures.map((f, idx) => {
+    const sizeKB = (f.size / 1024).toFixed(0);
+    return `${idx+1}. ${f.file}  (${sizeKB} KB, ${f.type || '?'})\n   · 단계: ${f.stage}\n   · 사유: ${f.message}${f.code ? '  [코드: ' + f.code + ']' : ''}`;
+  });
+  const hint = _ppGuessUploadFix(failures);
+  showPersistentError(
+    `'${tree.name}' — ${done}개 완료 · ${fail}개 실패`,
+    lines.join('\n\n') + (hint ? '\n\n💡 ' + hint : '')
+  );
 }
 
 function _collectImagesUnder(node, topSubName, out) {
