@@ -204,13 +204,27 @@
             새 제품
           </button>
         </div>
+
+        <!-- 폴더 드래그 영역 — 폴더를 끌어다 놓으면 새 제품으로 자동 생성 -->
+        <label class="drop-zone block mb-5" id="folder-drop-zone"
+               ondragover="handleFolderDragOver(event)"
+               ondragleave="handleFolderDragLeave(event)"
+               ondrop="handleFolderDrop(event)">
+          <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden" onchange="handleFolderInput(event); event.target.value='';">
+          <div class="flex flex-col items-center gap-2 pointer-events-none">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <div class="font-bold text-sm">폴더를 끌어다 놓으면 새 제품으로 자동 생성</div>
+            <div class="text-xs text-brand-gray">폴더명 = 제품명 · 안의 모든 이미지 자동 업로드 · 하위 폴더는 서브폴더로</div>
+          </div>
+        </label>
+
         <div id="folder-grid" class="folder-grid"></div>
         <div id="folder-empty-msg" class="hidden text-center py-16">
           <div class="w-20 h-20 mx-auto bg-brand-bg rounded-full flex items-center justify-center mb-4">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           </div>
           <h3 class="font-bold text-lg mb-2">아직 제품이 없습니다</h3>
-          <p class="text-brand-gray text-sm">위 "새 제품" 버튼을 눌러 첫 제품을 추가해보세요.</p>
+          <p class="text-brand-gray text-sm">위 "새 제품" 버튼을 누르거나 폴더를 드래그해서 추가하세요.</p>
         </div>
       </section>
 
@@ -698,6 +712,185 @@ function openNewSubfolderModal() {
     }
   });
 }
+// ════════════════════════════════════════════════════════
+// 폴더 드래그 업로드 — 폴더 → 자동 제품 생성
+// ════════════════════════════════════════════════════════
+function handleFolderDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('dragover'); }
+function handleFolderDragLeave(e) { e.currentTarget.classList.remove('dragover'); }
+
+async function handleFolderDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('dragover');
+  const items = event.dataTransfer.items ? [...event.dataTransfer.items] : [];
+
+  // 폴더 entry 만 추출 (브라우저 webkitGetAsEntry 사용)
+  const folderEntries = [];
+  for (const item of items) {
+    if (item.kind !== 'file') continue;
+    const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+    if (entry && entry.isDirectory) folderEntries.push(entry);
+  }
+  if (!folderEntries.length) {
+    toast('폴더를 끌어다 놓아주세요 (개별 파일은 제품 안에서 업로드)', 'error');
+    return;
+  }
+  // 여러 폴더 드롭 시 순차 처리
+  for (const entry of folderEntries) {
+    await _createProductFromFolderEntry(entry);
+  }
+}
+
+// '폴더 선택' 버튼(<input webkitdirectory>) — 입력으로 들어온 모든 파일을 webkitRelativePath 로 트리 복원
+async function handleFolderInput(event) {
+  const files = [...event.target.files];
+  if (!files.length) return;
+  // 최상위 폴더명 추출 (모든 파일의 첫 path segment 가 동일해야 함)
+  const firstPath = files[0].webkitRelativePath || files[0].name;
+  const rootName = firstPath.split('/')[0];
+  // 트리 형태로 변환
+  const tree = { name: rootName, files: [], subfolders: {} };
+  for (const f of files) {
+    const parts = (f.webkitRelativePath || f.name).split('/');
+    parts.shift();  // 루트 폴더명 제거
+    let node = tree;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const sub = parts[i];
+      if (!node.subfolders[sub]) node.subfolders[sub] = { name: sub, files: [], subfolders: {} };
+      node = node.subfolders[sub];
+    }
+    node.files.push(f);
+  }
+  // input 트리 → entry 기반 트리 모양으로 변환 (재귀 처리용)
+  const flatTree = _flattenInputTree(tree);
+  await _processFolderTree(flatTree);
+}
+function _flattenInputTree(node) {
+  return {
+    name: node.name,
+    files: node.files,
+    subfolders: Object.values(node.subfolders).map(_flattenInputTree)
+  };
+}
+
+async function _createProductFromFolderEntry(folderEntry) {
+  showUploadProgress(1);
+  document.getElementById('upload-progress-title').textContent = `'${folderEntry.name}' 폴더 읽는 중...`;
+  const tree = await _readFolderTreeFromEntry(folderEntry);
+  await _processFolderTree(tree);
+}
+
+async function _readFolderTreeFromEntry(directoryEntry) {
+  const tree = { name: directoryEntry.name, files: [], subfolders: [] };
+  const reader = directoryEntry.createReader();
+  // readEntries 는 한 번에 최대 ~100개만 반환하므로 빌 때까지 반복
+  let entries = [];
+  while (true) {
+    const batch = await new Promise((resolve) => reader.readEntries(resolve, () => resolve([])));
+    if (!batch.length) break;
+    entries.push(...batch);
+  }
+  for (const entry of entries) {
+    if (entry.isFile) {
+      const file = await new Promise((resolve) => entry.file(resolve, () => resolve(null)));
+      if (file) tree.files.push(file);
+    } else if (entry.isDirectory) {
+      const sub = await _readFolderTreeFromEntry(entry);
+      tree.subfolders.push(sub);
+    }
+  }
+  return tree;
+}
+
+// 공통 처리: tree({name, files, subfolders[]}) → 제품 생성 + 이미지 업로드
+async function _processFolderTree(tree) {
+  // 모든 이미지 파일 수집 (1단계 하위 폴더까지만 — 그 이상은 모두 평면화)
+  const allImages = [];  // [{ file, subName }]
+  for (const f of tree.files) {
+    if (f.type.startsWith('image/')) allImages.push({ file: f, subName: null });
+  }
+  for (const sub of tree.subfolders) {
+    _collectImagesUnder(sub, sub.name, allImages);
+  }
+  if (!allImages.length) {
+    hideUploadProgress();
+    toast(`'${tree.name}' 폴더에 이미지가 없습니다`, 'error');
+    return;
+  }
+  // 제품 생성
+  document.getElementById('upload-progress-title').textContent = `'${tree.name}' 제품 생성 중...`;
+  const nextOrder = products.length ? Math.max(...products.map(p => p.sort_order || 0)) + 1 : 1;
+  const payload = { name: tree.name, sort_order: nextOrder };
+  if (currentUser && currentUser.id) payload.owner_id = currentUser.id;
+  const { data: newProd, error: pErr } = await sb.from('products').insert(payload).select().single();
+  if (pErr) {
+    hideUploadProgress();
+    showPersistentError('제품 생성 실패', pErr.message);
+    return;
+  }
+  products.push(newProd);
+  // 서브폴더 생성 (subName 별로 한 번만)
+  const subfolderMap = {};
+  const subNames = [...new Set(allImages.map(x => x.subName).filter(Boolean))];
+  for (let i = 0; i < subNames.length; i++) {
+    const { data: sf } = await sb.from('subfolders').insert({
+      product_id: newProd.id, name: subNames[i], sort_order: i + 1
+    }).select().single();
+    if (sf) subfolderMap[subNames[i]] = sf.id;
+  }
+  // 이미지 업로드
+  showUploadProgress(allImages.length);
+  document.getElementById('upload-progress-title').textContent = `'${tree.name}' 업로드 중...`;
+  let done = 0, fail = 0;
+  for (let i = 0; i < allImages.length; i++) {
+    const { file, subName } = allImages[i];
+    updateUploadProgress(i, allImages.length, file.name);
+    try {
+      const subfolderId = subName ? (subfolderMap[subName] || null) : null;
+      const ts = Date.now() + '_' + i;
+      const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
+      const ext = extMatch ? extMatch[0].toLowerCase() : '';
+      const subPath = subfolderId ? `${subfolderId}/` : '';
+      const path = `${newProd.id}/${subPath}img_${ts}${ext}`;
+      const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, {
+        contentType: file.type, upsert: false
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(path);
+      const { error: insErr } = await sb.from('images').insert({
+        product_id: newProd.id,
+        subfolder_id: subfolderId,
+        storage_path: path,
+        public_url: pub.publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        sort_order: i + 1,
+        uploaded_by: currentUser && currentUser.id ? currentUser.id : null
+      });
+      if (insErr) {
+        try { await sb.storage.from(BUCKET_NAME).remove([path]); } catch(_) {}
+        throw insErr;
+      }
+      done++;
+    } catch (e) {
+      console.error('[폴더 업로드 실패]', file.name, e);
+      fail++;
+    }
+  }
+  hideUploadProgress();
+  await loadProducts();
+  toast(`'${tree.name}' — ${done}개 업로드${fail ? `, ${fail}개 실패` : ''}`, fail ? 'error' : 'success');
+}
+
+function _collectImagesUnder(node, topSubName, out) {
+  // 1단계 이하 폴더의 이미지를 모두 같은 topSubName(첫 단계 폴더명) 으로 평면화
+  for (const f of node.files) {
+    if (f.type.startsWith('image/')) out.push({ file: f, subName: topSubName });
+  }
+  for (const sub of node.subfolders) {
+    _collectImagesUnder(sub, topSubName, out);
+  }
+}
+
 // ════════════════════════════════════════════════════════
 // 폴더 zip 다운로드 — JSZip 사용
 // ════════════════════════════════════════════════════════
