@@ -2424,7 +2424,7 @@ function formatDate(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 // 저장소 사용량 — 모든 이미지의 file_size 합계 / 무료 플랜 기준 1GB
-const STORAGE_QUOTA_BYTES = 1024 * 1024 * 1024;  // 1 GB (Supabase Free)
+const STORAGE_QUOTA_BYTES = 10 * 1024 * 1024 * 1024;  // 10 GB (Cloudflare R2 Free)
 async function updateStorageStat() {
   try {
     // file_size 만 가벼운 select
