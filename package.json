@@ -1,0 +1,9 @@
+{
+  "name": "image-host",
+  "version": "1.0.0",
+  "private": true,
+  "description": "사내용 이미지 저장소 — Cloudflare R2 + Supabase Auth/DB",
+  "dependencies": {
+    "aws4fetch": "^1.0.20"
+  }
+}

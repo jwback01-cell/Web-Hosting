@@ -425,8 +425,84 @@
 // ════════════════════════════════════════════════════════
 // Supabase 초기화 — 사이트 내 설정 UI 로 안전하게 처리
 // ════════════════════════════════════════════════════════
-const BUCKET_NAME = 'product-images';
+const BUCKET_NAME = 'product-images'; // 레거시 — Supabase Storage 호환용 (오래된 이미지 경로)
 let sb = null;
+
+// ════════════════════════════════════════════════════════
+// Cloudflare R2 — 새 업로드 / 삭제 / 다운로드 헬퍼
+// 업로드/삭제: Vercel 함수에 presigned URL 요청 후 브라우저가 직접 R2 호출
+// 다운로드: 저장된 public_url 로 fetch (R2.dev CDN 직접)
+// ════════════════════════════════════════════════════════
+async function _r2GetAuthToken() {
+  if (!sb) throw new Error('Supabase 가 초기화되지 않았습니다');
+  const s = await sb.auth.getSession();
+  const tok = s && s.data && s.data.session && s.data.session.access_token;
+  if (!tok) throw new Error('로그인 정보가 없습니다 — 다시 로그인해주세요');
+  return tok;
+}
+
+async function r2Upload(key, file) {
+  const token = await _r2GetAuthToken();
+  // 1) presigned URL 발급
+  const r = await fetch('/api/r2-presign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream', action: 'put' }),
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.error || `presign 실패 (HTTP ${r.status})`);
+  }
+  const { presignedUrl, publicUrl } = await r.json();
+  // 2) 파일을 R2 에 직접 PUT
+  const put = await fetch(presignedUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file,
+  });
+  if (!put.ok) {
+    const txt = await put.text().catch(() => '');
+    throw new Error(`R2 업로드 실패 (HTTP ${put.status}) ${txt.slice(0, 200)}`);
+  }
+  return { publicUrl, key };
+}
+
+async function r2Delete(keys) {
+  const arr = Array.isArray(keys) ? keys : [keys];
+  if (!arr.length) return;
+  let token;
+  try { token = await _r2GetAuthToken(); } catch (_) { return; }
+  await Promise.all(arr.filter(Boolean).map(async (key) => {
+    try {
+      const r = await fetch('/api/r2-presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ key, action: 'delete' }),
+      });
+      if (!r.ok) return;
+      const { presignedUrl } = await r.json();
+      await fetch(presignedUrl, { method: 'DELETE' });
+    } catch (_) { /* 실패해도 다른 키는 계속 시도 */ }
+  }));
+}
+
+// 다운로드: storage_path 와 public_url 둘 중 가능한 것으로 blob 반환
+//  - 신규 이미지(R2): public_url 로 fetch
+//  - 레거시 이미지(Supabase): public_url 도 동작하지만, 만약 비공개면 supabase storage 로 fallback
+async function r2Download(imageRow) {
+  const url = imageRow && imageRow.public_url;
+  if (url) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) return { data: await r.blob(), error: null };
+    } catch (_) { /* fallback */ }
+  }
+  // fallback — 레거시 Supabase Storage
+  if (imageRow && imageRow.storage_path && sb) {
+    return await sb.storage.from(BUCKET_NAME).download(imageRow.storage_path);
+  }
+  return { data: null, error: new Error('이미지를 찾을 수 없습니다') };
+}
 
 function getSupabaseConfig() {
   return {
@@ -995,26 +1071,21 @@ async function _processFolderTree(tree) {
       const ext = extMatch ? extMatch[0].toLowerCase() : '';
       const subPath = subfolderId ? `${subfolderId}/` : '';
       const path = `${newProd.id}/${subPath}img_${ts}${ext}`;
-      stage = 'Storage 업로드';
-      const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, {
-        contentType: file.type, upsert: false
-      });
-      if (upErr) throw upErr;
-      stage = 'URL 생성';
-      const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(path);
+      stage = 'R2 업로드';
+      const { publicUrl } = await r2Upload(path, file);
       stage = 'DB 저장';
       const { error: insErr } = await sb.from('images').insert({
         product_id: newProd.id,
         subfolder_id: subfolderId,
         storage_path: path,
-        public_url: pub.publicUrl,
+        public_url: publicUrl,
         file_name: file.name,
         file_size: file.size,
         sort_order: i + 1,
         uploaded_by: currentUser && currentUser.id ? currentUser.id : null
       });
       if (insErr) {
-        try { await sb.storage.from(BUCKET_NAME).remove([path]); } catch(_) {}
+        try { await r2Delete(path); } catch(_) {}
         throw insErr;
       }
       done++;
@@ -1132,14 +1203,14 @@ async function _doDeleteSelected() {
     for (const id of selectedProductIds) {
       const { data: imgs } = await sb.from('images').select('storage_path').eq('product_id', id);
       if (imgs?.length) {
-        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+        try { await r2Delete(imgs.map(x => x.storage_path)); } catch(_) {}
       }
       await sb.from('products').delete().eq('id', id);
     }
     for (const id of selectedSubfolderIds) {
       const { data: imgs } = await sb.from('images').select('storage_path').eq('subfolder_id', id);
       if (imgs?.length) {
-        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+        try { await r2Delete(imgs.map(x => x.storage_path)); } catch(_) {}
       }
       await sb.from('subfolders').delete().eq('id', id);
     }
@@ -1147,7 +1218,7 @@ async function _doDeleteSelected() {
       const imgIds = [...selectedImageIds];
       const { data: imgs } = await sb.from('images').select('storage_path').in('id', imgIds);
       if (imgs?.length) {
-        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+        try { await r2Delete(imgs.map(x => x.storage_path)); } catch(_) {}
       }
       await sb.from('images').delete().in('id', imgIds);
     }
@@ -1556,7 +1627,7 @@ async function downloadSelectedProducts() {
       const prodFolderName = _zipSafeName(product.name);
       for (const im of images) {
         updateUploadProgress(done, totalImgs, `${product.name} / ${im.file_name || ''}`);
-        const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+        const { data: blob, error } = await r2Download(im);
         if (error || !blob) { fail++; continue; }
         const subName = im.subfolder_id ? (subMap[im.subfolder_id] || '_unknown') : '';
         const safeFile = _zipSafeName(im.file_name || 'image.png');
@@ -1610,7 +1681,7 @@ async function _downloadSelectedInProduct() {
     // 서브폴더 안의 이미지 — 폴더 단위로 zip 안에 디렉토리 보존
     for (const im of subImages) {
       updateUploadProgress(done, total, im.file_name || '');
-      const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      const { data: blob, error } = await r2Download(im);
       if (error || !blob) { fail++; continue; }
       const folderName = _zipSafeName(subMap[im.subfolder_id] || '_unknown');
       const safe = _zipSafeName(im.file_name || 'image.png');
@@ -1620,7 +1691,7 @@ async function _downloadSelectedInProduct() {
     // 직접 선택된 이미지 — 루트에 평면 배치
     for (const im of directImages) {
       updateUploadProgress(done, total, im.file_name || '');
-      const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      const { data: blob, error } = await r2Download(im);
       if (error || !blob) { fail++; continue; }
       const safe = _zipSafeName(im.file_name || 'image.png');
       zip.file(_dedupePath(zip, safe), blob);
@@ -1665,7 +1736,7 @@ async function downloadProductZip(productId, productName) {
     let done = 0, fail = 0;
     for (const im of allImages) {
       updateUploadProgress(done, allImages.length, im.file_name || '');
-      const { data: blob, error } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      const { data: blob, error } = await r2Download(im);
       if (error || !blob) { fail++; continue; }
       // 파일 경로 결정: 서브폴더 있으면 그 안에, 없으면 루트
       const folderName = im.subfolder_id ? (subMap[im.subfolder_id] || '_unknown') : '';
@@ -1697,7 +1768,7 @@ async function downloadSubfolderZip(subfolderId, subfolderName) {
     let done = 0, fail = 0;
     for (const im of imgs) {
       updateUploadProgress(done, imgs.length, im.file_name || '');
-      const { data: blob, error: dlErr } = await sb.storage.from(BUCKET_NAME).download(im.storage_path);
+      const { data: blob, error: dlErr } = await r2Download(im);
       if (dlErr || !blob) { fail++; continue; }
       const finalPath = _dedupePath(zip, _zipSafeName(im.file_name || 'image.png'));
       zip.file(finalPath, blob);
@@ -1751,7 +1822,7 @@ function confirmDeleteSubfolder(sf) {
       // 1) 해당 서브폴더의 이미지들 storage path 모음 → Storage 일괄 삭제
       const { data: imgs } = await sb.from('images').select('storage_path').eq('subfolder_id', sf.id);
       if (imgs && imgs.length) {
-        try { await sb.storage.from(BUCKET_NAME).remove(imgs.map(x => x.storage_path)); } catch(_) {}
+        try { await r2Delete(imgs.map(x => x.storage_path)); } catch(_) {}
       }
       // 2) 서브폴더 삭제 (cascade 로 images 도 자동 삭제됨)
       const { error } = await sb.from('subfolders').delete().eq('id', sf.id);
@@ -1889,7 +1960,7 @@ function confirmDeleteProduct() {
       // 1) Storage 이미지 일괄 삭제
       if (images.length) {
         const paths = images.map(im => im.storage_path);
-        await sb.storage.from(BUCKET_NAME).remove(paths);
+        await r2Delete(paths);
       }
       // 2) DB 제품 삭제 (cascade 로 images 도 삭제됨)
       const { error } = await sb.from('products').delete().eq('id', currentProduct.id);
@@ -2054,7 +2125,7 @@ function confirmDeleteImage(imgId) {
     danger: true,
     onOk: async () => {
       // Storage 에서 먼저 제거
-      await sb.storage.from(BUCKET_NAME).remove([im.storage_path]);
+      await r2Delete([im.storage_path]);
       // DB 행 제거
       const { error } = await sb.from('images').delete().eq('id', imgId);
       if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
@@ -2091,21 +2162,11 @@ async function handleFiles(fileList) {
       const path = `${currentProduct.id}/${subPath}img_${ts}${ext}`;
       console.log('[업로드 시도]', file.name, '→', path);
 
-      // 1) Storage 업로드
-      stage = 'Storage 업로드';
-      const { error: upErr } = await sb.storage.from(BUCKET_NAME).upload(path, file, {
-        contentType: file.type,
-        upsert: false
-      });
-      if (upErr) throw upErr;
+      // 1) R2 업로드 (Vercel 함수에 presign 요청 → 브라우저가 R2 에 직접 PUT)
+      stage = 'R2 업로드';
+      const { publicUrl } = await r2Upload(path, file);
 
-      // 2) 공개 URL 생성
-      stage = 'URL 생성';
-      const { data: pub } = sb.storage.from(BUCKET_NAME).getPublicUrl(path);
-      const publicUrl = pub && pub.publicUrl;
-      if (!publicUrl) throw new Error('공개 URL 을 생성하지 못했습니다.');
-
-      // 3) DB images 테이블 insert
+      // 2) DB images 테이블 insert
       stage = 'DB 저장';
       const payload = {
         product_id: currentProduct.id,
@@ -2119,8 +2180,8 @@ async function handleFiles(fileList) {
       if (currentUser && currentUser.id) payload.uploaded_by = currentUser.id;
       const { data: row, error: insErr } = await sb.from('images').insert(payload).select().single();
       if (insErr) {
-        // DB insert 실패 — 이미 올라간 Storage 파일은 롤백 (고아 방지)
-        try { await sb.storage.from(BUCKET_NAME).remove([path]); } catch(_) {}
+        // DB insert 실패 — 이미 올라간 R2 파일은 롤백 (고아 방지)
+        try { await r2Delete(path); } catch(_) {}
         throw insErr;
       }
       images.push(row);
