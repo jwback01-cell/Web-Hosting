@@ -441,21 +441,36 @@ async function _r2GetAuthToken() {
   return tok;
 }
 
-async function r2Upload(key, file) {
+// 배치 presign — items: [{key, contentType?, action: 'put' | 'delete'}]
+async function r2BulkPresign(items) {
+  if (!items || !items.length) return { items: [] };
   const token = await _r2GetAuthToken();
-  // 1) presigned URL 발급
-  const r = await fetch('/api/r2-presign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ key, contentType: file.type || 'application/octet-stream', action: 'put' }),
-  });
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({}));
-    throw new Error(e.error || `presign 실패 (HTTP ${r.status})`);
+  // 200개씩 끊어서 요청
+  const CHUNK = 200;
+  const out = [];
+  for (let s = 0; s < items.length; s += CHUNK) {
+    const chunk = items.slice(s, s + CHUNK);
+    const r = await fetch('/api/r2-presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ items: chunk }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(e.error || `presign 실패 (HTTP ${r.status})`);
+    }
+    const data = await r.json();
+    out.push(...(data.items || []));
   }
-  const { presignedUrl, publicUrl } = await r.json();
-  // 2) 파일을 R2 에 직접 PUT
-  const put = await fetch(presignedUrl, {
+  return { items: out };
+}
+
+// 단일 파일 업로드 — 호환용 (배치 위에서 동작)
+async function r2Upload(key, file) {
+  const { items } = await r2BulkPresign([{ key, contentType: file.type || 'application/octet-stream', action: 'put' }]);
+  const s = items[0];
+  if (!s) throw new Error('presign 결과가 비어 있습니다');
+  const put = await fetch(s.presignedUrl, {
     method: 'PUT',
     headers: { 'Content-Type': file.type || 'application/octet-stream' },
     body: file,
@@ -464,25 +479,75 @@ async function r2Upload(key, file) {
     const txt = await put.text().catch(() => '');
     throw new Error(`R2 업로드 실패 (HTTP ${put.status}) ${txt.slice(0, 200)}`);
   }
-  return { publicUrl, key };
+  return { publicUrl: s.publicUrl, key };
 }
 
+// 다수 파일 업로드 — 배치 presign + 동시 N개 병렬 PUT
+//   items: [{ key, file }]
+//   onProgress: (done, total, name) => void
+//   returns: 입력과 같은 길이의 [{ key, publicUrl } | { key, error }]
+async function r2BulkUpload(items, onProgress, concurrency = 5) {
+  if (!items.length) return [];
+  // 1) 배치 presign — 인증·서명 한 번에
+  let signed;
+  try {
+    const data = await r2BulkPresign(items.map(it => ({
+      key: it.key, contentType: it.file.type || 'application/octet-stream', action: 'put',
+    })));
+    signed = data.items;
+  } catch (e) {
+    return items.map(it => ({ key: it.key, error: e }));
+  }
+  // 2) 병렬 PUT — concurrency 만큼 워커 실행
+  const results = new Array(items.length);
+  let done = 0;
+  let nextIdx = 0;
+  const total = items.length;
+  async function worker() {
+    while (true) {
+      const i = nextIdx++;
+      if (i >= total) return;
+      const it = items[i];
+      const s = signed[i];
+      if (!s) {
+        results[i] = { key: it.key, error: new Error('presign 결과 없음') };
+      } else {
+        try {
+          const put = await fetch(s.presignedUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': it.file.type || 'application/octet-stream' },
+            body: it.file,
+          });
+          if (!put.ok) {
+            const txt = await put.text().catch(() => '');
+            throw new Error(`HTTP ${put.status} ${txt.slice(0, 150)}`);
+          }
+          results[i] = { key: it.key, publicUrl: s.publicUrl };
+        } catch (e) {
+          results[i] = { key: it.key, error: e };
+        }
+      }
+      done++;
+      if (onProgress) onProgress(done, total, (it.file && it.file.name) || it.key);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, total) }, worker));
+  return results;
+}
+
+// 배치 삭제 — N개 키 한 번에 presign 후 병렬 DELETE
 async function r2Delete(keys) {
   const arr = Array.isArray(keys) ? keys : [keys];
-  if (!arr.length) return;
-  let token;
-  try { token = await _r2GetAuthToken(); } catch (_) { return; }
-  await Promise.all(arr.filter(Boolean).map(async (key) => {
-    try {
-      const r = await fetch('/api/r2-presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ key, action: 'delete' }),
-      });
-      if (!r.ok) return;
-      const { presignedUrl } = await r.json();
-      await fetch(presignedUrl, { method: 'DELETE' });
-    } catch (_) { /* 실패해도 다른 키는 계속 시도 */ }
+  const filtered = arr.filter(Boolean);
+  if (!filtered.length) return;
+  let signed;
+  try {
+    const data = await r2BulkPresign(filtered.map(k => ({ key: k, action: 'delete' })));
+    signed = data.items;
+  } catch (_) { return; /* 실패 시 무시 (고아 파일은 별도 정리) */ }
+  await Promise.all(signed.map(s => {
+    if (!s || !s.presignedUrl) return;
+    return fetch(s.presignedUrl, { method: 'DELETE' }).catch(() => {});
   }));
 }
 
@@ -1055,51 +1120,61 @@ async function _processFolderTree(tree) {
     }).select().single();
     if (sf) subfolderMap[subNames[i]] = sf.id;
   }
-  // 이미지 업로드
+  // 이미지 업로드 (배치 presign + 병렬 PUT)
   showUploadProgress(allImages.length);
   document.getElementById('upload-progress-title').textContent = `'${tree.name}' 업로드 중...`;
   let done = 0, fail = 0;
-  const failures = [];  // 실패 상세 — handleFiles 와 동일 형식
-  for (let i = 0; i < allImages.length; i++) {
-    const { file, subName } = allImages[i];
-    updateUploadProgress(i, allImages.length, file.name);
-    let stage = '준비';
-    try {
-      const subfolderId = subName ? (subfolderMap[subName] || null) : null;
-      const ts = Date.now() + '_' + i;
-      const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
-      const ext = extMatch ? extMatch[0].toLowerCase() : '';
-      const subPath = subfolderId ? `${subfolderId}/` : '';
-      const path = `${newProd.id}/${subPath}img_${ts}${ext}`;
-      stage = 'R2 업로드';
-      const { publicUrl } = await r2Upload(path, file);
-      stage = 'DB 저장';
-      const { error: insErr } = await sb.from('images').insert({
-        product_id: newProd.id,
-        subfolder_id: subfolderId,
-        storage_path: path,
-        public_url: publicUrl,
-        file_name: file.name,
-        file_size: file.size,
-        sort_order: i + 1,
-        uploaded_by: currentUser && currentUser.id ? currentUser.id : null
-      });
-      if (insErr) {
-        try { await r2Delete(path); } catch(_) {}
-        throw insErr;
-      }
-      done++;
-    } catch (e) {
-      console.error('[폴더 업로드 실패]', file.name, 'stage=' + stage, e);
+  const failures = [];
+  // 1) path/file 묶음 준비
+  const ts0 = Date.now();
+  const uploadItems = allImages.map((a, i) => {
+    const subfolderId = a.subName ? (subfolderMap[a.subName] || null) : null;
+    const extMatch = a.file.name.match(/\.[a-zA-Z0-9]+$/);
+    const ext = extMatch ? extMatch[0].toLowerCase() : '';
+    const subPath = subfolderId ? `${subfolderId}/` : '';
+    return { key: `${newProd.id}/${subPath}img_${ts0}_${i}${ext}`, file: a.file, subName: a.subName, subfolderId };
+  });
+  // 2) R2 배치 업로드 (병렬 5개)
+  const upResults = await r2BulkUpload(
+    uploadItems,
+    (d, t, name) => updateUploadProgress(d, t, name),
+    5
+  );
+  // 3) DB insert — 성공한 것만 (병렬, sort_order 순)
+  await Promise.all(uploadItems.map(async (it, i) => {
+    const r = upResults[i];
+    if (!r || r.error) {
       failures.push({
-        file: file.name + (subName ? ` (${subName}/)` : ''),
-        size: file.size, type: file.type, stage,
-        message: (e && e.message) || String(e),
-        code: (e && e.statusCode) || (e && e.code) || ''
+        file: it.file.name + (it.subName ? ` (${it.subName}/)` : ''),
+        size: it.file.size, type: it.file.type, stage: 'R2 업로드',
+        message: (r && r.error && r.error.message) || 'R2 업로드 실패',
+        code: '',
       });
       fail++;
+      return;
     }
-  }
+    const { error: insErr } = await sb.from('images').insert({
+      product_id: newProd.id,
+      subfolder_id: it.subfolderId,
+      storage_path: it.key,
+      public_url: r.publicUrl,
+      file_name: it.file.name,
+      file_size: it.file.size,
+      sort_order: i + 1,
+      uploaded_by: currentUser && currentUser.id ? currentUser.id : null,
+    });
+    if (insErr) {
+      try { await r2Delete(it.key); } catch (_) {}
+      failures.push({
+        file: it.file.name + (it.subName ? ` (${it.subName}/)` : ''),
+        size: it.file.size, type: it.file.type, stage: 'DB 저장',
+        message: insErr.message || String(insErr), code: insErr.code || '',
+      });
+      fail++;
+      return;
+    }
+    done++;
+  }));
   hideUploadProgress();
   await loadProducts();
   if (fail === 0) {
@@ -2147,60 +2222,61 @@ async function handleFiles(fileList) {
   showUploadProgress(files.length);
   const baseOrder = images.length ? Math.max(...images.map(i => i.sort_order || 0)) : 0;
   let done = 0, fail = 0;
-  const failures = [];  // [{file, stage, message, code}]
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    updateUploadProgress(i, files.length, file.name);
-    let stage = '준비';
-    try {
-      const ts = Date.now() + '_' + i;
-      // Supabase Storage key 는 ASCII 영문·숫자·일부 기호만 허용 — 한글 포함 시 'Invalid key' 에러
-      // 그래서 저장 경로는 안전한 ASCII 이름으로, 원본 파일명은 DB(file_name) 에 보존
-      const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
-      const ext = extMatch ? extMatch[0].toLowerCase() : '';
-      const subPath = currentSubfolder ? `${currentSubfolder.id}/` : '';
-      const path = `${currentProduct.id}/${subPath}img_${ts}${ext}`;
-      console.log('[업로드 시도]', file.name, '→', path);
-
-      // 1) R2 업로드 (Vercel 함수에 presign 요청 → 브라우저가 R2 에 직접 PUT)
-      stage = 'R2 업로드';
-      const { publicUrl } = await r2Upload(path, file);
-
-      // 2) DB images 테이블 insert
-      stage = 'DB 저장';
-      const payload = {
-        product_id: currentProduct.id,
-        subfolder_id: currentSubfolder ? currentSubfolder.id : null,
-        storage_path: path,
-        public_url: publicUrl,
-        file_name: file.name,
-        file_size: file.size,
-        sort_order: baseOrder + i + 1
-      };
-      if (currentUser && currentUser.id) payload.uploaded_by = currentUser.id;
-      const { data: row, error: insErr } = await sb.from('images').insert(payload).select().single();
-      if (insErr) {
-        // DB insert 실패 — 이미 올라간 R2 파일은 롤백 (고아 방지)
-        try { await r2Delete(path); } catch(_) {}
-        throw insErr;
-      }
-      images.push(row);
-      renderImages();
-      done++;
-      console.log('[업로드 성공]', file.name);
-    } catch (e) {
-      console.error('[업로드 실패]', file.name, 'stage=' + stage, e);
+  const failures = [];
+  // 1) path/file 묶음 준비
+  const ts0 = Date.now();
+  const subPath = currentSubfolder ? `${currentSubfolder.id}/` : '';
+  const uploadItems = files.map((file, i) => {
+    const extMatch = file.name.match(/\.[a-zA-Z0-9]+$/);
+    const ext = extMatch ? extMatch[0].toLowerCase() : '';
+    return { key: `${currentProduct.id}/${subPath}img_${ts0}_${i}${ext}`, file };
+  });
+  // 2) R2 배치 업로드 (병렬 5개)
+  const upResults = await r2BulkUpload(
+    uploadItems,
+    (d, t, name) => updateUploadProgress(d, t, name),
+    5
+  );
+  // 3) DB insert — 성공한 것만, sort_order 유지
+  const insertedRows = await Promise.all(uploadItems.map(async (it, i) => {
+    const r = upResults[i];
+    if (!r || r.error) {
       failures.push({
-        file: file.name,
-        size: file.size,
-        type: file.type,
-        stage,
-        message: (e && e.message) || String(e),
-        code: (e && e.statusCode) || (e && e.code) || ''
+        file: it.file.name, size: it.file.size, type: it.file.type,
+        stage: 'R2 업로드',
+        message: (r && r.error && r.error.message) || 'R2 업로드 실패',
+        code: '',
       });
       fail++;
+      return null;
     }
-  }
+    const payload = {
+      product_id: currentProduct.id,
+      subfolder_id: currentSubfolder ? currentSubfolder.id : null,
+      storage_path: it.key,
+      public_url: r.publicUrl,
+      file_name: it.file.name,
+      file_size: it.file.size,
+      sort_order: baseOrder + i + 1,
+    };
+    if (currentUser && currentUser.id) payload.uploaded_by = currentUser.id;
+    const { data: row, error: insErr } = await sb.from('images').insert(payload).select().single();
+    if (insErr) {
+      try { await r2Delete(it.key); } catch (_) {}
+      failures.push({
+        file: it.file.name, size: it.file.size, type: it.file.type,
+        stage: 'DB 저장',
+        message: insErr.message || String(insErr), code: insErr.code || '',
+      });
+      fail++;
+      return null;
+    }
+    done++;
+    return row;
+  }));
+  // sort_order 순으로 images 리스트에 추가
+  insertedRows.filter(Boolean).forEach(row => images.push(row));
+  renderImages();
   hideUploadProgress();
   updateStorageStat();  // 사용량 즉시 갱신
 
