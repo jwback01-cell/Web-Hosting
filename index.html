@@ -52,6 +52,9 @@
   .pending-input:focus  { background: #fff; box-shadow: inset 0 0 0 1px #E5E7EB; }
   /* 빈 input 은 hover/focus 도 강조 안 함 */
   .pending-input:placeholder-shown:not(:focus):hover { background: transparent; }
+  /* 상품관리 — 폴더 그룹 격자 배경 (홀수 그룹) */
+  tr.pm-row-alt, td.pm-row-alt { background: #ECEEF2; }
+  tr.pm-row-alt:hover { background: #E1E5EC !important; }
 
   /* 이미지 그리드 */
   .img-card { position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; background:#F2F2F7; border:2px solid transparent; transition:all .2s; cursor:grab; }
@@ -2360,7 +2363,7 @@ function renderProductsList() {
       while (i + groupSize < visible.length && visible[i + groupSize].folder === p.folder) groupSize++;
     }
     // 폴더 그룹별 배경색 — 홀수/짝수 번갈아
-    const groupBg = (groupIdx % 2 === 0) ? '' : 'bg-brand-bg/50';
+    const groupBg = (groupIdx % 2 === 0) ? '' : 'pm-row-alt';
     for (let j = 0; j < groupSize; j++) {
       const item = visible[i + j];
       const folderCell = (j === 0)
