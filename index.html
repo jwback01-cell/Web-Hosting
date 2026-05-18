@@ -2268,8 +2268,17 @@ function renderPendingList() {
   _updatePendingSelectLabel();
 }
 
-// 화면 직접 붙여넣기 (등록 예정 리스트) — 같은 행 안에서만 채움
+// 화면 직접 붙여넣기 (등록 예정 리스트) — 다중 행이면 새 행 자동 생성
+//  컬럼은 값 패턴으로 자동 라우팅 (4자리 숫자 → 폴더코드, URL → 링크, 날짜 → date)
 const _PENDING_COLUMN_ORDER = ['date','folder','name','link','note','keyword'];
+function _pendingDetectField(value) {
+  const v = String(value || '').trim();
+  if (!v) return null;
+  if (/^\d{4}$/.test(v))                                              return 'folder';
+  if (/^https?:\/\//i.test(v))                                        return 'link';
+  if (/^\d{4}[.\s\-/]\s*\d{1,2}[.\s\-/]\s*\d{1,2}/.test(v))           return 'date';
+  return null;
+}
 function _onPendingCellPaste(e, el) {
   const cd = e.clipboardData || window.clipboardData;
   if (!cd) return;
@@ -2285,19 +2294,50 @@ function _onPendingCellPaste(e, el) {
   if (startColIdx < 0) return;
   const tr = el.closest('tr');
   if (!tr) return;
-  const item = pendingList.find(p => p.id === tr.dataset.pid);
-  if (!item) return;
+  const startIdx = pendingList.findIndex(p => p.id === tr.dataset.pid);
+  if (startIdx < 0) return;
 
+  // 각 열의 의미를 패턴으로 감지 (과반 매칭 시 해당 필드로 라우팅, 아니면 위치 기반)
   const numCols = Math.max(...matrix.map(r => r.length));
+  const colFields = [];
   for (let c = 0; c < numCols; c++) {
-    const fieldIdx = startColIdx + c;
-    if (fieldIdx >= _PENDING_COLUMN_ORDER.length) break;
-    const field = _PENDING_COLUMN_ORDER[fieldIdx];
-    const colValues = matrix.map(row => String(row[c] || '').trim()).filter(Boolean);
-    if (!colValues.length) continue;
-    item[field] = colValues.join(', ');
-    if (field === 'folder' || field === 'name' || field === 'note') {
-      _syncPmFromPending(item, field);
+    const detected = matrix.map(r => _pendingDetectField(r[c])).filter(Boolean);
+    if (detected.length > matrix.length / 2) {
+      const counts = {};
+      detected.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+      colFields[c] = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    } else {
+      const fieldIdx = startColIdx + c;
+      colFields[c] = fieldIdx < _PENDING_COLUMN_ORDER.length ? _PENDING_COLUMN_ORDER[fieldIdx] : null;
+    }
+  }
+
+  // 매트릭스 각 행 처리 — 첫 행은 기존, 나머지는 새 행 생성해 시작 위치 바로 아래에 삽입
+  for (let r = 0; r < matrix.length; r++) {
+    let item;
+    if (r === 0) {
+      item = pendingList[startIdx];
+    } else {
+      const newItem = {
+        id: _pendingNewId(),
+        date: '', folder: '', name: '', link: '', note: '', keyword: '',
+        done: false, linkedPmId: '',
+      };
+      pendingList.splice(startIdx + r, 0, newItem);
+      _ensureLinkedPmForPending(newItem);
+      item = newItem;
+    }
+    if (!item) continue;
+    const cols = matrix[r];
+    for (let c = 0; c < cols.length; c++) {
+      const field = colFields[c];
+      if (!field) continue;
+      const value = String(cols[c] || '').trim();
+      if (!value) continue;
+      item[field] = value;
+      if (field === 'folder' || field === 'name' || field === 'note') {
+        _syncPmFromPending(item, field);
+      }
     }
   }
   _savePendingToStorage();
