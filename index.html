@@ -494,6 +494,7 @@
             <tr class="bg-brand-bg">
               <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[260px]">링크</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">비고</th>
@@ -2139,6 +2140,7 @@ function addPendingRow() {
   pendingList.unshift({
     id: _pendingNewId(),
     date: '',            // 완료 체크 시 자동 입력
+    folder: '',
     name: '',
     link: '',
     note: '',
@@ -2147,9 +2149,9 @@ function addPendingRow() {
   });
   _savePendingToStorage();
   renderPendingList();
-  // 새로 추가한 행의 제품명 셀에 포커스
+  // 새로 추가한 행의 폴더코드 셀에 포커스
   setTimeout(() => {
-    const firstRow = document.querySelector('#pending-tbody tr input[data-field="name"]');
+    const firstRow = document.querySelector('#pending-tbody tr input[data-field="folder"]');
     if (firstRow) firstRow.focus();
   }, 50);
 }
@@ -2179,6 +2181,7 @@ function renderPendingList() {
     return `<tr data-pid="${p.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${p.done ? 'opacity-50' : ''} ${rowBg}">
       <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${p.id}" onchange="_updatePendingSelectLabel()"></td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(p.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
+      <td class="px-3 py-2 align-middle"><input type="text" data-field="folder" value="${_pendingEsc(p.folder)}" placeholder="0000" class="pending-input font-mono text-xs text-center"></td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(p.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
       <td class="px-3 py-2 align-middle">${linkCell}</td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(p.note)}" placeholder="" class="pending-input"></td>
@@ -2287,10 +2290,10 @@ function deletePendingRow(pid) {
 
 function exportPendingExcel() {
   if (!pendingList.length) { alert('내보낼 항목이 없습니다.'); return; }
-  const data = [['날짜', '제품명', '링크', '비고', '키워드', '완료여부']];
-  pendingList.forEach(p => data.push([p.date, p.name, p.link, p.note, p.keyword, p.done ? '완료' : '']));
+  const data = [['날짜', '폴더코드', '제품명', '링크', '비고', '키워드', '완료여부']];
+  pendingList.forEach(p => data.push([p.date, p.folder || '', p.name, p.link, p.note, p.keyword, p.done ? '완료' : '']));
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:12},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
+  ws['!cols'] = [{wch:12},{wch:10},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '등록예정');
   const today = new Date();
@@ -2306,21 +2309,42 @@ async function pastePendingFromClipboard() {
   if (!text || !text.trim()) { alert('클립보드가 비어 있습니다.'); return; }
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (!lines.length) { alert('붙여넣을 행이 없습니다.'); return; }
-  // 첫 줄이 헤더(날짜, 제품명...) 처럼 보이면 건너뜀
-  const startIdx = /날짜|date/i.test(lines[0]) ? 1 : 0;
+  const firstLine = lines[0] || '';
+  const hasHeader = /날짜|date/i.test(firstLine);
+  // 폴더코드 컬럼이 헤더에 있는지로 새 포맷 / 옛 포맷 구분
+  const hasFolderCol = hasHeader && /폴더코드/.test(firstLine);
+  const startIdx = hasHeader ? 1 : 0;
   let added = 0;
   for (let i = startIdx; i < lines.length; i++) {
     const cols = lines[i].split('\t');
     if (!cols.length || !cols.join('').trim()) continue;
-    pendingList.unshift({
-      id: _pendingNewId(),
-      date:    (cols[0] || _todayStr()).trim(),
-      name:    (cols[1] || '').trim(),
-      link:    (cols[2] || '').trim(),
-      note:    (cols[3] || '').trim(),
-      keyword: (cols[4] || '').trim(),
-      done:    /완료|done|true|1|✓|☑/i.test((cols[5] || '').trim()),
-    });
+    let p;
+    if (hasFolderCol) {
+      // 날짜 / 폴더코드 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+      p = {
+        id: _pendingNewId(),
+        date:    (cols[0] || '').trim(),
+        folder:  (cols[1] || '').trim(),
+        name:    (cols[2] || '').trim(),
+        link:    (cols[3] || '').trim(),
+        note:    (cols[4] || '').trim(),
+        keyword: (cols[5] || '').trim(),
+        done:    /완료|done|true|1|✓|☑/i.test((cols[6] || '').trim()),
+      };
+    } else {
+      // 옛 포맷 (폴더코드 없음): 날짜 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+      p = {
+        id: _pendingNewId(),
+        date:    (cols[0] || '').trim(),
+        folder:  '',
+        name:    (cols[1] || '').trim(),
+        link:    (cols[2] || '').trim(),
+        note:    (cols[3] || '').trim(),
+        keyword: (cols[4] || '').trim(),
+        done:    /완료|done|true|1|✓|☑/i.test((cols[5] || '').trim()),
+      };
+    }
+    pendingList.unshift(p);
     added++;
   }
   if (!added) { alert('붙여넣을 유효한 행이 없습니다.'); return; }
@@ -2710,14 +2734,14 @@ async function uploadProductsExcel(event) {
 
 // 양식 다운로드 (등록 예정 리스트)
 function downloadPendingTemplate() {
-  const headers = ['날짜','제품명','링크','비고','키워드','완료여부'];
+  const headers = ['날짜','폴더코드','제품명','링크','비고','키워드','완료여부'];
   const examples = [
-    ['', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '화이트, 블랙', '오픈닷원 투명 케이스', ''],
-    ['', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '', '침대핸드폰거치대', ''],
+    ['', '0001', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '화이트, 블랙', '오픈닷원 투명 케이스', ''],
+    ['', '0002', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '', '침대핸드폰거치대', ''],
   ];
   const data = [headers, ...examples];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:12},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
+  ws['!cols'] = [{wch:12},{wch:10},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '등록예정양식');
   XLSX.writeFile(wb, '등록예정리스트_양식.xlsx');
@@ -2736,19 +2760,38 @@ async function uploadPendingExcel(event) {
     if (!rows || rows.length === 0) { alert('빈 엑셀 파일입니다.'); return; }
     const first = rows[0].map(c => String(c || '').trim()).join(' ');
     const isHeader = /날짜|제품명|date|name/i.test(first);
+    const hasFolderCol = isHeader && /폴더코드/.test(first);
     const dataRows = isHeader ? rows.slice(1) : rows;
     let added = 0;
     for (const cols of dataRows) {
       if (!cols || !cols.length || !cols.join('').toString().trim()) continue;
-      pendingList.unshift({
-        id: _pendingNewId(),
-        date:    String(cols[0] || '').trim() || _todayStr(),
-        name:    String(cols[1] || '').trim(),
-        link:    String(cols[2] || '').trim(),
-        note:    String(cols[3] || '').trim(),
-        keyword: String(cols[4] || '').trim(),
-        done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[5] || '').trim()),
-      });
+      let p;
+      if (hasFolderCol) {
+        // 날짜 / 폴더코드 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+        p = {
+          id: _pendingNewId(),
+          date:    String(cols[0] || '').trim(),
+          folder:  String(cols[1] || '').trim(),
+          name:    String(cols[2] || '').trim(),
+          link:    String(cols[3] || '').trim(),
+          note:    String(cols[4] || '').trim(),
+          keyword: String(cols[5] || '').trim(),
+          done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[6] || '').trim()),
+        };
+      } else {
+        // 옛 포맷: 날짜 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+        p = {
+          id: _pendingNewId(),
+          date:    String(cols[0] || '').trim(),
+          folder:  '',
+          name:    String(cols[1] || '').trim(),
+          link:    String(cols[2] || '').trim(),
+          note:    String(cols[3] || '').trim(),
+          keyword: String(cols[4] || '').trim(),
+          done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[5] || '').trim()),
+        };
+      }
+      pendingList.unshift(p);
       added++;
     }
     if (!added) { alert('업로드할 유효한 행이 없습니다.'); return; }
