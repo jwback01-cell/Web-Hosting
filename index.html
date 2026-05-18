@@ -2257,43 +2257,65 @@ function renderPendingList() {
     return;
   }
   if (empty) empty.classList.add('hidden');
-  // 폴더코드 기준 정렬 (빈 폴더는 맨 뒤)
+  // 폴더코드 기준 정렬 (빈 폴더는 맨 뒤). 같은 폴더 내에서는 링크별로 묶기 위해 링크로 2차 정렬.
   visible.sort((a, b) => {
     const fa = a.folder || '￿';
     const fb = b.folder || '￿';
     if (fa !== fb) return fa.localeCompare(fb);
+    const la = a.link || '';
+    const lb = b.link || '';
+    if (la !== lb) return la.localeCompare(lb);
     return 0;
   });
-  // 같은 폴더코드 행들 → rowspan 으로 셀 병합 + 그룹별 배경색 번갈아
+  // 폴더코드 + 링크 2단계 rowspan 병합 + 그룹별 배경색 번갈아
   const rowsHtml = [];
   let i = 0, groupIdx = 0;
   while (i < visible.length) {
     const p = visible[i];
-    let groupSize = 1;
+    let folderSize = 1;
     if (p.folder) {
-      while (i + groupSize < visible.length && visible[i + groupSize].folder === p.folder) groupSize++;
+      while (i + folderSize < visible.length && visible[i + folderSize].folder === p.folder) folderSize++;
     }
     const groupBg = (groupIdx % 2 === 0) ? '' : 'pm-row-alt';
-    for (let j = 0; j < groupSize; j++) {
+    // 이 폴더 그룹 내에서 링크별 서브그룹 크기 계산
+    const linkSpans = new Array(folderSize).fill(0);   // 각 위치의 링크 셀 rowspan (0 = 셀 출력 안 함)
+    {
+      let k = 0;
+      while (k < folderSize) {
+        const cur = visible[i + k];
+        let span = 1;
+        if (cur.link) {
+          while (k + span < folderSize && visible[i + k + span].link === cur.link) span++;
+        }
+        linkSpans[k] = span;   // 시작 위치만 span 값 표시
+        k += span;
+      }
+    }
+    for (let j = 0; j < folderSize; j++) {
       const item = visible[i + j];
       const folderCell = (j === 0)
-        ? `<td rowspan="${groupSize}" class="px-3 py-2 align-middle text-center ${groupSize > 1 ? 'font-bold' : ''} ${groupBg}">
+        ? `<td rowspan="${folderSize}" class="px-3 py-2 align-middle text-center ${folderSize > 1 ? 'font-bold' : ''} ${groupBg}">
              <input type="text" data-field="folder" value="${_pendingEsc(item.folder)}" placeholder="0000" class="pending-input font-mono text-xs text-center">
            </td>`
         : '';
-      const linkCell = item.link
-        ? `<a href="${_pendingEsc(item.link)}" target="_blank" rel="noopener"
-               ondblclick="_pendingEditLinkCell(event, '${item.id}')"
-               class="text-brand-black hover:underline text-xs break-all cursor-pointer block"
-               title="더블클릭하면 수정 · 클릭하면 새 탭에서 열림">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>`
-        : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
+      const linkSpan = linkSpans[j];
+      let linkCell = '';
+      if (linkSpan > 0) {
+        const linkHtml = item.link
+          ? `<a href="${_pendingEsc(item.link)}" target="_blank" rel="noopener"
+                 ondblclick="_pendingEditLinkCell(event, '${item.id}')"
+                 class="text-brand-black hover:underline text-xs break-all cursor-pointer block"
+                 title="더블클릭하면 수정 · 클릭하면 새 탭에서 열림">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>`
+          : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
+        linkCell = `<td rowspan="${linkSpan}" class="px-3 py-2 align-middle">${linkHtml}</td>`;
+      }
       rowsHtml.push(`<tr data-pid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.done ? 'opacity-50' : ''} ${groupBg}">
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
         ${folderCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
-        <td class="px-3 py-2 align-middle">${linkCell}</td>
+        ${linkCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
         <td class="px-2 py-2 text-center align-middle">
           <input type="checkbox" ${item.addon ? 'checked' : ''} onchange="togglePendingAddon('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-blue">
@@ -2318,7 +2340,7 @@ function renderPendingList() {
         </td>
       </tr>`);
     }
-    i += groupSize;
+    i += folderSize;
     groupIdx++;
   }
   tbody.innerHTML = rowsHtml.join('');
