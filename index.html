@@ -2613,10 +2613,17 @@ function setPendingGrade(pid, grade) {
 function togglePendingDone(pid, done) {
   const item = pendingList.find(p => p.id === pid);
   if (!item) return;
-  item.done = done;
-  // 완료 체크 → 오늘 날짜로 자동 입력 (완료일 기록), 해제 → 날짜 비움
-  if (done) item.date = _todayStr();
-  else      item.date = '';
+  const today = _todayStr();
+  // 같은 폴더코드 행 전체 cascade — 폴더가 있으면 그룹 전체 토글, 없으면 해당 행만
+  if (item.folder) {
+    pendingList.filter(p => p.folder === item.folder).forEach(p => {
+      p.done = done;
+      p.date = done ? today : '';
+    });
+  } else {
+    item.done = done;
+    item.date = done ? today : '';
+  }
   _savePendingToStorage();
   renderPendingList();
 }
