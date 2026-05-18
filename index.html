@@ -50,11 +50,10 @@
   .pending-input::placeholder { color: #D1D5DB; }
   .pending-input:hover  { background: #FAFAFA; }
   .pending-input:focus  { background: #fff; box-shadow: inset 0 0 0 1px #E5E7EB; }
-  /* 빈 input 은 hover/focus/caret 모두 강조 안 함 */
+  /* 빈 input 은 hover 강조 안 함 / 포커스 시엔 미세하게 / 클릭 안 한 상태에서만 커서 숨김 */
   .pending-input:placeholder-shown:hover { background: transparent; }
-  .pending-input:placeholder-shown:focus { background: transparent; box-shadow: none; }
-  .pending-input:placeholder-shown        { caret-color: transparent; }
-  .pending-input:not(:placeholder-shown)  { caret-color: auto; }
+  .pending-input:placeholder-shown:focus { background: #fff; box-shadow: inset 0 0 0 1px #E5E7EB; }
+  .pending-input:placeholder-shown:not(:focus) { caret-color: transparent; }
   /* 상품관리 — 폴더 그룹 격자 배경 (홀수 그룹) */
   tr.pm-row-alt, td.pm-row-alt { background: #ECEEF2; }
   tr.pm-row-alt:hover { background: #E1E5EC !important; }
@@ -2257,6 +2256,15 @@ function renderPendingList() {
     });
     el.addEventListener('paste',  (e) => _onPendingCellPaste(e, el));
   });
+  // 셀 패딩 영역 클릭 시 안의 input 포커스
+  tbody.querySelectorAll('td').forEach(td => {
+    const inp = td.querySelector('input[type="text"][data-field]');
+    if (!inp) return;
+    td.addEventListener('click', (e) => {
+      if (e.target === td) inp.focus();
+    });
+    td.style.cursor = 'text';
+  });
   _updatePendingSelectLabel();
 }
 
@@ -2608,6 +2616,15 @@ function renderProductsList() {
     el.addEventListener('blur',  () => _onPmCellEdit(el, true));
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
     el.addEventListener('paste',  (e) => _onPmCellPaste(e, el));
+  });
+  // 셀 패딩 영역 클릭 시 안의 input 포커스 (클릭 데드존 해소)
+  tbody.querySelectorAll('td').forEach(td => {
+    const inp = td.querySelector('input[type="text"][data-field]');
+    if (!inp) return;
+    td.addEventListener('click', (e) => {
+      if (e.target === td) inp.focus();
+    });
+    td.style.cursor = 'text';
   });
   // 선택 라벨 초기화
   _updatePmSelectLabel();
