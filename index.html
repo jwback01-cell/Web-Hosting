@@ -370,14 +370,55 @@
     </main>
   </div>
 
-  <!-- 메뉴 2: 상품관리 (자리만 — 콘텐츠는 추후 추가) -->
+  <!-- 메뉴 2: 상품관리 -->
   <div id="menu-products" class="hidden flex-1 px-4 md:px-6 pb-6">
-    <div class="bg-white rounded-4xl panel p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-      <div class="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center mb-4">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">상품관리</h1>
+          <p class="text-brand-gray text-sm mt-1">셀을 클릭해 바로 수정. 자동 저장. <span id="pm-count" class="font-semibold text-brand-black">0</span>건</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input id="pm-search" type="text" placeholder="🔍 상품명·코드 검색" oninput="renderProductsList()" class="px-4 py-2 rounded-full border border-brand-border text-sm w-[200px] focus:outline-none focus:border-brand-black">
+          <label class="flex items-center gap-1.5 text-xs font-semibold text-brand-gray cursor-pointer">
+            <input type="checkbox" id="pm-show-registered" onchange="renderProductsList()" class="w-4 h-4 rounded">
+            등록 완료도 보기
+          </label>
+          <button onclick="exportProductsExcel()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            엑셀
+          </button>
+          <button onclick="pasteProductsFromClipboard()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg" title="엑셀에서 행 복사 후 클릭">📋 엑셀 붙여넣기</button>
+          <button onclick="addProductRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-xs font-bold hover:bg-[#333] flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            새 상품
+          </button>
+        </div>
       </div>
-      <h2 class="text-2xl font-bold mb-2">상품관리</h2>
-      <p class="text-brand-gray text-sm">곧 추가될 기능입니다.</p>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border-collapse" id="pm-table">
+          <thead>
+            <tr class="bg-brand-bg">
+              <th class="px-2 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px]">상품명</th>
+              <th class="px-2 py-2.5 text-left font-bold border-b-2 border-brand-border w-[90px]">상품코드</th>
+              <th class="px-2 py-2.5 text-left font-bold border-b-2 border-brand-border w-[80px]">폴더코드</th>
+              <th class="px-2 py-2.5 text-right font-bold border-b-2 border-brand-border w-[80px]">원가</th>
+              <th class="px-2 py-2.5 text-right font-bold border-b-2 border-brand-border w-[80px]">판매가</th>
+              <th class="px-2 py-2.5 text-right font-bold border-b-2 border-brand-border w-[100px]">업체기준판매가</th>
+              <th class="px-2 py-2.5 text-right font-bold border-b-2 border-brand-border w-[80px]">공급가</th>
+              <th class="px-2 py-2.5 text-right font-bold border-b-2 border-brand-border w-[70px]">택배비</th>
+              <th class="px-2 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[180px]">비고</th>
+              <th class="px-2 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">등록</th>
+              <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
+            </tr>
+          </thead>
+          <tbody id="pm-tbody"></tbody>
+        </table>
+      </div>
+      <div id="pm-empty" class="text-center py-12 text-brand-gray text-sm hidden">
+        등록된 상품이 없습니다. 위 "+ 새 상품" 버튼을 누르거나 엑셀에서 붙여넣으세요.
+      </div>
     </div>
   </div>
 
@@ -2022,7 +2063,8 @@ function switchMenu(menuId) {
     btn.classList.toggle('text-white', isActive);
     btn.classList.toggle('text-brand-gray', !isActive);
   });
-  if (menuId === 'pending') renderPendingList();
+  if (menuId === 'pending')  renderPendingList();
+  if (menuId === 'products') renderProductsList();
 }
 
 // ── 등록 예정 리스트 ─────────────────────────
@@ -2198,6 +2240,199 @@ async function pastePendingFromClipboard() {
 
 // 초기 로드
 document.addEventListener('DOMContentLoaded', _loadPendingFromStorage);
+
+// ══════════════════════════════════════════════════════════
+// 상품관리 (Product Management)
+// ══════════════════════════════════════════════════════════
+const PM_LS_KEY = 'ih_products_v1';
+let pmList = [];
+let _pmSaveTimer = null;
+
+function _loadPmFromStorage() {
+  try { pmList = JSON.parse(localStorage.getItem(PM_LS_KEY) || '[]') || []; }
+  catch (_) { pmList = []; }
+}
+function _savePmToStorage() {
+  try { localStorage.setItem(PM_LS_KEY, JSON.stringify(pmList)); } catch (_) {}
+}
+function _pmNewId() { return 'pm_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function _pmEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _pmFmtNum(n) {
+  const v = Number(n);
+  if (!v || isNaN(v)) return '';
+  return v.toLocaleString('ko-KR');
+}
+function _pmParseNum(s) {
+  if (!s) return 0;
+  const n = parseInt(String(s).replace(/[^\d-]/g, ''), 10);
+  return isNaN(n) ? 0 : n;
+}
+
+function addProductRow() {
+  pmList.unshift({
+    id: _pmNewId(),
+    name: '',
+    code: '',
+    folder: '',
+    cost: 0,
+    salePrice: 0,
+    vendorPrice: 0,
+    supplyPrice: 0,
+    shipping: 3000,        // 기본 택배비
+    note: '',
+    registered: false,
+  });
+  _savePmToStorage();
+  renderProductsList();
+  setTimeout(() => {
+    const inp = document.querySelector('#pm-tbody tr input[data-field="name"]');
+    if (inp) inp.focus();
+  }, 50);
+}
+
+function renderProductsList() {
+  const tbody = document.getElementById('pm-tbody');
+  const empty = document.getElementById('pm-empty');
+  const countEl = document.getElementById('pm-count');
+  if (!tbody) return;
+  const query = (document.getElementById('pm-search')?.value || '').trim().toLowerCase();
+  const showRegistered = document.getElementById('pm-show-registered')?.checked || false;
+  const visible = pmList.filter(p => {
+    if (!showRegistered && p.registered) return false;
+    if (!query) return true;
+    return (p.name || '').toLowerCase().includes(query) || (p.code || '').toLowerCase().includes(query);
+  });
+  if (countEl) countEl.textContent = pmList.length.toLocaleString('ko-KR');
+  if (!visible.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+  tbody.innerHTML = visible.map(p => `
+    <tr data-pmid="${p.id}" class="border-b border-brand-border hover:bg-brand-bg/50 transition-colors ${p.registered ? 'opacity-50' : ''}">
+      <td class="px-2 py-2 align-top"><input type="text" data-field="name"        value="${_pmEsc(p.name)}"  placeholder="상품명" class="pending-input font-semibold"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="code"        value="${_pmEsc(p.code)}"  placeholder="GB0000" class="pending-input font-mono text-xs"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="folder"      value="${_pmEsc(p.folder)}" placeholder="0000"  class="pending-input font-mono text-xs"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="cost"        value="${_pmFmtNum(p.cost)}"        placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="salePrice"   value="${_pmFmtNum(p.salePrice)}"   placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="vendorPrice" value="${_pmFmtNum(p.vendorPrice)}" placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="supplyPrice" value="${_pmFmtNum(p.supplyPrice)}" placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="shipping"    value="${_pmFmtNum(p.shipping)}"    placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
+      <td class="px-2 py-2 align-top"><input type="text" data-field="note"        value="${_pmEsc(p.note)}"  placeholder="—" class="pending-input"></td>
+      <td class="px-2 py-2 text-center align-middle">
+        <input type="checkbox" ${p.registered ? 'checked' : ''} onchange="toggleProductRegistered('${p.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
+      </td>
+      <td class="px-2 py-2 text-center align-middle">
+        <button onclick="deleteProductRow('${p.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </td>
+    </tr>`).join('');
+  // 인라인 편집 이벤트
+  tbody.querySelectorAll('input[type="text"][data-field]').forEach(el => {
+    el.addEventListener('input', () => _onPmCellEdit(el));
+    el.addEventListener('blur',  () => _onPmCellEdit(el, true));
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+  });
+}
+
+function _onPmCellEdit(el, isBlur) {
+  const tr = el.closest('tr');
+  if (!tr) return;
+  const pid = tr.dataset.pmid;
+  const field = el.dataset.field;
+  const item = pmList.find(p => p.id === pid);
+  if (!item) return;
+  const NUMERIC_FIELDS = ['cost','salePrice','vendorPrice','supplyPrice','shipping'];
+  let newVal;
+  if (NUMERIC_FIELDS.includes(field)) {
+    newVal = _pmParseNum(el.value);
+    if (isBlur) el.value = _pmFmtNum(newVal);   // blur 시 콤마 포함 다시 표시
+  } else {
+    newVal = el.value.trim();
+  }
+  if (item[field] === newVal) return;
+  item[field] = newVal;
+  clearTimeout(_pmSaveTimer);
+  if (isBlur) _savePmToStorage();
+  else _pmSaveTimer = setTimeout(_savePmToStorage, 400);
+}
+
+function toggleProductRegistered(pid, registered) {
+  const item = pmList.find(p => p.id === pid);
+  if (!item) return;
+  item.registered = registered;
+  _savePmToStorage();
+  renderProductsList();
+}
+
+function deleteProductRow(pid) {
+  if (!confirm('이 상품을 삭제할까요?')) return;
+  pmList = pmList.filter(p => p.id !== pid);
+  _savePmToStorage();
+  renderProductsList();
+}
+
+function exportProductsExcel() {
+  if (!pmList.length) { alert('내보낼 상품이 없습니다.'); return; }
+  const headers = ['상품명','상품코드','폴더코드','원가','판매가','업체 기준 판매가','공급가','택배비','비고','등록여부'];
+  const data = [headers];
+  pmList.forEach(p => data.push([
+    p.name, p.code, p.folder,
+    Number(p.cost) || 0,
+    Number(p.salePrice) || 0,
+    Number(p.vendorPrice) || 0,
+    Number(p.supplyPrice) || 0,
+    Number(p.shipping) || 0,
+    p.note,
+    p.registered ? 'O' : ''
+  ]));
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:35},{wch:10},{wch:10},{wch:10},{wch:10},{wch:14},{wch:10},{wch:10},{wch:30},{wch:8}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '상품');
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `상품관리_${dateStr}.xlsx`);
+}
+
+async function pasteProductsFromClipboard() {
+  let text = '';
+  try { text = await navigator.clipboard.readText(); }
+  catch (e) { alert('클립보드 읽기 실패.'); return; }
+  if (!text || !text.trim()) { alert('클립보드가 비어 있습니다.'); return; }
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  // 헤더 감지
+  const startIdx = /상품명|name/i.test(lines[0]) ? 1 : 0;
+  let added = 0;
+  for (let i = startIdx; i < lines.length; i++) {
+    const cols = lines[i].split('\t');
+    if (!cols.length || !cols.join('').trim()) continue;
+    pmList.push({
+      id: _pmNewId(),
+      name:        (cols[0] || '').trim(),
+      code:        (cols[1] || '').trim(),
+      folder:      (cols[2] || '').trim(),
+      cost:        _pmParseNum(cols[3]),
+      salePrice:   _pmParseNum(cols[4]),
+      vendorPrice: _pmParseNum(cols[5]),
+      supplyPrice: _pmParseNum(cols[6]),
+      shipping:    _pmParseNum(cols[7]),
+      note:        (cols[8] || '').trim(),
+      registered:  /o|완료|done|true|1|✓|☑/i.test((cols[9] || '').trim()),
+    });
+    added++;
+  }
+  if (!added) { alert('붙여넣을 유효한 행이 없습니다.'); return; }
+  _savePmToStorage();
+  renderProductsList();
+  alert(`${added}개 상품 추가 완료`);
+}
+
+document.addEventListener('DOMContentLoaded', _loadPmFromStorage);
 // 메인 영역에 폴더 그리드 렌더 — 디스크 탐색기 스타일
 function renderFolderGrid() {
   const gridEl = document.getElementById('folder-grid');
