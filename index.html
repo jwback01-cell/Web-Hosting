@@ -386,6 +386,10 @@
             <input type="checkbox" id="pm-show-registered" onchange="renderProductsList()" class="w-4 h-4 rounded">
             등록 완료도 보기
           </label>
+          <button onclick="downloadProductsTemplate()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5" title="빈 양식 엑셀 받기">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            양식 다운로드
+          </button>
           <button onclick="exportProductsExcel()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             엑셀
@@ -451,6 +455,10 @@
             <input type="checkbox" id="pending-show-completed" onchange="renderPendingList()" class="w-4 h-4 rounded">
             완료 항목도 보기
           </label>
+          <button onclick="downloadPendingTemplate()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5" title="빈 양식 엑셀 받기">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            양식 다운로드
+          </button>
           <button onclick="exportPendingExcel()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             엑셀
@@ -2552,6 +2560,22 @@ async function pasteProductsFromClipboard() {
 
 document.addEventListener('DOMContentLoaded', _loadPmFromStorage);
 
+// 양식 다운로드 (상품관리)
+function downloadProductsTemplate() {
+  const headers = ['폴더코드','상품코드','상품명','원가','판매가','공급가','택배비','비고','등록여부'];
+  const examples = [
+    ['0001', 'GB0001', '에어팟 잠금 케이스 1/2세대 옐로우', 2000, 13900, 4200, 3000, '신제품', ''],
+    ['0001', 'GB0002', '에어팟 잠금 케이스 1/2세대 정록', 2000, 13900, 4200, 3000, '', 'O'],
+    ['0002', 'GB0017', '빅픽 에어팟 맥스 젤리 케이스 투명', 2200, 12900, 3700, 3000, '상세페이지 변경됨', ''],
+  ];
+  const data = [headers, ...examples];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:10},{wch:10},{wch:35},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:8}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '상품양식');
+  XLSX.writeFile(wb, '상품관리_양식.xlsx');
+}
+
 // 엑셀 파일 업로드 (상품관리)
 async function uploadProductsExcel(event) {
   const file = event.target.files && event.target.files[0];
@@ -2611,6 +2635,21 @@ async function uploadProductsExcel(event) {
   } catch (e) {
     alert('엑셀 파일 읽기 실패: ' + (e.message || e));
   }
+}
+
+// 양식 다운로드 (등록 예정 리스트)
+function downloadPendingTemplate() {
+  const headers = ['날짜','제품명','링크','비고','키워드','완료여부'];
+  const examples = [
+    ['', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '화이트, 블랙', '오픈닷원 투명 케이스', ''],
+    ['', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '', '침대핸드폰거치대', ''],
+  ];
+  const data = [headers, ...examples];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '등록예정양식');
+  XLSX.writeFile(wb, '등록예정리스트_양식.xlsx');
 }
 
 // 엑셀 파일 업로드 (등록 예정 리스트)
