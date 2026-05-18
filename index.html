@@ -764,7 +764,7 @@ async function doLogout() {
 // ════════════════════════════════════════════════════════
 async function loadProducts() {
   console.log('[loadProducts] 호출');
-  const { data, error } = await sb.from('products').select('*').order('sort_order', { ascending: false });
+  const { data, error } = await sb.from('products').select('*').order('sort_order', { ascending: true });
   if (error) {
     console.error('[loadProducts] 에러:', error);
     showPersistentError('제품 목록 로딩 실패', error.message + (error.hint ? '\n💡 ' + error.hint : ''));
@@ -772,6 +772,16 @@ async function loadProducts() {
   }
   console.log('[loadProducts] 결과:', data);
   products = data || [];
+  // 이름 앞 숫자(예: 0001_…)로 정렬 — 작은 번호가 위로(예: 0001, 0002, 0005, 0006)
+  // 숫자가 없는 이름은 맨 뒤로
+  products.sort((a, b) => {
+    const ma = (a.name || '').match(/^\d+/);
+    const mb = (b.name || '').match(/^\d+/);
+    const na = ma ? parseInt(ma[0], 10) : Number.POSITIVE_INFINITY;
+    const nb = mb ? parseInt(mb[0], 10) : Number.POSITIVE_INFINITY;
+    if (na !== nb) return na - nb;
+    return (a.name || '').localeCompare(b.name || '');
+  });
   renderProductList();
   renderFolderGrid();  // 메인의 폴더 그리드도 동기화
   updateStorageStat();  // 좌측 하단 사용량 갱신
