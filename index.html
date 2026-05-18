@@ -2355,15 +2355,15 @@ function _highlightDuplicateLinks(tbody) {
     if (!linkGroups[key]) linkGroups[key] = [];
     linkGroups[key].push(tr);
   });
-  // 파스텔 색상 팔레트
+  // 매우 연한 파스텔 색상 팔레트 — 톤다운
   const PALETTE = [
-    { bg: '#FCE7F3', fg: '#9D174D' },   // pink
-    { bg: '#DBEAFE', fg: '#1E40AF' },   // blue
-    { bg: '#D1FAE5', fg: '#065F46' },   // green
-    { bg: '#FED7AA', fg: '#9A3412' },   // orange
-    { bg: '#E9D5FF', fg: '#6B21A8' },   // purple
-    { bg: '#CFFAFE', fg: '#155E75' },   // cyan
-    { bg: '#FEF3C7', fg: '#92400E' },   // yellow
+    { bg: '#FCF7F9', fg: '#9D174D' },   // pink
+    { bg: '#F5F9FE', fg: '#1E40AF' },   // blue
+    { bg: '#F2FAF6', fg: '#065F46' },   // green
+    { bg: '#FDF6EE', fg: '#9A3412' },   // orange
+    { bg: '#F8F4FB', fg: '#6B21A8' },   // purple
+    { bg: '#F0F9FB', fg: '#155E75' },   // cyan
+    { bg: '#FDFAEC', fg: '#92400E' },   // yellow
   ];
   let colorIdx = 0;
   Object.keys(linkGroups).forEach(key => {
@@ -2567,15 +2567,27 @@ function _onPendingCellEdit(el, isBlur) {
 function togglePendingAddon(pid, checked) {
   const item = pendingList.find(p => p.id === pid);
   if (!item) return;
-  item.addon = !!checked;
+  // 같은 폴더코드 행 전체 cascade
+  if (item.folder) {
+    pendingList.filter(p => p.folder === item.folder).forEach(p => { p.addon = !!checked; });
+  } else {
+    item.addon = !!checked;
+  }
   _savePendingToStorage();
+  renderPendingList();
 }
 
 function setPendingGrade(pid, grade) {
   const item = pendingList.find(p => p.id === pid);
   if (!item) return;
-  item.grade = grade || '';
+  const newGrade = grade || '';
+  if (item.folder) {
+    pendingList.filter(p => p.folder === item.folder).forEach(p => { p.grade = newGrade; });
+  } else {
+    item.grade = newGrade;
+  }
   _savePendingToStorage();
+  renderPendingList();
 }
 
 function togglePendingDone(pid, done) {
