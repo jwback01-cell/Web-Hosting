@@ -503,6 +503,7 @@
               <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[260px]">링크</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">키워드</th>
@@ -2184,7 +2185,7 @@ function _ensureLinkedPmForPending(pending) {
   const pm = {
     id: _pmNewId(),
     folder:      pending.folder || '',
-    code:        '',
+    code:        pending.code || '',
     name:        pending.name || '',
     cost:        0,
     salePrice:   0,
@@ -2204,7 +2205,7 @@ function _syncPmFromPending(pending, field) {
   if (!pending || !pending.linkedPmId) return;
   const pm = pmList.find(p => p.id === pending.linkedPmId);
   if (!pm) return;
-  if (field === 'folder' || field === 'name' || field === 'note') {
+  if (field === 'folder' || field === 'name' || field === 'note' || field === 'code') {
     pm[field] = pending[field];
     _savePmToStorage();
   }
@@ -2221,6 +2222,7 @@ function addPendingRow() {
     id: _pendingNewId(),
     date: '',
     folder: '',
+    code: '',
     name: '',
     link: '',
     note: '',
@@ -2285,6 +2287,7 @@ function renderPendingList() {
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
         ${folderCell}
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
         <td class="px-3 py-2 align-middle">${linkCell}</td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
@@ -2369,10 +2372,11 @@ function _highlightDuplicateLinks(tbody) {
 
 // 화면 직접 붙여넣기 (등록 예정 리스트) — 다중 행이면 새 행 자동 생성
 //  컬럼은 값 패턴으로 자동 라우팅 (4자리 숫자 → 폴더코드, URL → 링크, 날짜 → date)
-const _PENDING_COLUMN_ORDER = ['date','folder','name','link','keyword','note'];
+const _PENDING_COLUMN_ORDER = ['date','folder','code','name','link','keyword','note'];
 function _pendingDetectField(value) {
   const v = String(value || '').trim();
   if (!v) return null;
+  if (/^[A-Za-z]{1,4}\d{3,}$/.test(v))                                return 'code';     // GB0001, KW10 등
   if (/^\d{4}$/.test(v))                                              return 'folder';
   if (/^https?:\/\//i.test(v))                                        return 'link';
   if (/^\d{4}[.\s\-/]\s*\d{1,2}[.\s\-/]\s*\d{1,2}/.test(v))           return 'date';
@@ -2419,7 +2423,7 @@ function _onPendingCellPaste(e, el) {
     } else {
       const newItem = {
         id: _pendingNewId(),
-        date: '', folder: '', name: '', link: '', note: '', keyword: '',
+        date: '', folder: '', code: '', name: '', link: '', note: '', keyword: '',
         done: false, linkedPmId: '',
       };
       pendingList.splice(startIdx + r, 0, newItem);
@@ -2434,7 +2438,7 @@ function _onPendingCellPaste(e, el) {
       const value = String(cols[c] || '').trim();
       if (!value) continue;
       item[field] = value;
-      if (field === 'folder' || field === 'name' || field === 'note') {
+      if (field === 'folder' || field === 'code' || field === 'name' || field === 'note') {
         _syncPmFromPending(item, field);
       }
     }
@@ -2521,8 +2525,8 @@ function _onPendingCellEdit(el, isBlur) {
   }
 
   item[field] = newVal;
-  // 상품관리에 연동된 필드 동기화 (제품명 / 비고)
-  if (field === 'name' || field === 'note') {
+  // 상품관리에 연동된 필드 동기화 (상품코드 / 제품명 / 비고)
+  if (field === 'code' || field === 'name' || field === 'note') {
     if (!item.linkedPmId) _ensureLinkedPmForPending(item);
     _syncPmFromPending(item, field);
   }
@@ -2557,10 +2561,10 @@ function deletePendingRow(pid) {
 
 function exportPendingExcel() {
   if (!pendingList.length) { alert('내보낼 항목이 없습니다.'); return; }
-  const data = [['날짜', '폴더코드', '제품명', '링크', '키워드', '비고', '완료여부']];
-  pendingList.forEach(p => data.push([p.date, p.folder || '', p.name, p.link, p.keyword, p.note, p.done ? '완료' : '']));
+  const data = [['날짜', '폴더코드', '상품코드', '제품명', '링크', '키워드', '비고', '완료여부']];
+  pendingList.forEach(p => data.push([p.date, p.folder || '', p.code || '', p.name, p.link, p.keyword, p.note, p.done ? '완료' : '']));
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:12},{wch:10},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
+  ws['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '등록예정');
   const today = new Date();
@@ -2586,12 +2590,28 @@ async function pastePendingFromClipboard() {
     const cols = lines[i].split('\t');
     if (!cols.length || !cols.join('').trim()) continue;
     let p;
-    if (hasFolderCol) {
-      // 날짜 / 폴더코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
+    // 헤더에서 컬럼 위치를 동적으로 찾기 — 헤더에 상품코드가 있으면 그 인덱스 사용
+    const hasCodeCol = isHeader && /상품코드/.test(firstLine);
+    if (hasFolderCol && hasCodeCol) {
+      // 날짜 / 폴더코드 / 상품코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
       p = {
         id: _pendingNewId(),
         date:    (cols[0] || '').trim(),
         folder:  (cols[1] || '').trim(),
+        code:    (cols[2] || '').trim(),
+        name:    (cols[3] || '').trim(),
+        link:    (cols[4] || '').trim(),
+        keyword: (cols[5] || '').trim(),
+        note:    (cols[6] || '').trim(),
+        done:    /완료|done|true|1|✓|☑/i.test((cols[7] || '').trim()),
+      };
+    } else if (hasFolderCol) {
+      // 날짜 / 폴더코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부 (옛 포맷, 상품코드 없음)
+      p = {
+        id: _pendingNewId(),
+        date:    (cols[0] || '').trim(),
+        folder:  (cols[1] || '').trim(),
+        code:    '',
         name:    (cols[2] || '').trim(),
         link:    (cols[3] || '').trim(),
         keyword: (cols[4] || '').trim(),
@@ -2599,11 +2619,12 @@ async function pastePendingFromClipboard() {
         done:    /완료|done|true|1|✓|☑/i.test((cols[6] || '').trim()),
       };
     } else {
-      // 옛 포맷 (폴더코드 없음): 날짜 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
+      // 가장 옛 포맷 (폴더코드도 없음): 날짜 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
       p = {
         id: _pendingNewId(),
         date:    (cols[0] || '').trim(),
         folder:  '',
+        code:    '',
         name:    (cols[1] || '').trim(),
         link:    (cols[2] || '').trim(),
         keyword: (cols[3] || '').trim(),
@@ -3116,10 +3137,10 @@ async function uploadProductsExcel(event) {
 
 // 양식 다운로드 (등록 예정 리스트)
 function downloadPendingTemplate() {
-  const headers = ['날짜','폴더코드','제품명','링크','키워드','비고','완료여부'];
+  const headers = ['날짜','폴더코드','상품코드','제품명','링크','키워드','비고','완료여부'];
   const examples = [
-    ['', '0001', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '오픈닷원 투명 케이스', '화이트, 블랙', ''],
-    ['', '0002', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '침대핸드폰거치대', '', ''],
+    ['', '0001', 'GB0001', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '오픈닷원 투명 케이스', '화이트, 블랙', ''],
+    ['', '0002', 'GB0002', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '침대핸드폰거치대', '', ''],
   ];
   const data = [headers, ...examples];
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -3148,12 +3169,26 @@ async function uploadPendingExcel(event) {
     for (const cols of dataRows) {
       if (!cols || !cols.length || !cols.join('').toString().trim()) continue;
       let p;
-      if (hasFolderCol) {
-        // 날짜 / 폴더코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
+      const hasCodeCol = isHeader && /상품코드/.test(first);
+      if (hasFolderCol && hasCodeCol) {
+        // 날짜 / 폴더코드 / 상품코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
         p = {
           id: _pendingNewId(),
           date:    String(cols[0] || '').trim(),
           folder:  String(cols[1] || '').trim(),
+          code:    String(cols[2] || '').trim(),
+          name:    String(cols[3] || '').trim(),
+          link:    String(cols[4] || '').trim(),
+          keyword: String(cols[5] || '').trim(),
+          note:    String(cols[6] || '').trim(),
+          done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[7] || '').trim()),
+        };
+      } else if (hasFolderCol) {
+        p = {
+          id: _pendingNewId(),
+          date:    String(cols[0] || '').trim(),
+          folder:  String(cols[1] || '').trim(),
+          code:    '',
           name:    String(cols[2] || '').trim(),
           link:    String(cols[3] || '').trim(),
           keyword: String(cols[4] || '').trim(),
@@ -3165,6 +3200,7 @@ async function uploadPendingExcel(event) {
           id: _pendingNewId(),
           date:    String(cols[0] || '').trim(),
           folder:  '',
+          code:    '',
           name:    String(cols[1] || '').trim(),
           link:    String(cols[2] || '').trim(),
           keyword: String(cols[3] || '').trim(),
