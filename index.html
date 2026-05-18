@@ -2165,19 +2165,20 @@ function renderPendingList() {
   }
   if (empty) empty.classList.add('hidden');
   tbody.innerHTML = visible.map((p, idx) => {
-    const linkPreview = p.link
-      ? `<a href="${_pendingEsc(p.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline text-[11px] break-all block mt-1" onclick="event.stopPropagation()">${_pendingEsc(p.link.length > 70 ? p.link.slice(0, 70) + '…' : p.link)}</a>`
-      : '';
-    // 짝수 행에 격자 배경 (zebra striping)
+    // 링크 셀: 값이 있으면 클릭 가능한 a 로, 비어 있으면 input 으로 (더블클릭 시 수정)
+    const linkCell = p.link
+      ? `<a href="${_pendingEsc(p.link)}" target="_blank" rel="noopener"
+             ondblclick="_pendingEditLinkCell(event, '${p.id}')"
+             class="text-brand-blue hover:underline text-xs break-all cursor-pointer block"
+             title="더블클릭하면 수정">${_pendingEsc(p.link.length > 80 ? p.link.slice(0,80)+'…' : p.link)}</a>`
+      : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
+    // 짝수 행에 격자 배경
     const rowBg = (idx % 2 === 1) ? 'pm-row-alt' : '';
     return `<tr data-pid="${p.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${p.done ? 'opacity-50' : ''} ${rowBg}">
       <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${p.id}" onchange="_updatePendingSelectLabel()"></td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(p.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(p.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
-      <td class="px-3 py-2 align-middle">
-        <input type="text" data-field="link" value="${_pendingEsc(p.link)}" placeholder="https://…" class="pending-input text-xs">
-        ${linkPreview}
-      </td>
+      <td class="px-3 py-2 align-middle">${linkCell}</td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(p.note)}" placeholder="" class="pending-input"></td>
       <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(p.keyword)}" placeholder="" class="pending-input"></td>
       <td class="px-3 py-2 text-center align-middle">
@@ -2199,6 +2200,24 @@ function renderPendingList() {
     });
   });
   _updatePendingSelectLabel();
+}
+
+// 링크 셀 더블클릭 → 입력 모드로 전환 (수정 후 blur 시 자동으로 a 태그로 복원)
+function _pendingEditLinkCell(event, pid) {
+  event.preventDefault();
+  event.stopPropagation();
+  const td = event.currentTarget.closest('td');
+  if (!td) return;
+  const item = pendingList.find(p => p.id === pid);
+  if (!item) return;
+  td.innerHTML = `<input type="text" data-field="link" value="${_pendingEsc(item.link)}" placeholder="https://…" class="pending-input text-xs">`;
+  const input = td.querySelector('input');
+  if (!input) return;
+  input.addEventListener('input', () => _onPendingCellEdit(input));
+  input.addEventListener('blur',  () => _onPendingCellEdit(input, true));   // blur 시 전체 재렌더 → a 태그로 복원
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+  input.focus();
+  input.select();
 }
 
 function togglePendingSelectAll(checked) {
