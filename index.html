@@ -391,6 +391,11 @@
             엑셀
           </button>
           <button onclick="pasteProductsFromClipboard()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg" title="엑셀에서 행 복사 후 클릭">📋 엑셀 붙여넣기</button>
+          <button onclick="document.getElementById('pm-file-input').click()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            엑셀 업로드
+          </button>
+          <input type="file" id="pm-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="uploadProductsExcel(event)">
           <button onclick="addProductRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-xs font-bold hover:bg-[#333] flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             새 상품
@@ -451,6 +456,11 @@
             엑셀
           </button>
           <button onclick="pastePendingFromClipboard()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg" title="엑셀에서 행 복사 후 여기 클릭">📋 엑셀 붙여넣기</button>
+          <button onclick="document.getElementById('pending-file-input').click()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            엑셀 업로드
+          </button>
+          <input type="file" id="pending-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="uploadPendingExcel(event)">
           <button onclick="addPendingRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-xs font-bold hover:bg-[#333] flex items-center gap-1">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             새 행
@@ -2541,6 +2551,104 @@ async function pasteProductsFromClipboard() {
 }
 
 document.addEventListener('DOMContentLoaded', _loadPmFromStorage);
+
+// 엑셀 파일 업로드 (상품관리)
+async function uploadProductsExcel(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';   // 같은 파일 재선택 가능
+  if (!file) return;
+  try {
+    const buf  = await file.arrayBuffer();
+    const wb   = XLSX.read(buf, { type: 'array' });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (!rows || rows.length === 0) { alert('빈 엑셀 파일입니다.'); return; }
+    // 헤더 감지 — 첫 행이 컬럼명처럼 보이면 건너뜀
+    const first = rows[0].map(c => String(c || '').trim());
+    const isHeader = /상품명|상품코드|폴더코드/i.test(first.join(' '));
+    const isOldOrder = isHeader && /^상품명/.test(first[0]);
+    const dataRows = isHeader ? rows.slice(1) : rows;
+    let added = 0;
+    for (const cols of dataRows) {
+      if (!cols || !cols.length || !cols.join('').toString().trim()) continue;
+      let p;
+      if (isOldOrder) {
+        // 옛 순서: 상품명/상품코드/폴더코드/원가/판매가/업체기준판매가/공급가/택배비/비고/등록여부
+        p = {
+          id: _pmNewId(),
+          name:        String(cols[0] || '').trim(),
+          code:        String(cols[1] || '').trim(),
+          folder:      String(cols[2] || '').trim(),
+          cost:        _pmParseNum(cols[3]),
+          salePrice:   _pmParseNum(cols[4]),
+          supplyPrice: _pmParseNum(cols[6]),  // 5는 업체기준판매가 무시
+          shipping:    _pmParseNum(cols[7]),
+          note:        String(cols[8] || '').trim(),
+          registered:  /o|완료|done|true|1|✓|☑/i.test(String(cols[9] || '').trim()),
+        };
+      } else {
+        // 새 순서: 폴더코드/상품코드/상품명/원가/판매가/공급가/택배비/비고/등록여부
+        p = {
+          id: _pmNewId(),
+          folder:      String(cols[0] || '').trim(),
+          code:        String(cols[1] || '').trim(),
+          name:        String(cols[2] || '').trim(),
+          cost:        _pmParseNum(cols[3]),
+          salePrice:   _pmParseNum(cols[4]),
+          supplyPrice: _pmParseNum(cols[5]),
+          shipping:    _pmParseNum(cols[6]),
+          note:        String(cols[7] || '').trim(),
+          registered:  /o|완료|done|true|1|✓|☑/i.test(String(cols[8] || '').trim()),
+        };
+      }
+      pmList.push(p);
+      added++;
+    }
+    if (!added) { alert('업로드할 유효한 행이 없습니다.'); return; }
+    _savePmToStorage();
+    renderProductsList();
+    alert(`${added}개 상품 추가 완료 (${file.name})`);
+  } catch (e) {
+    alert('엑셀 파일 읽기 실패: ' + (e.message || e));
+  }
+}
+
+// 엑셀 파일 업로드 (등록 예정 리스트)
+async function uploadPendingExcel(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const buf  = await file.arrayBuffer();
+    const wb   = XLSX.read(buf, { type: 'array' });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    if (!rows || rows.length === 0) { alert('빈 엑셀 파일입니다.'); return; }
+    const first = rows[0].map(c => String(c || '').trim()).join(' ');
+    const isHeader = /날짜|제품명|date|name/i.test(first);
+    const dataRows = isHeader ? rows.slice(1) : rows;
+    let added = 0;
+    for (const cols of dataRows) {
+      if (!cols || !cols.length || !cols.join('').toString().trim()) continue;
+      pendingList.unshift({
+        id: _pendingNewId(),
+        date:    String(cols[0] || '').trim() || _todayStr(),
+        name:    String(cols[1] || '').trim(),
+        link:    String(cols[2] || '').trim(),
+        note:    String(cols[3] || '').trim(),
+        keyword: String(cols[4] || '').trim(),
+        done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[5] || '').trim()),
+      });
+      added++;
+    }
+    if (!added) { alert('업로드할 유효한 행이 없습니다.'); return; }
+    _savePendingToStorage();
+    renderPendingList();
+    alert(`${added}개 행 추가 완료 (${file.name})`);
+  } catch (e) {
+    alert('엑셀 파일 읽기 실패: ' + (e.message || e));
+  }
+}
 // 메인 영역에 폴더 그리드 렌더 — 디스크 탐색기 스타일
 function renderFolderGrid() {
   const gridEl = document.getElementById('folder-grid');
