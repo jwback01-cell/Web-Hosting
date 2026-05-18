@@ -2470,7 +2470,12 @@ function deleteSelectedProducts() {
 function toggleProductRegistered(pid, registered) {
   const item = pmList.find(p => p.id === pid);
   if (!item) return;
-  item.registered = registered;
+  if (item.folder) {
+    // 같은 폴더코드 그룹 전체 cascade — 한 상품만 체크해도 폴더 전체 등록 완료
+    pmList.filter(p => p.folder === item.folder).forEach(p => p.registered = registered);
+  } else {
+    item.registered = registered;
+  }
   _savePmToStorage();
   renderProductsList();
 }
