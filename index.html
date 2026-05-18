@@ -436,8 +436,7 @@
               <th class="px-3 py-2.5 text-right  font-bold border-b-2 border-brand-border w-[100px]">택배비</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:200px;">비고</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:140px;">키워드</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:260px;">대표 카테고리</th>
-              <th class="px-3 py-2.5 text-right  font-bold border-b-2 border-brand-border w-[100px]">총 검색수</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:300px;">대표 카테고리</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">등록</th>
               <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
             </tr>
@@ -2466,7 +2465,6 @@ function addProductRow() {
     note: '',
     keyword: '',
     category: '',
-    searchCount: 0,
     registered: false,
   });
   _savePmToStorage();
@@ -2537,7 +2535,6 @@ function renderProductsList() {
         <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pmEsc(item.note)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pmEsc(item.keyword)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="category" value="${_pmEsc(item.category)}" placeholder="" class="pending-input text-xs"></td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="searchCount" value="${_pmFmtNum(item.searchCount)}" placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
         <td class="px-3 py-2 text-center align-middle">
           <input type="checkbox" ${item.registered ? 'checked' : ''} onchange="toggleProductRegistered('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
         </td>
@@ -2570,7 +2567,7 @@ function _onPmCellEdit(el, isBlur) {
   const field = el.dataset.field;
   const item = pmList.find(p => p.id === pid);
   if (!item) return;
-  const NUMERIC_FIELDS = ['cost','salePrice','supplyPrice','shipping','searchCount'];
+  const NUMERIC_FIELDS = ['cost','salePrice','supplyPrice','shipping'];
   let newVal;
   if (NUMERIC_FIELDS.includes(field)) {
     newVal = _pmParseNum(el.value);
@@ -2646,7 +2643,7 @@ function deleteProductRow(pid) {
 
 function exportProductsExcel() {
   if (!pmList.length) { alert('내보낼 상품이 없습니다.'); return; }
-  const headers = ['폴더코드','상품코드','상품명','원가','판매가','공급가','택배비','비고','키워드','대표 카테고리','총 검색수','등록여부'];
+  const headers = ['폴더코드','상품코드','상품명','원가','판매가','공급가','택배비','비고','키워드','대표 카테고리','등록여부'];
   const data = [headers];
   const sorted = pmList.slice().sort((a,b) => {
     const fa = a.folder || '￿', fb = b.folder || '￿';
@@ -2662,11 +2659,10 @@ function exportProductsExcel() {
     p.note,
     p.keyword || '',
     p.category || '',
-    Number(p.searchCount) || 0,
     p.registered ? 'O' : ''
   ]));
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:10},{wch:10},{wch:35},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:20},{wch:50},{wch:12},{wch:8}];
+  ws['!cols'] = [{wch:10},{wch:10},{wch:35},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:20},{wch:50},{wch:8}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '상품');
   const today = new Date();
@@ -2706,13 +2702,12 @@ async function pasteProductsFromClipboard() {
         note:        (cols[8] || '').trim(),
         keyword:     '',
         category:    '',
-        searchCount: 0,
         registered:  /o|완료|done|true|1|✓|☑/i.test((cols[9] || '').trim()),
       };
     } else {
       // 새 순서: 폴더코드 / 상품코드 / 상품명 / 원가 / 판매가 / 공급가 / 택배비 / 비고 / [키워드 / 대표카테고리 / 총검색수] / 등록여부
       // 컬럼 수에 따라 키워드 3개 그룹 유무 자동 인식 (9개 vs 12개)
-      const hasKwGroup = cols.length >= 11;
+      const hasKwGroup = cols.length >= 10;
       p = {
         id: _pmNewId(),
         folder:      (cols[0] || '').trim(),
@@ -2725,8 +2720,7 @@ async function pasteProductsFromClipboard() {
         note:        (cols[7] || '').trim(),
         keyword:     hasKwGroup ? (cols[8] || '').trim() : '',
         category:    hasKwGroup ? (cols[9] || '').trim() : '',
-        searchCount: hasKwGroup ? _pmParseNum(cols[10]) : 0,
-        registered:  /o|완료|done|true|1|✓|☑/i.test((cols[hasKwGroup ? 11 : 8] || '').trim()),
+        registered:  /o|완료|done|true|1|✓|☑/i.test((cols[hasKwGroup ? 10 : 8] || '').trim()),
       };
     }
     pmList.push(p);
@@ -2742,15 +2736,15 @@ document.addEventListener('DOMContentLoaded', _loadPmFromStorage);
 
 // 양식 다운로드 (상품관리)
 function downloadProductsTemplate() {
-  const headers = ['폴더코드','상품코드','상품명','원가','판매가','공급가','택배비','비고','키워드','대표 카테고리','총 검색수','등록여부'];
+  const headers = ['폴더코드','상품코드','상품명','원가','판매가','공급가','택배비','비고','키워드','대표 카테고리','등록여부'];
   const examples = [
-    ['0001', 'GB0001', '에어팟 잠금 케이스 1/2세대 옐로우', 2000, 13900, 4200, 3000, '신제품', '에어팟청소', '디지털/가전 > 음향가전 > 이어폰/헤드폰액세서리 > 기타이어폰/헤드폰액세서리', 1900, ''],
-    ['0001', 'GB0002', '에어팟 잠금 케이스 1/2세대 정록', 2000, 13900, 4200, 3000, '', '이어폰청소', '디지털/가전 > 음향가전 > 이어폰/헤드폰액세서리 > 기타이어폰/헤드폰액세서리', 760, 'O'],
-    ['0002', 'GB0017', '빅픽 에어팟 맥스 젤리 케이스 투명', 2200, 12900, 3700, 3000, '상세페이지 변경됨', '이어폰청소키트', '디지털/가전 > 음향가전 > 이어폰/헤드폰액세서리 > 기타이어폰/헤드폰액세서리', 190, ''],
+    ['0001', 'GB0001', '에어팟 잠금 케이스 1/2세대 옐로우', 2000, 13900, 4200, 3000, '신제품', '에어팟청소', '디지털/가전 > 음향가전 > 이어폰/헤드폰액세서리 > 기타이어폰/헤드폰액세서리', ''],
+    ['0001', 'GB0002', '에어팟 잠금 케이스 1/2세대 정록', 2000, 13900, 4200, 3000, '', '이어폰청소', '디지털/가전 > 음향가전 > 이어폰/헤드폰액세서리 > 기타이어폰/헤드폰액세서리', 'O'],
+    ['0002', 'GB0017', '빅픽 에어팟 맥스 젤리 케이스 투명', 2200, 12900, 3700, 3000, '상세페이지 변경됨', '이어폰청소키트', '디지털/가전 > 음향가전 > 이어폰/헤드폰액세서리 > 기타이어폰/헤드폰액세서리', ''],
   ];
   const data = [headers, ...examples];
   const ws = XLSX.utils.aoa_to_sheet(data);
-  ws['!cols'] = [{wch:10},{wch:10},{wch:35},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:20},{wch:50},{wch:12},{wch:8}];
+  ws['!cols'] = [{wch:10},{wch:10},{wch:35},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:20},{wch:50},{wch:8}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '상품양식');
   XLSX.writeFile(wb, '상품관리_양식.xlsx');
@@ -2795,7 +2789,7 @@ async function uploadProductsExcel(event) {
         };
       } else {
         // 새 순서: 폴더코드/상품코드/상품명/원가/판매가/공급가/택배비/비고/[키워드/대표카테고리/총검색수]/등록여부
-        const hasKwGroup = cols.length >= 11;
+        const hasKwGroup = cols.length >= 10;
         p = {
           id: _pmNewId(),
           folder:      String(cols[0] || '').trim(),
@@ -2808,8 +2802,7 @@ async function uploadProductsExcel(event) {
           note:        String(cols[7] || '').trim(),
           keyword:     hasKwGroup ? String(cols[8] || '').trim() : '',
           category:    hasKwGroup ? String(cols[9] || '').trim() : '',
-          searchCount: hasKwGroup ? _pmParseNum(cols[10]) : 0,
-          registered:  /o|완료|done|true|1|✓|☑/i.test(String(cols[hasKwGroup ? 11 : 8] || '').trim()),
+          registered:  /o|완료|done|true|1|✓|☑/i.test(String(cols[hasKwGroup ? 10 : 8] || '').trim()),
         };
       }
       pmList.push(p);
