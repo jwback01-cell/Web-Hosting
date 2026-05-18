@@ -501,8 +501,8 @@
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[260px]">링크</th>
-              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">비고</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">키워드</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">비고</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
               <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
             </tr>
@@ -2255,8 +2255,8 @@ function renderPendingList() {
         ${folderCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
         <td class="px-3 py-2 align-middle">${linkCell}</td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 text-center align-middle">
           <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePendingDone('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
         </td>
@@ -2294,7 +2294,7 @@ function renderPendingList() {
 
 // 화면 직접 붙여넣기 (등록 예정 리스트) — 다중 행이면 새 행 자동 생성
 //  컬럼은 값 패턴으로 자동 라우팅 (4자리 숫자 → 폴더코드, URL → 링크, 날짜 → date)
-const _PENDING_COLUMN_ORDER = ['date','folder','name','link','note','keyword'];
+const _PENDING_COLUMN_ORDER = ['date','folder','name','link','keyword','note'];
 function _pendingDetectField(value) {
   const v = String(value || '').trim();
   if (!v) return null;
@@ -2482,8 +2482,8 @@ function deletePendingRow(pid) {
 
 function exportPendingExcel() {
   if (!pendingList.length) { alert('내보낼 항목이 없습니다.'); return; }
-  const data = [['날짜', '폴더코드', '제품명', '링크', '비고', '키워드', '완료여부']];
-  pendingList.forEach(p => data.push([p.date, p.folder || '', p.name, p.link, p.note, p.keyword, p.done ? '완료' : '']));
+  const data = [['날짜', '폴더코드', '제품명', '링크', '키워드', '비고', '완료여부']];
+  pendingList.forEach(p => data.push([p.date, p.folder || '', p.name, p.link, p.keyword, p.note, p.done ? '완료' : '']));
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{wch:12},{wch:10},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
   const wb = XLSX.utils.book_new();
@@ -2512,27 +2512,27 @@ async function pastePendingFromClipboard() {
     if (!cols.length || !cols.join('').trim()) continue;
     let p;
     if (hasFolderCol) {
-      // 날짜 / 폴더코드 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+      // 날짜 / 폴더코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
       p = {
         id: _pendingNewId(),
         date:    (cols[0] || '').trim(),
         folder:  (cols[1] || '').trim(),
         name:    (cols[2] || '').trim(),
         link:    (cols[3] || '').trim(),
-        note:    (cols[4] || '').trim(),
-        keyword: (cols[5] || '').trim(),
+        keyword: (cols[4] || '').trim(),
+        note:    (cols[5] || '').trim(),
         done:    /완료|done|true|1|✓|☑/i.test((cols[6] || '').trim()),
       };
     } else {
-      // 옛 포맷 (폴더코드 없음): 날짜 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+      // 옛 포맷 (폴더코드 없음): 날짜 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
       p = {
         id: _pendingNewId(),
         date:    (cols[0] || '').trim(),
         folder:  '',
         name:    (cols[1] || '').trim(),
         link:    (cols[2] || '').trim(),
-        note:    (cols[3] || '').trim(),
-        keyword: (cols[4] || '').trim(),
+        keyword: (cols[3] || '').trim(),
+        note:    (cols[4] || '').trim(),
         done:    /완료|done|true|1|✓|☑/i.test((cols[5] || '').trim()),
       };
     }
@@ -3041,10 +3041,10 @@ async function uploadProductsExcel(event) {
 
 // 양식 다운로드 (등록 예정 리스트)
 function downloadPendingTemplate() {
-  const headers = ['날짜','폴더코드','제품명','링크','비고','키워드','완료여부'];
+  const headers = ['날짜','폴더코드','제품명','링크','키워드','비고','완료여부'];
   const examples = [
-    ['', '0001', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '화이트, 블랙', '오픈닷원 투명 케이스', ''],
-    ['', '0002', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '', '침대핸드폰거치대', ''],
+    ['', '0001', '빅픽 샥즈 오픈닷원 투명 케이스', 'https://detail.1688.com/offer/908475032847.html', '오픈닷원 투명 케이스', '화이트, 블랙', ''],
+    ['', '0002', '빅픽 침대 핸드폰 태블릿 거치대', 'https://detail.1688.com/offer/702884628837.html', '침대핸드폰거치대', '', ''],
   ];
   const data = [headers, ...examples];
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -3074,27 +3074,26 @@ async function uploadPendingExcel(event) {
       if (!cols || !cols.length || !cols.join('').toString().trim()) continue;
       let p;
       if (hasFolderCol) {
-        // 날짜 / 폴더코드 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
+        // 날짜 / 폴더코드 / 제품명 / 링크 / 키워드 / 비고 / 완료여부
         p = {
           id: _pendingNewId(),
           date:    String(cols[0] || '').trim(),
           folder:  String(cols[1] || '').trim(),
           name:    String(cols[2] || '').trim(),
           link:    String(cols[3] || '').trim(),
-          note:    String(cols[4] || '').trim(),
-          keyword: String(cols[5] || '').trim(),
+          keyword: String(cols[4] || '').trim(),
+          note:    String(cols[5] || '').trim(),
           done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[6] || '').trim()),
         };
       } else {
-        // 옛 포맷: 날짜 / 제품명 / 링크 / 비고 / 키워드 / 완료여부
         p = {
           id: _pendingNewId(),
           date:    String(cols[0] || '').trim(),
           folder:  '',
           name:    String(cols[1] || '').trim(),
           link:    String(cols[2] || '').trim(),
-          note:    String(cols[3] || '').trim(),
-          keyword: String(cols[4] || '').trim(),
+          keyword: String(cols[3] || '').trim(),
+          note:    String(cols[4] || '').trim(),
           done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[5] || '').trim()),
         };
       }
