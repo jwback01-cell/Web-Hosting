@@ -2284,8 +2284,8 @@ function renderPendingList() {
       const linkCell = item.link
         ? `<a href="${_pendingEsc(item.link)}" target="_blank" rel="noopener"
                ondblclick="_pendingEditLinkCell(event, '${item.id}')"
-               class="text-brand-blue hover:underline text-xs break-all cursor-pointer block"
-               title="더블클릭하면 수정">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>`
+               class="text-brand-black hover:underline text-xs break-all cursor-pointer block"
+               title="더블클릭하면 수정 · 클릭하면 새 탭에서 열림">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>`
         : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
       rowsHtml.push(`<tr data-pid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.done ? 'opacity-50' : ''} ${groupBg}">
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
@@ -2340,8 +2340,6 @@ function renderPendingList() {
     });
     td.style.cursor = 'text';
   });
-  // 중복 링크 그룹별 색상 강조 — 같은 링크는 같은 색
-  _highlightDuplicateLinks(tbody);
   _updatePendingSelectLabel();
 }
 
