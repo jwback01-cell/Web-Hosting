@@ -2219,34 +2219,58 @@ function renderPendingList() {
     return;
   }
   if (empty) empty.classList.add('hidden');
-  tbody.innerHTML = visible.map((p, idx) => {
-    // 링크 셀: 값이 있으면 클릭 가능한 a 로, 비어 있으면 input 으로 (더블클릭 시 수정)
-    const linkCell = p.link
-      ? `<a href="${_pendingEsc(p.link)}" target="_blank" rel="noopener"
-             ondblclick="_pendingEditLinkCell(event, '${p.id}')"
-             class="text-brand-blue hover:underline text-xs break-all cursor-pointer block"
-             title="더블클릭하면 수정">${_pendingEsc(p.link.length > 80 ? p.link.slice(0,80)+'…' : p.link)}</a>`
-      : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
-    // 짝수 행에 격자 배경
-    const rowBg = (idx % 2 === 1) ? 'pm-row-alt' : '';
-    return `<tr data-pid="${p.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${p.done ? 'opacity-50' : ''} ${rowBg}">
-      <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${p.id}" onchange="_updatePendingSelectLabel()"></td>
-      <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(p.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
-      <td class="px-3 py-2 align-middle"><input type="text" data-field="folder" value="${_pendingEsc(p.folder)}" placeholder="0000" class="pending-input font-mono text-xs text-center"></td>
-      <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(p.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
-      <td class="px-3 py-2 align-middle">${linkCell}</td>
-      <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(p.note)}" placeholder="" class="pending-input"></td>
-      <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(p.keyword)}" placeholder="" class="pending-input"></td>
-      <td class="px-3 py-2 text-center align-middle">
-        <input type="checkbox" ${p.done ? 'checked' : ''} onchange="togglePendingDone('${p.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
-      </td>
-      <td class="px-2 py-2 text-center align-middle">
-        <button onclick="deletePendingRow('${p.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
-      </td>
-    </tr>`;
-  }).join('');
+  // 폴더코드 기준 정렬 (빈 폴더는 맨 뒤)
+  visible.sort((a, b) => {
+    const fa = a.folder || '￿';
+    const fb = b.folder || '￿';
+    if (fa !== fb) return fa.localeCompare(fb);
+    return 0;
+  });
+  // 같은 폴더코드 행들 → rowspan 으로 셀 병합 + 그룹별 배경색 번갈아
+  const rowsHtml = [];
+  let i = 0, groupIdx = 0;
+  while (i < visible.length) {
+    const p = visible[i];
+    let groupSize = 1;
+    if (p.folder) {
+      while (i + groupSize < visible.length && visible[i + groupSize].folder === p.folder) groupSize++;
+    }
+    const groupBg = (groupIdx % 2 === 0) ? '' : 'pm-row-alt';
+    for (let j = 0; j < groupSize; j++) {
+      const item = visible[i + j];
+      const folderCell = (j === 0)
+        ? `<td rowspan="${groupSize}" class="px-3 py-2 align-middle text-center ${groupSize > 1 ? 'font-bold' : ''} ${groupBg}">
+             <input type="text" data-field="folder" value="${_pendingEsc(item.folder)}" placeholder="0000" class="pending-input font-mono text-xs text-center">
+           </td>`
+        : '';
+      const linkCell = item.link
+        ? `<a href="${_pendingEsc(item.link)}" target="_blank" rel="noopener"
+               ondblclick="_pendingEditLinkCell(event, '${item.id}')"
+               class="text-brand-blue hover:underline text-xs break-all cursor-pointer block"
+               title="더블클릭하면 수정">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>`
+        : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
+      rowsHtml.push(`<tr data-pid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.done ? 'opacity-50' : ''} ${groupBg}">
+        <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
+        ${folderCell}
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
+        <td class="px-3 py-2 align-middle">${linkCell}</td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input"></td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
+        <td class="px-3 py-2 text-center align-middle">
+          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePendingDone('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
+        </td>
+        <td class="px-2 py-2 text-center align-middle">
+          <button onclick="deletePendingRow('${item.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </td>
+      </tr>`);
+    }
+    i += groupSize;
+    groupIdx++;
+  }
+  tbody.innerHTML = rowsHtml.join('');
   // 인라인 편집 이벤트 바인딩 (input 요소)
   tbody.querySelectorAll('input[type="text"][data-field]').forEach(el => {
     el.addEventListener('input', () => _onPendingCellEdit(el));
@@ -2400,19 +2424,36 @@ function _onPendingCellEdit(el, isBlur) {
   const field = el.dataset.field;
   const item = pendingList.find(p => p.id === pid);
   if (!item) return;
-  // input 의 value 또는 contenteditable 의 innerText
   const newVal = (el.value !== undefined ? el.value : el.innerText || '').trim();
   if (item[field] === newVal) return;
+
+  // 폴더코드 cascade — 병합된 셀에서 수정 시 같은 그룹 전체 갱신
+  if (field === 'folder') {
+    const oldFolder = item.folder;
+    if (oldFolder) {
+      pendingList.filter(p => p.folder === oldFolder).forEach(p => {
+        p.folder = newVal;
+        _syncPmFromPending(p, 'folder');
+      });
+    } else {
+      item.folder = newVal;
+      _syncPmFromPending(item, 'folder');
+    }
+    clearTimeout(_pendingSaveTimer);
+    if (isBlur) { _savePendingToStorage(); renderPendingList(); }
+    else _pendingSaveTimer = setTimeout(_savePendingToStorage, 400);
+    return;
+  }
+
   item[field] = newVal;
-  // 상품관리에 연동된 필드 동기화 (폴더코드 / 제품명 / 비고)
-  if (field === 'folder' || field === 'name' || field === 'note') {
+  // 상품관리에 연동된 필드 동기화 (제품명 / 비고)
+  if (field === 'name' || field === 'note') {
     if (!item.linkedPmId) _ensureLinkedPmForPending(item);
     _syncPmFromPending(item, field);
   }
   clearTimeout(_pendingSaveTimer);
   if (isBlur) {
     _savePendingToStorage();
-    // 링크 입력 후 blur 시 미리보기 갱신을 위해 재렌더
     if (field === 'link') renderPendingList();
   } else {
     _pendingSaveTimer = setTimeout(_savePendingToStorage, 400);
