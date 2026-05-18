@@ -50,9 +50,11 @@
   .pending-input::placeholder { color: #D1D5DB; }
   .pending-input:hover  { background: #FAFAFA; }
   .pending-input:focus  { background: #fff; box-shadow: inset 0 0 0 1px #E5E7EB; }
-  /* 빈 input 은 hover/focus 모두 강조 안 함 */
+  /* 빈 input 은 hover/focus/caret 모두 강조 안 함 */
   .pending-input:placeholder-shown:hover { background: transparent; }
   .pending-input:placeholder-shown:focus { background: transparent; box-shadow: none; }
+  .pending-input:placeholder-shown        { caret-color: transparent; }
+  .pending-input:not(:placeholder-shown)  { caret-color: auto; }
   /* 상품관리 — 폴더 그룹 격자 배경 (홀수 그룹) */
   tr.pm-row-alt, td.pm-row-alt { background: #ECEEF2; }
   tr.pm-row-alt:hover { background: #E1E5EC !important; }
