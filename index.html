@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -40,6 +41,11 @@
   .nav-item:not(.active):hover { background:#F9F9FB; color:#1A1A1A; }
   /* 상단 메뉴 탭 */
   .menu-tab.active { background:#1A1A1A; color:white; }
+  /* 등록 예정 리스트 — 인라인 편집 셀 */
+  .pending-cell { outline: none; border-radius: 6px; padding: 4px 6px; min-height: 1.5em; transition: background 0.12s, box-shadow 0.12s; cursor: text; word-break: break-all; }
+  .pending-cell:hover { background: #fff; box-shadow: inset 0 0 0 1px #F2F2F7; }
+  .pending-cell:focus { background: #fff; box-shadow: inset 0 0 0 2px #2196F3; }
+  .pending-cell:empty:before { content: '클릭해서 입력'; color: #C7C7CC; pointer-events: none; }
 
   /* 이미지 그리드 */
   .img-card { position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; background:#F2F2F7; border:2px solid transparent; transition:all .2s; cursor:grab; }
@@ -371,14 +377,50 @@
     </div>
   </div>
 
-  <!-- 메뉴 3: 등록 예정 리스트 (자리만 — 콘텐츠는 추후 추가) -->
+  <!-- 메뉴 3: 등록 예정 리스트 -->
   <div id="menu-pending" class="hidden flex-1 px-4 md:px-6 pb-6">
-    <div class="bg-white rounded-4xl panel p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-      <div class="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center mb-4">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">등록 예정 리스트</h1>
+          <p class="text-brand-gray text-sm mt-1">셀을 클릭하면 바로 수정됩니다. 자동 저장.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="flex items-center gap-1.5 text-xs font-semibold text-brand-gray cursor-pointer">
+            <input type="checkbox" id="pending-show-completed" onchange="renderPendingList()" class="w-4 h-4 rounded">
+            완료 항목도 보기
+          </label>
+          <button onclick="exportPendingExcel()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            엑셀
+          </button>
+          <button onclick="pastePendingFromClipboard()" class="px-3 py-2 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg" title="엑셀에서 행 복사 후 여기 클릭">📋 엑셀 붙여넣기</button>
+          <button onclick="addPendingRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-xs font-bold hover:bg-[#333] flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            새 행
+          </button>
+        </div>
       </div>
-      <h2 class="text-2xl font-bold mb-2">등록 예정 리스트</h2>
-      <p class="text-brand-gray text-sm">곧 추가될 기능입니다.</p>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border-collapse" id="pending-table">
+          <thead>
+            <tr class="bg-brand-bg">
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[180px]">제품명</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[260px]">링크</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">비고</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[140px]">키워드</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
+              <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
+            </tr>
+          </thead>
+          <tbody id="pending-tbody"></tbody>
+        </table>
+      </div>
+      <div id="pending-empty" class="text-center py-12 text-brand-gray text-sm hidden">
+        등록 예정 상품이 없습니다. 위 "+ 새 행" 버튼을 눌러 추가하세요.
+      </div>
     </div>
   </div>
 </div>
@@ -1976,7 +2018,174 @@ function switchMenu(menuId) {
     btn.classList.toggle('text-white', isActive);
     btn.classList.toggle('text-brand-gray', !isActive);
   });
+  if (menuId === 'pending') renderPendingList();
 }
+
+// ── 등록 예정 리스트 ─────────────────────────
+const PENDING_LS_KEY = 'ih_pending_products_v1';
+let pendingList = [];
+let _pendingSaveTimer = null;
+
+function _loadPendingFromStorage() {
+  try {
+    pendingList = JSON.parse(localStorage.getItem(PENDING_LS_KEY) || '[]') || [];
+  } catch (_) { pendingList = []; }
+}
+function _savePendingToStorage() {
+  try { localStorage.setItem(PENDING_LS_KEY, JSON.stringify(pendingList)); } catch (_) {}
+}
+function _pendingEsc(s) {
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}`;
+}
+function _pendingNewId() {
+  return 'p_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+function addPendingRow() {
+  pendingList.unshift({
+    id: _pendingNewId(),
+    date: _todayStr(),
+    name: '',
+    link: '',
+    note: '',
+    keyword: '',
+    done: false,
+  });
+  _savePendingToStorage();
+  renderPendingList();
+  // 새로 추가한 행의 제품명 셀에 포커스
+  setTimeout(() => {
+    const firstRow = document.querySelector('#pending-tbody tr [data-field="name"]');
+    if (firstRow) firstRow.focus();
+  }, 50);
+}
+
+function renderPendingList() {
+  const tbody = document.getElementById('pending-tbody');
+  const empty = document.getElementById('pending-empty');
+  if (!tbody) return;
+  const showCompleted = document.getElementById('pending-show-completed')?.checked || false;
+  const visible = pendingList.filter(p => showCompleted || !p.done);
+  if (!visible.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+  tbody.innerHTML = visible.map(p => {
+    const linkHtml = p.link
+      ? `<a href="${_pendingEsc(p.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline text-xs break-all" onclick="event.stopPropagation()">${_pendingEsc(p.link.length > 60 ? p.link.slice(0, 60) + '…' : p.link)}</a>`
+      : '<span class="text-brand-gray text-xs">링크 입력</span>';
+    return `<tr data-pid="${p.id}" class="border-b border-brand-border hover:bg-brand-bg/50 transition-colors ${p.done ? 'opacity-50' : ''}">
+      <td class="px-3 py-2 align-top"><div contenteditable="true" data-field="date" class="pending-cell">${_pendingEsc(p.date)}</div></td>
+      <td class="px-3 py-2 align-top"><div contenteditable="true" data-field="name" class="pending-cell font-semibold">${_pendingEsc(p.name)}</div></td>
+      <td class="px-3 py-2 align-top">
+        <div contenteditable="true" data-field="link" class="pending-cell text-xs">${_pendingEsc(p.link)}</div>
+        ${p.link ? `<div class="mt-1">${linkHtml}</div>` : ''}
+      </td>
+      <td class="px-3 py-2 align-top"><div contenteditable="true" data-field="note" class="pending-cell">${_pendingEsc(p.note)}</div></td>
+      <td class="px-3 py-2 align-top"><div contenteditable="true" data-field="keyword" class="pending-cell">${_pendingEsc(p.keyword)}</div></td>
+      <td class="px-3 py-2 text-center align-middle">
+        <input type="checkbox" ${p.done ? 'checked' : ''} onchange="togglePendingDone('${p.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
+      </td>
+      <td class="px-2 py-2 text-center align-middle">
+        <button onclick="deletePendingRow('${p.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+  // 인라인 편집 이벤트 바인딩
+  tbody.querySelectorAll('[contenteditable="true"]').forEach(el => {
+    el.addEventListener('input', () => _onPendingCellEdit(el));
+    el.addEventListener('blur', () => _onPendingCellEdit(el, true));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); el.blur(); }
+    });
+  });
+}
+
+function _onPendingCellEdit(el, isBlur) {
+  const tr = el.closest('tr');
+  if (!tr) return;
+  const pid = tr.dataset.pid;
+  const field = el.dataset.field;
+  const item = pendingList.find(p => p.id === pid);
+  if (!item) return;
+  const newVal = el.innerText.trim();
+  if (item[field] === newVal) return;
+  item[field] = newVal;
+  // 디바운스 저장 (input 시) / 즉시 저장 (blur 시)
+  clearTimeout(_pendingSaveTimer);
+  if (isBlur) { _savePendingToStorage(); }
+  else { _pendingSaveTimer = setTimeout(_savePendingToStorage, 400); }
+}
+
+function togglePendingDone(pid, done) {
+  const item = pendingList.find(p => p.id === pid);
+  if (!item) return;
+  item.done = done;
+  _savePendingToStorage();
+  renderPendingList();
+}
+
+function deletePendingRow(pid) {
+  if (!confirm('이 행을 삭제할까요?')) return;
+  pendingList = pendingList.filter(p => p.id !== pid);
+  _savePendingToStorage();
+  renderPendingList();
+}
+
+function exportPendingExcel() {
+  if (!pendingList.length) { alert('내보낼 항목이 없습니다.'); return; }
+  const data = [['날짜', '제품명', '링크', '비고', '키워드', '완료여부']];
+  pendingList.forEach(p => data.push([p.date, p.name, p.link, p.note, p.keyword, p.done ? '완료' : '']));
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:30},{wch:60},{wch:20},{wch:20},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '등록예정');
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `등록예정리스트_${dateStr}.xlsx`);
+}
+
+// 엑셀에서 행 복사 → 탭 구분 텍스트로 붙여넣기
+async function pastePendingFromClipboard() {
+  let text = '';
+  try { text = await navigator.clipboard.readText(); }
+  catch (e) { alert('클립보드 읽기 실패. 브라우저 권한을 확인하세요.\n또는 엑셀에서 행 복사 후 다시 시도.'); return; }
+  if (!text || !text.trim()) { alert('클립보드가 비어 있습니다.'); return; }
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) { alert('붙여넣을 행이 없습니다.'); return; }
+  // 첫 줄이 헤더(날짜, 제품명...) 처럼 보이면 건너뜀
+  const startIdx = /날짜|date/i.test(lines[0]) ? 1 : 0;
+  let added = 0;
+  for (let i = startIdx; i < lines.length; i++) {
+    const cols = lines[i].split('\t');
+    if (!cols.length || !cols.join('').trim()) continue;
+    pendingList.unshift({
+      id: _pendingNewId(),
+      date:    (cols[0] || _todayStr()).trim(),
+      name:    (cols[1] || '').trim(),
+      link:    (cols[2] || '').trim(),
+      note:    (cols[3] || '').trim(),
+      keyword: (cols[4] || '').trim(),
+      done:    /완료|done|true|1|✓|☑/i.test((cols[5] || '').trim()),
+    });
+    added++;
+  }
+  if (!added) { alert('붙여넣을 유효한 행이 없습니다.'); return; }
+  _savePendingToStorage();
+  renderPendingList();
+  alert(`${added}개 행 추가 완료`);
+}
+
+// 초기 로드
+document.addEventListener('DOMContentLoaded', _loadPendingFromStorage);
 // 메인 영역에 폴더 그리드 렌더 — 디스크 탐색기 스타일
 function renderFolderGrid() {
   const gridEl = document.getElementById('folder-grid');
