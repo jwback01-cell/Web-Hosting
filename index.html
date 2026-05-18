@@ -2268,7 +2268,7 @@ function renderPendingList() {
   _updatePendingSelectLabel();
 }
 
-// Excel-style 다중 셀 붙여넣기 (등록 예정 리스트)
+// 화면 직접 붙여넣기 (등록 예정 리스트) — 같은 행 안에서만 채움
 const _PENDING_COLUMN_ORDER = ['date','folder','name','link','note','keyword'];
 function _onPendingCellPaste(e, el) {
   const cd = e.clipboardData || window.clipboardData;
@@ -2285,34 +2285,19 @@ function _onPendingCellPaste(e, el) {
   if (startColIdx < 0) return;
   const tr = el.closest('tr');
   if (!tr) return;
-  const allTrs = [...tr.parentElement.children].filter(t => t.dataset && t.dataset.pid);
-  const startTrIdx = allTrs.indexOf(tr);
-  for (let r = 0; r < matrix.length; r++) {
-    let targetTr = allTrs[startTrIdx + r];
-    let item;
-    if (targetTr) {
-      item = pendingList.find(p => p.id === targetTr.dataset.pid);
-    } else {
-      const newItem = {
-        id: _pendingNewId(),
-        date: '', folder: '', name: '', link: '', note: '', keyword: '',
-        done: false, linkedPmId: '',
-      };
-      pendingList.unshift(newItem);
-      _ensureLinkedPmForPending(newItem);
-      item = newItem;
-    }
-    if (!item) continue;
-    const cols = matrix[r];
-    for (let c = 0; c < cols.length; c++) {
-      const fieldIdx = startColIdx + c;
-      if (fieldIdx >= _PENDING_COLUMN_ORDER.length) break;
-      const field = _PENDING_COLUMN_ORDER[fieldIdx];
-      item[field] = String(cols[c] || '').trim();
-      // 상품관리에 연동된 필드 동기화
-      if (field === 'folder' || field === 'name' || field === 'note') {
-        _syncPmFromPending(item, field);
-      }
+  const item = pendingList.find(p => p.id === tr.dataset.pid);
+  if (!item) return;
+
+  const numCols = Math.max(...matrix.map(r => r.length));
+  for (let c = 0; c < numCols; c++) {
+    const fieldIdx = startColIdx + c;
+    if (fieldIdx >= _PENDING_COLUMN_ORDER.length) break;
+    const field = _PENDING_COLUMN_ORDER[fieldIdx];
+    const colValues = matrix.map(row => String(row[c] || '').trim()).filter(Boolean);
+    if (!colValues.length) continue;
+    item[field] = colValues.join(', ');
+    if (field === 'folder' || field === 'name' || field === 'note') {
+      _syncPmFromPending(item, field);
     }
   }
   _savePendingToStorage();
@@ -2630,20 +2615,18 @@ function renderProductsList() {
   _updatePmSelectLabel();
 }
 
-// Excel-style 다중 셀 붙여넣기 — 클립보드에 탭/줄바꿈이 있으면 셀들을 자동으로 채움
+// 화면 직접 붙여넣기 — 같은 행 안에서만 채움 (다음 행 침범 금지)
+//  - 다중 행을 복사한 경우: 그 값을 콤마로 묶어 시작 셀 1개에만 넣음
+//  - 다중 열을 복사한 경우: 시작 셀부터 오른쪽으로 같은 행 안에서만 채움
 const _PM_COLUMN_ORDER = ['folder','code','name','cost','salePrice','supplyPrice','shipping','note','keyword','category'];
 function _onPmCellPaste(e, el) {
   const cd = e.clipboardData || window.clipboardData;
   if (!cd) return;
   const text = cd.getData('text');
   if (!text) return;
-  // 단일 셀 붙여넣기는 브라우저 기본 동작에 맡김
-  if (!text.includes('\t') && !text.includes('\n')) return;
+  if (!text.includes('\t') && !text.includes('\n')) return;   // 단일 셀은 브라우저 기본
   e.preventDefault();
-  // 2D matrix 파싱
-  const matrix = text.replace(/\r/g,'').split('\n').filter(r => r.length > 0 || true)
-    .map(r => r.split('\t'));
-  // 끝의 빈 줄은 제거
+  const matrix = text.replace(/\r/g,'').split('\n').map(r => r.split('\t'));
   while (matrix.length && matrix[matrix.length-1].join('').trim() === '') matrix.pop();
   if (!matrix.length) return;
   const startField = el.dataset.field;
@@ -2651,46 +2634,29 @@ function _onPmCellPaste(e, el) {
   if (startColIdx < 0) return;
   const tr = el.closest('tr');
   if (!tr) return;
-  // 현재 visible 행 순서대로 pmid 수집
-  const allTrs = [...tr.parentElement.children].filter(t => t.dataset && t.dataset.pmid);
-  const startTrIdx = allTrs.indexOf(tr);
-  let createdNew = 0;
-  // 각 paste 행 처리
-  for (let r = 0; r < matrix.length; r++) {
-    let targetTr = allTrs[startTrIdx + r];
-    let item;
-    if (targetTr) {
-      item = pmList.find(p => p.id === targetTr.dataset.pmid);
+  const item = pmList.find(p => p.id === tr.dataset.pmid);
+  if (!item) return;
+
+  // 다중 행이면 → 각 열별로 값을 콤마로 묶어 같은 행에만 채움
+  const numCols = Math.max(...matrix.map(r => r.length));
+  const numericFields = ['cost','salePrice','supplyPrice','shipping'];
+  for (let c = 0; c < numCols; c++) {
+    const fieldIdx = startColIdx + c;
+    if (fieldIdx >= _PM_COLUMN_ORDER.length) break;
+    const field = _PM_COLUMN_ORDER[fieldIdx];
+    // 이 열의 모든 행 값을 모음 (빈 값 제외)
+    const colValues = matrix.map(row => String(row[c] || '').trim()).filter(Boolean);
+    if (!colValues.length) continue;
+    if (numericFields.includes(field)) {
+      // 숫자 필드는 첫 값만 사용
+      item[field] = _pmParseNum(colValues[0]);
     } else {
-      // 부족하면 새 행 추가
-      const newItem = {
-        id: _pmNewId(),
-        folder: '', code: '', name: '',
-        cost: 0, salePrice: 0, supplyPrice: 0, shipping: 3000,
-        note: '', keyword: '', category: '',
-        registered: false,
-      };
-      pmList.unshift(newItem);
-      item = newItem;
-      createdNew++;
-    }
-    if (!item) continue;
-    const cols = matrix[r];
-    for (let c = 0; c < cols.length; c++) {
-      const fieldIdx = startColIdx + c;
-      if (fieldIdx >= _PM_COLUMN_ORDER.length) break;
-      const field = _PM_COLUMN_ORDER[fieldIdx];
-      const raw = cols[c];
-      if (['cost','salePrice','supplyPrice','shipping'].includes(field)) {
-        item[field] = _pmParseNum(raw);
-      } else {
-        item[field] = String(raw || '').trim();
-      }
+      // 텍스트 필드: 여러 행을 콤마로 묶음
+      item[field] = colValues.join(', ');
     }
   }
   _savePmToStorage();
   renderProductsList();
-  if (createdNew > 0) console.log(`[paste] ${createdNew}개 새 행 추가`);
 }
 
 function _onPmCellEdit(el, isBlur) {
