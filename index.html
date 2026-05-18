@@ -2524,14 +2524,18 @@ function _onPendingCellEdit(el, isBlur) {
   if (item[field] === newVal) return;
 
   // 폴더코드 cascade — 병합된 셀에서 수정 시 같은 그룹 전체 갱신
+  //  * 단, 빈 값(삭제 의도)으로 바꿀 때는 cascade 하지 않고 해당 행만 비움
+  //    (실수로 키를 잘못 눌러 전체가 비워지는 사고 방지)
   if (field === 'folder') {
     const oldFolder = item.folder;
-    if (oldFolder) {
+    if (oldFolder && newVal !== '') {
+      // 비어있지 않은 변경 — 같은 그룹 전체 cascade
       pendingList.filter(p => p.folder === oldFolder).forEach(p => {
         p.folder = newVal;
         _syncPmFromPending(p, 'folder');
       });
     } else {
+      // 빈 값이거나 oldFolder 가 비어있으면 해당 행만 변경
       item.folder = newVal;
       _syncPmFromPending(item, 'folder');
     }
@@ -2945,10 +2949,10 @@ function _onPmCellEdit(el, isBlur) {
   }
   if (item[field] === newVal) return;
 
-  // 폴더코드는 cascade — 병합된 셀에서 수정하면 같은 그룹 전체 갱신
+  // 폴더코드는 cascade — 빈 값으로 변경 시는 cascade 하지 않음 (사고 방지)
   if (field === 'folder') {
     const oldFolder = item.folder;
-    if (oldFolder) {
+    if (oldFolder && newVal !== '') {
       pmList.filter(p => p.folder === oldFolder).forEach(p => p.folder = newVal);
     } else {
       item.folder = newVal;
