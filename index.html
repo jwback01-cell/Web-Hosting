@@ -49,7 +49,7 @@
   }
   .pending-input::placeholder { color: #C7C7CC; }
   .pending-input:hover { background: #fff; border-color: #F2F2F7; }
-  .pending-input:focus { background: #fff; border-color: #2196F3; box-shadow: 0 0 0 3px rgba(33,150,243,0.1); }
+  .pending-input:focus { background: #fff; border-color: #E5E7EB; box-shadow: none; }
 
   /* 이미지 그리드 */
   .img-card { position:relative; aspect-ratio:1/1; border-radius:16px; overflow:hidden; background:#F2F2F7; border:2px solid transparent; transition:all .2s; cursor:grab; }
@@ -2052,7 +2052,7 @@ function _pendingNewId() {
 function addPendingRow() {
   pendingList.unshift({
     id: _pendingNewId(),
-    date: _todayStr(),
+    date: '',            // 완료 체크 시 자동 입력
     name: '',
     link: '',
     note: '',
@@ -2063,7 +2063,7 @@ function addPendingRow() {
   renderPendingList();
   // 새로 추가한 행의 제품명 셀에 포커스
   setTimeout(() => {
-    const firstRow = document.querySelector('#pending-tbody tr [data-field="name"]');
+    const firstRow = document.querySelector('#pending-tbody tr input[data-field="name"]');
     if (firstRow) firstRow.focus();
   }, 50);
 }
@@ -2138,6 +2138,9 @@ function togglePendingDone(pid, done) {
   const item = pendingList.find(p => p.id === pid);
   if (!item) return;
   item.done = done;
+  // 완료 체크 → 오늘 날짜로 자동 입력 (완료일 기록), 해제 → 날짜 비움
+  if (done) item.date = _todayStr();
+  else      item.date = '';
   _savePendingToStorage();
   renderPendingList();
 }
