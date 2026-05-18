@@ -210,6 +210,8 @@
           <button class="menu-tab active px-4 py-1.5 rounded-full text-sm font-bold transition-colors" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="products" onclick="switchMenu('products')">상품관리</button>
+          <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="addon" onclick="switchMenu('addon')">추가상품</button>
+          <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="grade" onclick="switchMenu('grade')">등급</button>
         </div>
       </div>
       <div class="flex items-center gap-4 md:gap-6">
@@ -229,6 +231,8 @@
       <button class="menu-tab active px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="products" onclick="switchMenu('products')">상품관리</button>
+      <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="addon" onclick="switchMenu('addon')">추가상품</button>
+      <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="grade" onclick="switchMenu('grade')">등급</button>
     </div>
   </header>
 
@@ -513,6 +517,28 @@
       <div id="pending-empty" class="text-center py-12 text-brand-gray text-sm hidden">
         등록 예정 상품이 없습니다. 위 "+ 새 행" 버튼을 눌러 추가하세요.
       </div>
+    </div>
+  </div>
+
+  <!-- 메뉴 4: 추가상품 -->
+  <div id="menu-addon" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+      <div class="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center mb-4">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold mb-2">추가상품</h2>
+      <p class="text-brand-gray text-sm">곧 추가될 기능입니다.</p>
+    </div>
+  </div>
+
+  <!-- 메뉴 5: 등급 -->
+  <div id="menu-grade" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
+      <div class="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center mb-4">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+      <h2 class="text-2xl font-bold mb-2">등급</h2>
+      <p class="text-brand-gray text-sm">곧 추가될 기능입니다.</p>
     </div>
   </div>
 </div>
@@ -2099,9 +2125,9 @@ function goHome() {
   backToFolders();
 }
 
-// 메뉴 전환 — 'images' | 'products' | 'pending'
+// 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['images', 'products', 'pending'].forEach(m => {
+  ['images', 'products', 'pending', 'addon', 'grade'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
