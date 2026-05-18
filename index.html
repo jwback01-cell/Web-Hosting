@@ -2289,7 +2289,50 @@ function renderPendingList() {
     });
     td.style.cursor = 'text';
   });
+  // 중복 링크 그룹별 색상 강조 — 같은 링크는 같은 색
+  _highlightDuplicateLinks(tbody);
   _updatePendingSelectLabel();
+}
+
+function _highlightDuplicateLinks(tbody) {
+  const linkGroups = {};
+  tbody.querySelectorAll('tr[data-pid]').forEach(tr => {
+    const pid = tr.dataset.pid;
+    const item = pendingList.find(p => p.id === pid);
+    if (!item || !item.link) return;
+    const key = item.link.trim();
+    if (!linkGroups[key]) linkGroups[key] = [];
+    linkGroups[key].push(tr);
+  });
+  // 파스텔 색상 팔레트
+  const PALETTE = [
+    { bg: '#FCE7F3', fg: '#9D174D' },   // pink
+    { bg: '#DBEAFE', fg: '#1E40AF' },   // blue
+    { bg: '#D1FAE5', fg: '#065F46' },   // green
+    { bg: '#FED7AA', fg: '#9A3412' },   // orange
+    { bg: '#E9D5FF', fg: '#6B21A8' },   // purple
+    { bg: '#CFFAFE', fg: '#155E75' },   // cyan
+    { bg: '#FEF3C7', fg: '#92400E' },   // yellow
+  ];
+  let colorIdx = 0;
+  Object.keys(linkGroups).forEach(key => {
+    const rows = linkGroups[key];
+    if (rows.length < 2) return;     // 단독 링크는 색 안 칠함
+    const c = PALETTE[colorIdx % PALETTE.length];
+    colorIdx++;
+    rows.forEach(tr => {
+      // 링크 셀(td) 찾기 — 4번째 td (체크박스/날짜/폴더/제품명/링크)
+      // 단, 폴더가 병합되면 row 마다 td 개수가 다름. 링크 셀은 a 또는 input[data-field=link] 의 부모 td
+      const linkTd = tr.querySelector('a[target="_blank"]')?.closest('td')
+                   || tr.querySelector('input[data-field="link"]')?.closest('td');
+      if (linkTd) {
+        linkTd.style.backgroundColor = c.bg;
+        // 링크 텍스트도 강조 색으로
+        const a = linkTd.querySelector('a');
+        if (a) a.style.color = c.fg;
+      }
+    });
+  });
 }
 
 // 화면 직접 붙여넣기 (등록 예정 리스트) — 다중 행이면 새 행 자동 생성
