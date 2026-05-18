@@ -2114,6 +2114,12 @@ function switchMenu(menuId) {
   });
   if (menuId === 'pending')  renderPendingList();
   if (menuId === 'products') renderProductsList();
+  // 좌측 하단 용량 표시는 이미지 저장소 메뉴에서만 보이게
+  if (menuId === 'images') {
+    if (typeof updateStorageStat === 'function') updateStorageStat();
+  } else {
+    if (typeof _hideStorageStat === 'function') _hideStorageStat();
+  }
 }
 
 // ── 등록 예정 리스트 ─────────────────────────
@@ -3683,7 +3689,14 @@ async function updateStorageStat() {
     if (pct >= 80)      bar.style.background = '#FF2D55';
     else if (pct >= 50) bar.style.background = '#F9AB00';
     else                bar.style.background = '#2196F3';
-    document.getElementById('storage-stat').classList.remove('hidden');
+    // 이미지 저장소 메뉴가 활성일 때만 표시
+    const imagesMenu = document.getElementById('menu-images');
+    const onImages = imagesMenu && !imagesMenu.classList.contains('hidden');
+    if (onImages) {
+      document.getElementById('storage-stat').classList.remove('hidden');
+    } else {
+      document.getElementById('storage-stat').classList.add('hidden');
+    }
   } catch (e) {
     console.warn('[storage-stat] 예외', e);
   }
