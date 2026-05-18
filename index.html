@@ -398,10 +398,20 @@
         </div>
       </div>
 
+      <!-- 선택 툴바 -->
+      <div class="flex items-center gap-3 px-1 py-2 border-y border-brand-border">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="pm-select-all" onchange="togglePmSelectAll(this.checked)" class="w-4 h-4 rounded">
+          <span id="pm-select-all-label" class="text-xs font-bold text-brand-gray">전체 선택 (0개)</span>
+        </label>
+        <button onclick="deleteSelectedProducts()" class="text-xs font-bold text-brand-pink hover:opacity-80">선택 삭제</button>
+      </div>
+
       <div class="overflow-x-auto">
         <table class="w-full text-sm border-collapse" id="pm-table">
           <thead>
             <tr class="bg-brand-bg">
+              <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:240px;">상품명</th>
@@ -2338,6 +2348,7 @@ function renderProductsList() {
            </td>`
         : '';
       rowsHtml.push(`<tr data-pmid="${item.id}" class="border-b border-brand-border hover:bg-brand-bg/30 transition-colors ${item.registered ? 'opacity-50' : ''}">
+        <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pm-row-cb w-4 h-4 rounded cursor-pointer" data-pmid="${item.id}" onchange="_updatePmSelectLabel()"></td>
         ${folderCell}
         <td class="px-3 py-2 align-middle text-center"><input type="text" data-field="code" value="${_pmEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pmEsc(item.name)}" placeholder="상품명을 입력하세요" class="pending-input font-semibold"></td>
@@ -2366,6 +2377,8 @@ function renderProductsList() {
     el.addEventListener('blur',  () => _onPmCellEdit(el, true));
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
   });
+  // 선택 라벨 초기화
+  _updatePmSelectLabel();
 }
 
 function _onPmCellEdit(el, isBlur) {
@@ -2403,6 +2416,30 @@ function _onPmCellEdit(el, isBlur) {
   clearTimeout(_pmSaveTimer);
   if (isBlur) _savePmToStorage();
   else _pmSaveTimer = setTimeout(_savePmToStorage, 400);
+}
+
+function togglePmSelectAll(checked) {
+  document.querySelectorAll('#pm-tbody .pm-row-cb').forEach(cb => { cb.checked = checked; });
+  _updatePmSelectLabel();
+}
+
+function _updatePmSelectLabel() {
+  const cbs = document.querySelectorAll('#pm-tbody .pm-row-cb');
+  const checked = [...cbs].filter(cb => cb.checked).length;
+  const label = document.getElementById('pm-select-all-label');
+  if (label) label.textContent = `전체 선택 (${checked}개)`;
+  const allCb = document.getElementById('pm-select-all');
+  if (allCb) allCb.checked = (cbs.length > 0 && checked === cbs.length);
+}
+
+function deleteSelectedProducts() {
+  const ids = [...document.querySelectorAll('#pm-tbody .pm-row-cb:checked')].map(cb => cb.dataset.pmid);
+  if (!ids.length) { alert('삭제할 행을 선택해주세요.'); return; }
+  if (!confirm(`선택한 ${ids.length}개 상품을 삭제할까요?`)) return;
+  const idset = new Set(ids);
+  pmList = pmList.filter(p => !idset.has(p.id));
+  _savePmToStorage();
+  renderProductsList();
 }
 
 function toggleProductRegistered(pid, registered) {
