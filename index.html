@@ -2349,23 +2349,26 @@ function renderProductsList() {
   });
 
   // 연속된 같은 폴더코드 → rowspan 으로 병합 (폴더가 비어있으면 병합 안 함)
+  // 그룹마다 배경색을 번갈아 적용 (격자 스타일)
   const rowsHtml = [];
   let i = 0;
+  let groupIdx = 0;
   while (i < visible.length) {
     const p = visible[i];
     let groupSize = 1;
     if (p.folder) {
       while (i + groupSize < visible.length && visible[i + groupSize].folder === p.folder) groupSize++;
     }
+    // 폴더 그룹별 배경색 — 홀수/짝수 번갈아
+    const groupBg = (groupIdx % 2 === 0) ? '' : 'bg-brand-bg/50';
     for (let j = 0; j < groupSize; j++) {
       const item = visible[i + j];
-      // 그룹 첫 행만 폴더 셀을 그림 (rowspan)
       const folderCell = (j === 0)
-        ? `<td rowspan="${groupSize}" class="px-3 py-2 align-middle text-center ${groupSize > 1 ? 'bg-brand-bg/40' : ''}">
+        ? `<td rowspan="${groupSize}" class="px-3 py-2 align-middle text-center ${groupSize > 1 ? 'font-bold' : ''} ${groupBg}">
              <input type="text" data-field="folder" value="${_pmEsc(item.folder)}" placeholder="0000" class="pending-input font-mono text-xs text-center">
            </td>`
         : '';
-      rowsHtml.push(`<tr data-pmid="${item.id}" class="border-b border-brand-border hover:bg-brand-bg/30 transition-colors ${item.registered ? 'opacity-50' : ''}">
+      rowsHtml.push(`<tr data-pmid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.registered ? 'opacity-50' : ''} ${groupBg}">
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pm-row-cb w-4 h-4 rounded cursor-pointer" data-pmid="${item.id}" onchange="_updatePmSelectLabel()"></td>
         ${folderCell}
         <td class="px-3 py-2 align-middle text-center"><input type="text" data-field="code" value="${_pmEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
@@ -2386,6 +2389,7 @@ function renderProductsList() {
       </tr>`);
     }
     i += groupSize;
+    groupIdx++;
   }
   tbody.innerHTML = rowsHtml.join('');
 
