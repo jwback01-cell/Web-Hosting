@@ -2255,8 +2255,60 @@ function renderPendingList() {
     el.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
     });
+    el.addEventListener('paste',  (e) => _onPendingCellPaste(e, el));
   });
   _updatePendingSelectLabel();
+}
+
+// Excel-style 다중 셀 붙여넣기 (등록 예정 리스트)
+const _PENDING_COLUMN_ORDER = ['date','folder','name','link','note','keyword'];
+function _onPendingCellPaste(e, el) {
+  const cd = e.clipboardData || window.clipboardData;
+  if (!cd) return;
+  const text = cd.getData('text');
+  if (!text) return;
+  if (!text.includes('\t') && !text.includes('\n')) return;
+  e.preventDefault();
+  const matrix = text.replace(/\r/g,'').split('\n').map(r => r.split('\t'));
+  while (matrix.length && matrix[matrix.length-1].join('').trim() === '') matrix.pop();
+  if (!matrix.length) return;
+  const startField = el.dataset.field;
+  const startColIdx = _PENDING_COLUMN_ORDER.indexOf(startField);
+  if (startColIdx < 0) return;
+  const tr = el.closest('tr');
+  if (!tr) return;
+  const allTrs = [...tr.parentElement.children].filter(t => t.dataset && t.dataset.pid);
+  const startTrIdx = allTrs.indexOf(tr);
+  for (let r = 0; r < matrix.length; r++) {
+    let targetTr = allTrs[startTrIdx + r];
+    let item;
+    if (targetTr) {
+      item = pendingList.find(p => p.id === targetTr.dataset.pid);
+    } else {
+      const newItem = {
+        id: _pendingNewId(),
+        date: '', folder: '', name: '', link: '', note: '', keyword: '',
+        done: false, linkedPmId: '',
+      };
+      pendingList.unshift(newItem);
+      _ensureLinkedPmForPending(newItem);
+      item = newItem;
+    }
+    if (!item) continue;
+    const cols = matrix[r];
+    for (let c = 0; c < cols.length; c++) {
+      const fieldIdx = startColIdx + c;
+      if (fieldIdx >= _PENDING_COLUMN_ORDER.length) break;
+      const field = _PENDING_COLUMN_ORDER[fieldIdx];
+      item[field] = String(cols[c] || '').trim();
+      // 상품관리에 연동된 필드 동기화
+      if (field === 'folder' || field === 'name' || field === 'note') {
+        _syncPmFromPending(item, field);
+      }
+    }
+  }
+  _savePendingToStorage();
+  renderPendingList();
 }
 
 // 링크 셀 더블클릭 → 입력 모드로 전환 (수정 후 blur 시 자동으로 a 태그로 복원)
@@ -2555,9 +2607,73 @@ function renderProductsList() {
     el.addEventListener('input', () => _onPmCellEdit(el));
     el.addEventListener('blur',  () => _onPmCellEdit(el, true));
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+    el.addEventListener('paste',  (e) => _onPmCellPaste(e, el));
   });
   // 선택 라벨 초기화
   _updatePmSelectLabel();
+}
+
+// Excel-style 다중 셀 붙여넣기 — 클립보드에 탭/줄바꿈이 있으면 셀들을 자동으로 채움
+const _PM_COLUMN_ORDER = ['folder','code','name','cost','salePrice','supplyPrice','shipping','note','keyword','category'];
+function _onPmCellPaste(e, el) {
+  const cd = e.clipboardData || window.clipboardData;
+  if (!cd) return;
+  const text = cd.getData('text');
+  if (!text) return;
+  // 단일 셀 붙여넣기는 브라우저 기본 동작에 맡김
+  if (!text.includes('\t') && !text.includes('\n')) return;
+  e.preventDefault();
+  // 2D matrix 파싱
+  const matrix = text.replace(/\r/g,'').split('\n').filter(r => r.length > 0 || true)
+    .map(r => r.split('\t'));
+  // 끝의 빈 줄은 제거
+  while (matrix.length && matrix[matrix.length-1].join('').trim() === '') matrix.pop();
+  if (!matrix.length) return;
+  const startField = el.dataset.field;
+  const startColIdx = _PM_COLUMN_ORDER.indexOf(startField);
+  if (startColIdx < 0) return;
+  const tr = el.closest('tr');
+  if (!tr) return;
+  // 현재 visible 행 순서대로 pmid 수집
+  const allTrs = [...tr.parentElement.children].filter(t => t.dataset && t.dataset.pmid);
+  const startTrIdx = allTrs.indexOf(tr);
+  let createdNew = 0;
+  // 각 paste 행 처리
+  for (let r = 0; r < matrix.length; r++) {
+    let targetTr = allTrs[startTrIdx + r];
+    let item;
+    if (targetTr) {
+      item = pmList.find(p => p.id === targetTr.dataset.pmid);
+    } else {
+      // 부족하면 새 행 추가
+      const newItem = {
+        id: _pmNewId(),
+        folder: '', code: '', name: '',
+        cost: 0, salePrice: 0, supplyPrice: 0, shipping: 3000,
+        note: '', keyword: '', category: '',
+        registered: false,
+      };
+      pmList.unshift(newItem);
+      item = newItem;
+      createdNew++;
+    }
+    if (!item) continue;
+    const cols = matrix[r];
+    for (let c = 0; c < cols.length; c++) {
+      const fieldIdx = startColIdx + c;
+      if (fieldIdx >= _PM_COLUMN_ORDER.length) break;
+      const field = _PM_COLUMN_ORDER[fieldIdx];
+      const raw = cols[c];
+      if (['cost','salePrice','supplyPrice','shipping'].includes(field)) {
+        item[field] = _pmParseNum(raw);
+      } else {
+        item[field] = String(raw || '').trim();
+      }
+    }
+  }
+  _savePmToStorage();
+  renderProductsList();
+  if (createdNew > 0) console.log(`[paste] ${createdNew}개 새 행 추가`);
 }
 
 function _onPmCellEdit(el, isBlur) {
