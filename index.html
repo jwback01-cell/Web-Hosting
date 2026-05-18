@@ -2523,19 +2523,23 @@ function _onPendingCellEdit(el, isBlur) {
   const newVal = (el.value !== undefined ? el.value : el.innerText || '').trim();
   if (item[field] === newVal) return;
 
-  // 폴더코드 cascade — 병합된 셀에서 수정 시 같은 그룹 전체 갱신
-  //  * 단, 빈 값(삭제 의도)으로 바꿀 때는 cascade 하지 않고 해당 행만 비움
-  //    (실수로 키를 잘못 눌러 전체가 비워지는 사고 방지)
+  // 폴더코드 — 빈 값 입력은 무시 (실수로 폴더 사라지는 사고 방지)
+  // 정상 변경 시에만 cascade 로 같은 그룹 전체 갱신
   if (field === 'folder') {
     const oldFolder = item.folder;
-    if (oldFolder && newVal !== '') {
-      // 비어있지 않은 변경 — 같은 그룹 전체 cascade
+    // 기존에 폴더가 있는데 빈 값으로 바꾸려고 하면 무시하고 원상복구
+    if (oldFolder && newVal === '') {
+      if (isBlur) renderPendingList();   // 화면도 원래 값으로 복원
+      return;
+    }
+    if (oldFolder) {
+      // 같은 그룹 전체 cascade
       pendingList.filter(p => p.folder === oldFolder).forEach(p => {
         p.folder = newVal;
         _syncPmFromPending(p, 'folder');
       });
     } else {
-      // 빈 값이거나 oldFolder 가 비어있으면 해당 행만 변경
+      // 빈 값에서 → 새 폴더 코드
       item.folder = newVal;
       _syncPmFromPending(item, 'folder');
     }
@@ -2949,10 +2953,14 @@ function _onPmCellEdit(el, isBlur) {
   }
   if (item[field] === newVal) return;
 
-  // 폴더코드는 cascade — 빈 값으로 변경 시는 cascade 하지 않음 (사고 방지)
+  // 폴더코드 — 빈 값 입력 무시 (사고 방지), 정상 변경 시 cascade
   if (field === 'folder') {
     const oldFolder = item.folder;
-    if (oldFolder && newVal !== '') {
+    if (oldFolder && newVal === '') {
+      if (isBlur) renderProductsList();
+      return;
+    }
+    if (oldFolder) {
       pmList.filter(p => p.folder === oldFolder).forEach(p => p.folder = newVal);
     } else {
       item.folder = newVal;
