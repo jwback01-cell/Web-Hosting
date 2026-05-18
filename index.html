@@ -2637,21 +2637,50 @@ function _onPmCellPaste(e, el) {
   const item = pmList.find(p => p.id === tr.dataset.pmid);
   if (!item) return;
 
-  // 다중 행이면 → 각 열별로 값을 콤마로 묶어 같은 행에만 채움
+  // 특수 케이스 — 키워드 셀에 (키워드 / 카테고리 / 검색수) 다중 컬럼 paste
+  //  2컬럼 (키워드 / 검색수)        → 키워드 칸에 '키워드(검색수), ...'
+  //  3컬럼 (키워드 / 카테고리 / 검색수) → 키워드 칸에 '키워드(검색수), ...' + 대표카테고리 칸에 유니크 카테고리
+  if (startField === 'keyword' && matrix.length && matrix[0].length >= 2) {
+    const nCols = Math.max(...matrix.map(r => r.length));
+    if (nCols === 2 || nCols === 3) {
+      const keywords = [];
+      const categories = new Set();
+      matrix.forEach(row => {
+        const kw  = String(row[0] || '').trim();
+        const mid = String(row[1] || '').trim();
+        const tail = String(row[2] || '').trim();
+        if (nCols === 3) {
+          // col 1 = 카테고리, col 2 = 검색수
+          if (kw) keywords.push(tail ? `${kw}(${tail})` : kw);
+          if (mid) categories.add(mid);
+        } else {
+          // col 1 = 검색수
+          if (kw) keywords.push(mid ? `${kw}(${mid})` : kw);
+        }
+      });
+      item.keyword = keywords.join(', ');
+      if (nCols === 3 && categories.size) {
+        // 카테고리가 모두 같으면 1개만, 다양하면 모두 콤마로 묶음
+        item.category = [...categories].join(', ');
+      }
+      _savePmToStorage();
+      renderProductsList();
+      return;
+    }
+  }
+
+  // 일반: 다중 행이면 각 열을 콤마로 묶어 같은 행에만 채움 (다음 행 침범 금지)
   const numCols = Math.max(...matrix.map(r => r.length));
   const numericFields = ['cost','salePrice','supplyPrice','shipping'];
   for (let c = 0; c < numCols; c++) {
     const fieldIdx = startColIdx + c;
     if (fieldIdx >= _PM_COLUMN_ORDER.length) break;
     const field = _PM_COLUMN_ORDER[fieldIdx];
-    // 이 열의 모든 행 값을 모음 (빈 값 제외)
     const colValues = matrix.map(row => String(row[c] || '').trim()).filter(Boolean);
     if (!colValues.length) continue;
     if (numericFields.includes(field)) {
-      // 숫자 필드는 첫 값만 사용
       item[field] = _pmParseNum(colValues[0]);
     } else {
-      // 텍스트 필드: 여러 행을 콤마로 묶음
       item[field] = colValues.join(', ');
     }
   }
