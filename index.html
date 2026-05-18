@@ -764,7 +764,7 @@ async function doLogout() {
 // ════════════════════════════════════════════════════════
 async function loadProducts() {
   console.log('[loadProducts] 호출');
-  const { data, error } = await sb.from('products').select('*').order('sort_order', { ascending: true });
+  const { data, error } = await sb.from('products').select('*').order('sort_order', { ascending: false });
   if (error) {
     console.error('[loadProducts] 에러:', error);
     showPersistentError('제품 목록 로딩 실패', error.message + (error.hint ? '\n💡 ' + error.hint : ''));
