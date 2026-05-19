@@ -905,6 +905,8 @@ function showMain() {
   document.getElementById('page-main').classList.remove('hidden');
   // 홈 = 등록 예정 리스트 — 진입 직후 렌더
   try { if (typeof renderPendingList === 'function') renderPendingList(); } catch (_) {}
+  // 클라우드 동기화 PULL — 다른 PC 에서 변경된 등록 예정/상품관리 데이터 자동 반영
+  try { if (typeof ihCloudPullAll === 'function') ihCloudPullAll(); } catch (_) {}
   // 사용자 아바타/이메일
   const emailEl = document.getElementById('user-email');
   const avEl    = document.getElementById('user-avatar');
@@ -2741,6 +2743,96 @@ async function pastePendingFromClipboard() {
 
 // 초기 로드
 document.addEventListener('DOMContentLoaded', _loadPendingFromStorage);
+
+// ══════════════════════════════════════════════════════════
+// Supabase 클라우드 동기화 — ih_kv 테이블 활용 (다중 PC 동기화)
+// 등록 예정 리스트 / 상품관리 데이터를 자동으로 클라우드에 PUSH·PULL
+// 규칙: 로그인 시 PULL → 로컬 변경 시 자동 PUSH(디바운스 1.5초). PULL 완료 전 PUSH 차단.
+// ══════════════════════════════════════════════════════════
+const IH_SYNC_KEYS = [
+  'ih_pending_products_v1',   // 등록 예정 리스트
+  'ih_products_v1',           // 상품관리
+];
+let _ihCloudReady = false;
+const _ihPushTimers = {};
+
+async function ihCloudPullAll() {
+  try {
+    if (!sb) return 0;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return 0;
+    const { data, error } = await sb.from('ih_kv').select('key, data');
+    if (error) {
+      if (String(error.message||'').toLowerCase().includes('does not exist') || error.code === '42P01') {
+        console.warn('[ih-sync] ih_kv 테이블이 없습니다. SQL 을 먼저 실행하세요.');
+        return -1;
+      }
+      console.warn('[ih-pull] error', error); return 0;
+    }
+    let pulled = 0;
+    const pulledKeys = new Set();
+    for (const row of (data || [])) {
+      if (!IH_SYNC_KEYS.includes(row.key)) continue;
+      if (row.data == null) continue;
+      pulledKeys.add(row.key);
+      try {
+        const s = (typeof row.data === 'string') ? row.data : JSON.stringify(row.data);
+        Storage.prototype._ihOrigSetItem.call(localStorage, row.key, s);
+        pulled++;
+      } catch (_) {}
+    }
+    _ihCloudReady = true;
+    // PULL 받은 데이터로 리스트 재로딩
+    try { _loadPendingFromStorage(); renderPendingList(); } catch (_) {}
+    try { _loadPmFromStorage();      renderProductsList(); } catch (_) {}
+    // 클라우드에 없는데 로컬에 있는 키 → 첫 PUSH (사고 방지: 빈 배열은 건너뜀)
+    for (const key of IH_SYNC_KEYS) {
+      if (pulledKeys.has(key)) continue;
+      const localRaw = localStorage.getItem(key);
+      if (localRaw == null) continue;
+      try {
+        const p = JSON.parse(localRaw);
+        if (Array.isArray(p) && p.length === 0) continue;
+      } catch (_) {}
+      console.log('[ih-sync] cloud missing', key, '— initial PUSH');
+      _ihCloudPushKey(key);
+    }
+    console.log('[ih-sync] pulled', pulled, 'keys');
+    return pulled;
+  } catch (e) { console.warn('[ih-pull] failed', e); return 0; }
+}
+
+function _ihCloudPushKey(key) {
+  if (!_ihCloudReady) return;
+  if (!IH_SYNC_KEYS.includes(key)) return;
+  clearTimeout(_ihPushTimers[key]);
+  _ihPushTimers[key] = setTimeout(async () => {
+    try {
+      if (!sb) return;
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) return;
+      const raw = localStorage.getItem(key);
+      let parsed = null;
+      if (raw != null) { try { parsed = JSON.parse(raw); } catch (_) { parsed = raw; } }
+      const { error } = await sb.from('ih_kv').upsert(
+        { key, data: parsed, updated_by: session.user.id, updated_at: new Date().toISOString() },
+        { onConflict: 'key' }
+      );
+      if (error) console.warn('[ih-push] error', key, error);
+    } catch (e) { console.warn('[ih-push] failed', key, e); }
+  }, 1500);
+}
+
+// localStorage.setItem 후킹 — IH_SYNC_KEYS 만 자동 PUSH
+(function hookIhSync() {
+  if (Storage.prototype._ihOrigSetItem) return;
+  Storage.prototype._ihOrigSetItem = Storage.prototype.setItem;
+  const wrapped = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (k, v) {
+    wrapped.apply(this, arguments);
+    if (this === localStorage) _ihCloudPushKey(k);
+  };
+})();
 
 // 인라인 셀(input) 바깥 영역 클릭 시 자동 blur — 깜빡이는 커서·테두리 제거
 document.addEventListener('mousedown', (e) => {
