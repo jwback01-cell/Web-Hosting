@@ -775,11 +775,18 @@ async function r2Download(imageRow) {
   const url = imageRow && imageRow.public_url;
   if (url) {
     try {
-      const r = await fetch(url);
+      // 캐시 버스팅 — Cloudflare CDN 이 CORS 설정 전 응답을 캐싱했을 수 있어 매 요청 신규 응답 강제
+      const cbUrl = url + (url.indexOf('?') === -1 ? '?' : '&') + '_cb=' + Date.now();
+      const r = await fetch(cbUrl, { cache: 'no-store' });
       if (r.ok) return { data: await r.blob(), error: null };
-    } catch (_) { /* fallback */ }
+      // R2 가 응답했지만 ok 아닌 경우 — 명확한 에러 (레거시 폴백 안 함)
+      return { data: null, error: new Error('R2 응답 실패: HTTP ' + r.status) };
+    } catch (e) {
+      console.warn('[r2Download] R2 fetch 실패:', e.message || e);
+      // CORS 등 fetch 자체가 실패 → 레거시 Supabase Storage 폴백은 storage_path 있을 때만
+    }
   }
-  // fallback — 레거시 Supabase Storage
+  // fallback — 레거시 Supabase Storage (R2 마이그레이션 이전 이미지만)
   if (imageRow && imageRow.storage_path && sb) {
     return await sb.storage.from(BUCKET_NAME).download(imageRow.storage_path);
   }
