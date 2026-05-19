@@ -254,6 +254,13 @@
       <div class="px-2 mb-2">
         <input id="product-search" type="text" placeholder="제품 검색" oninput="renderProductList()" class="w-full px-3 py-2 bg-brand-bg rounded-full text-sm outline-none focus:bg-white focus:ring-1 focus:ring-brand-border">
       </div>
+      <!-- 홈 버튼 — 전체 제품 그리드 뷰로 이동 -->
+      <div class="px-1 mb-1">
+        <div id="home-item" class="product-item" onclick="backToFolders()" title="홈 — 전체 제품 보기">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span class="flex-1 truncate font-semibold">홈</span>
+        </div>
+      </div>
       <nav id="product-list" class="flex flex-col gap-1 overflow-y-auto flex-1 px-1"></nav>
     </aside>
 
@@ -1000,6 +1007,9 @@ async function loadProducts() {
 }
 function renderProductList() {
   const listEl = document.getElementById('product-list');
+  // 홈 버튼 활성 표시 — 제품 미선택 = 전체 제품 그리드 뷰
+  const homeEl = document.getElementById('home-item');
+  if (homeEl) homeEl.classList.toggle('active', !currentProduct);
   const q = (document.getElementById('product-search').value || '').trim().toLowerCase();
   const filtered = q ? products.filter(p => p.name.toLowerCase().includes(q)) : products;
   if (!filtered.length) {
@@ -2148,6 +2158,8 @@ function switchMenu(menuId) {
   // 좌측 하단 용량 표시는 이미지 저장소 메뉴에서만 보이게
   if (menuId === 'images') {
     if (typeof updateStorageStat === 'function') updateStorageStat();
+    // 이미지 저장소 진입 시 항상 전체 제품 그리드 뷰로 리셋
+    if (typeof backToFolders === 'function') backToFolders();
   } else {
     if (typeof _hideStorageStat === 'function') _hideStorageStat();
   }
