@@ -771,6 +771,21 @@ async function r2Delete(keys) {
 // 다운로드: storage_path 와 public_url 둘 중 가능한 것으로 blob 반환
 //  - 신규 이미지(R2): public_url 로 fetch
 //  - 레거시 이미지(Supabase): public_url 도 동작하지만, 만약 비공개면 supabase storage 로 fallback
+// 이미지 1개를 zip 없이 원본 그대로 다운로드 — 모든 다운로드 함수에서 단일 케이스 처리용
+async function _downloadSingleImageDirect(imageRow) {
+  const { data: blob, error } = await r2Download(imageRow);
+  if (error || !blob) {
+    hideUploadProgress();
+    showPersistentError('이미지 다운로드 실패', (error && error.message) || '이미지를 가져올 수 없습니다');
+    return false;
+  }
+  const fileName = _zipSafeName(imageRow.file_name || 'image.png');
+  _triggerDownload(blob, fileName);
+  hideUploadProgress();
+  toast('1개 다운로드 완료', 'success');
+  return true;
+}
+
 async function r2Download(imageRow) {
   const url = imageRow && imageRow.public_url;
   if (url) {
@@ -1987,6 +2002,12 @@ async function downloadSelectedProducts() {
       toast('선택한 폴더에 이미지가 없습니다', 'error');
       return;
     }
+    // 이미지가 1개뿐이면 zip 없이 원본 그대로 다운로드
+    if (totalImgs === 1) {
+      const single = productData.flatMap(d => d.images)[0];
+      if (await _downloadSingleImageDirect(single)) { clearProductSelection(); }
+      return;
+    }
     showUploadProgress(totalImgs);
     document.getElementById('upload-progress-title').textContent = `합쳐서 다운로드 중 (${ids.length}개 폴더, ${totalImgs}개 이미지)`;
     const zip = new JSZip();
@@ -2044,6 +2065,12 @@ async function _downloadSelectedInProduct() {
     subfolders.forEach(sf => { if (selectedSubfolderIds.has(sf.id)) subMap[sf.id] = sf.name; });
     const total = subImages.length + directImages.length;
     if (!total) { hideUploadProgress(); toast('다운로드할 이미지가 없습니다', 'error'); return; }
+    // 이미지가 1개뿐이면 zip 없이 원본 그대로 다운로드
+    if (total === 1) {
+      const single = subImages[0] || directImages[0];
+      if (await _downloadSingleImageDirect(single)) { clearProductSelection(); }
+      return;
+    }
     showUploadProgress(total);
     document.getElementById('upload-progress-title').textContent = `${total}개 이미지 다운로드 중...`;
     const zip = new JSZip();
@@ -2096,6 +2123,13 @@ async function downloadProductZip(productId, productName) {
     if (imgsRes.error) { showPersistentError('이미지 조회 실패', imgsRes.error.message); return; }
     const allImages = imgsRes.data || [];
     if (!allImages.length) { toast('다운로드할 이미지가 없습니다', 'error'); return; }
+    // 이미지가 1개뿐이면 zip 없이 원본 그대로 다운로드
+    if (allImages.length === 1) {
+      showUploadProgress(1);
+      document.getElementById('upload-progress-title').textContent = `${productName} 다운로드 중...`;
+      await _downloadSingleImageDirect(allImages[0]);
+      return;
+    }
     const subMap = {};
     (subsRes.data || []).forEach(s => { subMap[s.id] = s.name; });
 
@@ -2132,6 +2166,13 @@ async function downloadSubfolderZip(subfolderId, subfolderName) {
     const { data: imgs, error } = await sb.from('images').select('*').eq('subfolder_id', subfolderId).order('sort_order', { ascending: true });
     if (error) { showPersistentError('이미지 조회 실패', error.message); return; }
     if (!imgs || !imgs.length) { toast('이 폴더에 이미지가 없습니다', 'error'); return; }
+    // 이미지가 1개뿐이면 zip 없이 원본 그대로 다운로드
+    if (imgs.length === 1) {
+      showUploadProgress(1);
+      document.getElementById('upload-progress-title').textContent = `${subfolderName} 다운로드 중...`;
+      await _downloadSingleImageDirect(imgs[0]);
+      return;
+    }
     showUploadProgress(imgs.length);
     document.getElementById('upload-progress-title').textContent = `zip 만드는 중 — ${subfolderName}`;
     const zip = new JSZip();
