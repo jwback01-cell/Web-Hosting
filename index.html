@@ -597,6 +597,14 @@
   </div>
 </div>
 
+<!-- ── 사이드바 제품 우클릭 메뉴 (삭제만) ── -->
+<div id="sidebar-context-menu" class="hidden fixed z-[150] bg-white rounded-2xl py-1.5 min-w-[160px]" style="box-shadow: 0 12px 36px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05);">
+  <button onclick="_sidebarCtxDelete()" class="w-full text-left px-4 py-2.5 text-sm font-semibold text-brand-pink hover:bg-brand-pink-light/40 flex items-center gap-2.5 transition-colors">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+    제품 삭제
+  </button>
+</div>
+
 <!-- ── 우클릭 컨텍스트 메뉴 ── -->
 <div id="context-menu" class="hidden fixed z-[150] bg-white rounded-2xl py-1.5 min-w-[200px]" style="box-shadow: 0 12px 36px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05);">
   <button onclick="ctxAction('download')" class="w-full text-left px-4 py-2.5 text-sm font-semibold hover:bg-brand-bg flex items-center gap-2.5 transition-colors">
@@ -1018,7 +1026,7 @@ function renderProductList() {
   }
   listEl.innerHTML = filtered.map(p => {
     const active = currentProduct && currentProduct.id === p.id;
-    return `<div class="product-item ${active ? 'active' : ''}" data-product-id="${p.id}" onclick="selectProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})" title="${escapeHtml(p.name)} — 드래그로 순서 변경 가능">
+    return `<div class="product-item ${active ? 'active' : ''}" data-product-id="${p.id}" onclick="selectProduct(${JSON.stringify(p).replace(/"/g, '&quot;')})" oncontextmenu="_onSidebarProductRightClick(event, '${p.id}')" title="${escapeHtml(p.name)} — 드래그로 순서 변경 · 우클릭으로 삭제">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       <span class="flex-1 truncate font-semibold">${escapeHtml(p.name)}</span>
       <span class="item-count">${p.image_count || 0}</span>
@@ -1445,6 +1453,59 @@ function showContextMenu(x, y) {
 function hideContextMenu() {
   document.getElementById('context-menu').classList.add('hidden');
 }
+
+// 사이드바 제품 우클릭 메뉴
+let _sidebarCtxProductId = null;
+function _onSidebarProductRightClick(e, productId) {
+  e.preventDefault();
+  e.stopPropagation();
+  _sidebarCtxProductId = productId;
+  const menu = document.getElementById('sidebar-context-menu');
+  menu.classList.remove('hidden');
+  const r = menu.getBoundingClientRect();
+  const w = window.innerWidth, h = window.innerHeight;
+  let left = e.clientX, top = e.clientY;
+  if (left + r.width  > w) left = w - r.width  - 8;
+  if (top  + r.height > h) top  = h - r.height - 8;
+  menu.style.left = Math.max(8, left) + 'px';
+  menu.style.top  = Math.max(8, top)  + 'px';
+}
+function _hideSidebarContextMenu() {
+  document.getElementById('sidebar-context-menu').classList.add('hidden');
+}
+function _sidebarCtxDelete() {
+  const pid = _sidebarCtxProductId;
+  _hideSidebarContextMenu();
+  if (!pid) return;
+  const p = products.find(x => x.id === pid);
+  if (!p) { toast('제품을 찾을 수 없습니다', 'error'); return; }
+  openModal({
+    title: '제품 삭제',
+    desc: `"${p.name}" 과(와) 모든 이미지를 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`,
+    okText: '삭제',
+    danger: true,
+    onOk: async () => {
+      // 1) 해당 제품의 모든 이미지 storage_path 수집 → R2 일괄 삭제
+      const { data: imgRows, error: imgErr } = await sb.from('images').select('storage_path').eq('product_id', pid);
+      if (!imgErr && imgRows && imgRows.length) {
+        const paths = imgRows.map(r => r.storage_path).filter(Boolean);
+        if (paths.length) await r2Delete(paths);
+      }
+      // 2) DB 제품 삭제 (cascade 로 images / subfolders 삭제됨)
+      const { error } = await sb.from('products').delete().eq('id', pid);
+      if (error) { toast('삭제 실패: ' + error.message, 'error'); return; }
+      // 현재 보고 있던 제품이면 그리드 뷰로 복귀
+      if (currentProduct && currentProduct.id === pid) {
+        currentProduct = null;
+        images = [];
+        subfolders = [];
+        showEmpty();
+      }
+      await loadProducts();
+      toast('제품 삭제 완료', 'success');
+    }
+  });
+}
 function ctxAction(action) {
   hideContextMenu();
   if (action === 'download')   downloadSelectedProducts();
@@ -1477,9 +1538,10 @@ document.addEventListener('contextmenu', (e) => {
 });
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#context-menu')) hideContextMenu();
+  if (!e.target.closest('#sidebar-context-menu')) _hideSidebarContextMenu();
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideContextMenu();
+  if (e.key === 'Escape') { hideContextMenu(); _hideSidebarContextMenu(); }
 });
 
 // 선택 항목 삭제 — 제품/서브폴더/이미지 모두 처리
