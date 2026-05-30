@@ -546,12 +546,38 @@
 
   <!-- 메뉴 4: 캘린더 -->
   <div id="menu-addon" class="hidden flex-1 px-4 md:px-6 pb-6">
-    <div class="bg-white rounded-4xl panel p-8 md:p-12 flex flex-col items-center justify-center text-center min-h-[400px]">
-      <div class="w-20 h-20 bg-brand-bg rounded-full flex items-center justify-center mb-4">
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    <div class="bg-white rounded-4xl panel p-5 md:p-7">
+      <!-- 헤더: 제목 + 월 이동 -->
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div>
+          <h2 class="text-xl font-bold">완료 캘린더</h2>
+          <p class="text-brand-gray text-xs mt-0.5">등록 예정 리스트에서 완료한 항목을 완료일별로 확인합니다</p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="calShiftMonth(-1)" title="이전 달" class="w-9 h-9 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray">‹</button>
+          <span id="cal-title" class="text-base font-bold text-center min-w-[110px]">—</span>
+          <button onclick="calShiftMonth(1)" title="다음 달" class="w-9 h-9 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray">›</button>
+          <button onclick="calGoToday()" class="ml-1 px-3 h-9 rounded-full border border-brand-border hover:bg-brand-bg text-xs font-bold text-brand-black">오늘</button>
+        </div>
       </div>
-      <h2 class="text-2xl font-bold mb-2">캘린더</h2>
-      <p class="text-brand-gray text-sm">곧 추가될 기능입니다.</p>
+      <div id="cal-summary" class="text-xs text-brand-gray mb-3">—</div>
+      <!-- 요일 헤더 -->
+      <div class="grid gap-1 mb-1" style="grid-template-columns: repeat(7, minmax(0,1fr));">
+        <div class="text-center text-xs font-bold text-red-500 py-1">일</div>
+        <div class="text-center text-xs font-bold text-brand-gray py-1">월</div>
+        <div class="text-center text-xs font-bold text-brand-gray py-1">화</div>
+        <div class="text-center text-xs font-bold text-brand-gray py-1">수</div>
+        <div class="text-center text-xs font-bold text-brand-gray py-1">목</div>
+        <div class="text-center text-xs font-bold text-brand-gray py-1">금</div>
+        <div class="text-center text-xs font-bold text-blue-500 py-1">토</div>
+      </div>
+      <!-- 날짜 그리드 -->
+      <div id="cal-grid" class="grid gap-1" style="grid-template-columns: repeat(7, minmax(0,1fr));"></div>
+    </div>
+    <!-- 선택한 날짜의 완료 항목 상세 -->
+    <div id="cal-detail" class="bg-white rounded-4xl panel p-5 md:p-7 mt-4 hidden">
+      <h3 id="cal-detail-title" class="font-bold text-base mb-2"></h3>
+      <div id="cal-detail-list"></div>
     </div>
   </div>
 
@@ -2286,6 +2312,7 @@ function switchMenu(menuId) {
   });
   if (menuId === 'pending')  renderPendingList();
   if (menuId === 'products') renderProductsList();
+  if (menuId === 'addon')    renderCalendar();
   // 좌측 하단 용량 표시는 이미지 저장소 메뉴에서만 보이게
   if (menuId === 'images') {
     if (typeof updateStorageStat === 'function') updateStorageStat();
@@ -2294,6 +2321,131 @@ function switchMenu(menuId) {
   } else {
     if (typeof _hideStorageStat === 'function') _hideStorageStat();
   }
+}
+
+// ── 완료 캘린더 (등록 예정 리스트의 완료 항목을 완료일별로 표시) ─────
+let _calYear = null, _calMonth = null;   // _calMonth: 0~11
+let _calSelectedKey = null;
+
+// 완료일 문자열 파싱 — "2026. 5. 18" / "2026-5-18" / "2026/05/18" 등 허용
+function _parseCompletedDate(str) {
+  if (!str) return null;
+  const m = String(str).trim().match(/^(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})/);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+  return { y, m: mo, d };
+}
+function _calDateKey(y, m, d) {
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+// 완료 항목(p.done)을 완료일(YYYY-MM-DD) → 항목배열 로 묶음
+function _getCompletedByDate() {
+  const map = new Map();
+  pendingList.forEach(p => {
+    if (!p.done) return;
+    const pd = _parseCompletedDate(p.date);
+    if (!pd) return;
+    const key = _calDateKey(pd.y, pd.m, pd.d);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(p);
+  });
+  return map;
+}
+function calShiftMonth(delta) {
+  if (_calYear == null) { const n = new Date(); _calYear = n.getFullYear(); _calMonth = n.getMonth(); }
+  _calMonth += delta;
+  while (_calMonth < 0)  { _calMonth += 12; _calYear--; }
+  while (_calMonth > 11) { _calMonth -= 12; _calYear++; }
+  renderCalendar();
+}
+function calGoToday() {
+  const n = new Date();
+  _calYear = n.getFullYear(); _calMonth = n.getMonth();
+  _calSelectedKey = _calDateKey(n.getFullYear(), n.getMonth()+1, n.getDate());
+  renderCalendar();
+}
+function renderCalendar() {
+  const now = new Date();
+  if (_calYear == null) { _calYear = now.getFullYear(); _calMonth = now.getMonth(); }
+  const byDate = _getCompletedByDate();
+  const titleEl = document.getElementById('cal-title');
+  if (titleEl) titleEl.textContent = `${_calYear}년 ${_calMonth+1}월`;
+
+  const startDow = new Date(_calYear, _calMonth, 1).getDay();        // 0=일요일
+  const daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
+  const todayKey = _calDateKey(now.getFullYear(), now.getMonth()+1, now.getDate());
+
+  let monthDays = 0, monthItems = 0;
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push('<div></div>');   // 1일 앞 빈칸
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = _calDateKey(_calYear, _calMonth+1, d);
+    const items = byDate.get(key) || [];
+    if (items.length) { monthDays++; monthItems += items.length; }
+    const isToday = key === todayKey;
+    const isSel = key === _calSelectedKey;
+    const dow = (startDow + d - 1) % 7;
+    const dowColor = dow === 0 ? 'text-red-500' : (dow === 6 ? 'text-blue-500' : 'text-brand-black');
+    const hasItems = items.length > 0;
+    const names = items.slice(0, 2).map(it =>
+      `<div class="truncate text-[10px] text-brand-gray leading-tight">${_pendingEsc(it.name || it.folder || '(이름없음)')}</div>`
+    ).join('');
+    const more = items.length > 2 ? `<div class="text-[10px] text-brand-gray leading-tight">+${items.length-2}개</div>` : '';
+    cells.push(`
+      <div ${hasItems ? `onclick="calSelectDay('${key}')"` : ''}
+           class="min-h-[80px] rounded-xl border p-1.5 flex flex-col gap-0.5 transition-colors ${hasItems ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold ${dowColor}">${d}${isToday ? '<span class="ml-1 text-[9px] text-brand-blue font-bold">오늘</span>' : ''}</span>
+          ${hasItems ? `<span class="text-[10px] font-black text-white bg-brand-green rounded-full px-1.5 py-0.5 leading-none">${items.length}</span>` : ''}
+        </div>
+        ${names}${more}
+      </div>
+    `);
+  }
+  const gridEl = document.getElementById('cal-grid');
+  if (gridEl) gridEl.innerHTML = cells.join('');
+  const sumEl = document.getElementById('cal-summary');
+  if (sumEl) sumEl.textContent = monthItems
+    ? `이번 달 완료 ${monthItems}건 · ${monthDays}일`
+    : '이번 달 완료한 항목이 없습니다.';
+
+  if (_calSelectedKey) _renderCalDetail(byDate);
+}
+function calSelectDay(key) {
+  _calSelectedKey = key;
+  renderCalendar();
+  const el = document.getElementById('cal-detail');
+  if (el && !el.classList.contains('hidden')) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function _renderCalDetail(byDate) {
+  byDate = byDate || _getCompletedByDate();
+  const detail = document.getElementById('cal-detail');
+  const titleEl = document.getElementById('cal-detail-title');
+  const listEl = document.getElementById('cal-detail-list');
+  if (!detail || !listEl) return;
+  const items = (_calSelectedKey && byDate.get(_calSelectedKey)) || [];
+  if (!items.length) { detail.classList.add('hidden'); return; }
+  detail.classList.remove('hidden');
+  const [y, m, d] = _calSelectedKey.split('-').map(Number);
+  if (titleEl) titleEl.textContent = `${y}. ${m}. ${d} 완료 — ${items.length}건`;
+  listEl.innerHTML = items.map((it, i) => {
+    const meta = [
+      it.folder  ? `폴더 ${_pendingEsc(it.folder)}` : '',
+      it.code    ? `상품 ${_pendingEsc(it.code)}`   : '',
+      it.keyword ? _pendingEsc(it.keyword)          : '',
+      it.note    ? _pendingEsc(it.note)             : '',
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="flex items-center gap-3 py-2.5 ${i ? 'border-t border-brand-border' : ''}">
+        <span class="text-xs font-black text-brand-gray w-6 text-center shrink-0">${i+1}</span>
+        <div class="min-w-0 flex-1">
+          <div class="font-bold text-sm truncate">${_pendingEsc(it.name || '(이름없음)')}</div>
+          ${meta ? `<div class="text-xs text-brand-gray truncate">${meta}</div>` : ''}
+        </div>
+        ${it.grade ? `<span class="text-[11px] font-bold bg-brand-bg text-brand-black rounded-full px-2 py-1 shrink-0">${_pendingEsc(it.grade)}</span>` : ''}
+      </div>`;
+  }).join('');
 }
 
 // ── 등록 예정 리스트 ─────────────────────────
