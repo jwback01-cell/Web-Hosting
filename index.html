@@ -2512,12 +2512,53 @@ function _dashPendDateNum(p) {
   const d = _parseCompletedDate(p.date);
   return d ? (d.y * 10000 + d.m * 100 + d.d) : 0;
 }
+// 폴더명 기준 단위 묶음 — 같은 폴더코드는 1건, 폴더 없는 행은 각각 1건으로 계산
+function _pendingUnits() {
+  const byFolder = new Map();
+  const units = [];
+  pendingList.forEach(p => {
+    if (p.folder) {
+      let u = byFolder.get(p.folder);
+      if (!u) { u = { folder: p.folder, rows: [] }; byFolder.set(p.folder, u); units.push(u); }
+      u.rows.push(p);
+    } else {
+      units.push({ folder: '', rows: [p] });
+    }
+  });
+  return units.map(u => {
+    const rows = u.rows;
+    const done = rows.length > 0 && rows.every(r => r.done);   // 폴더 전체가 완료일 때만 완료로 집계
+    let dateNum = 0, dateStr = '';
+    rows.forEach(r => {
+      if (!r.done) return;
+      const n = _dashPendDateNum(r);
+      if (n >= dateNum) { dateNum = n; dateStr = r.date; }     // 완료일 = 폴더 내 완료행 중 가장 최근
+    });
+    const rep = rows[0] || {};
+    return { folder: u.folder, rows, count: rows.length, done, dateNum,
+             date: dateStr || rep.date || '', grade: rep.grade || '', name: rep.name || '', code: rep.code || '' };
+  });
+}
+// 완료된 폴더 단위를 완료일(YYYY-MM-DD) → 단위배열 로 묶음
+function _completedUnitsByDate(units) {
+  const map = new Map();
+  (units || _pendingUnits()).forEach(u => {
+    if (!u.done) return;
+    const d = _parseCompletedDate(u.date);
+    if (!d) return;
+    const key = _calDateKey(d.y, d.m, d.d);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(u);
+  });
+  return map;
+}
 function renderDashboard() {
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
 
-  // 1) 요약 — 등록 예정 현황
-  const total = pendingList.length;
-  const done  = pendingList.filter(p => p.done).length;
+  // 1) 요약 — 폴더명 기준 (같은 폴더코드는 1건, 폴더 없는 행은 각각 1건)
+  const units = _pendingUnits();
+  const total = units.length;
+  const done  = units.filter(u => u.done).length;
   const todo  = total - done;
   const rate  = total ? Math.round(done / total * 100) : 0;
   set('dash-todo',  todo.toLocaleString('ko-KR'));
@@ -2525,8 +2566,8 @@ function renderDashboard() {
   set('dash-rate',  rate + '%');
   set('dash-total', total.toLocaleString('ko-KR'));
 
-  // 2) 완료일 집계
-  const byDate = _getCompletedByDate();
+  // 2) 완료일 집계 — 폴더 단위
+  const byDate = _completedUnitsByDate(units);
   const now = new Date();
   const todayKey = _calDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate());
   const last7 = [];
@@ -2563,9 +2604,9 @@ function renderDashboard() {
     </div>`;
   }).join('');
 
-  // 4) 등급별 분포
+  // 4) 등급별 분포 (폴더 단위)
   const gc = {};
-  pendingList.forEach(p => { const g = (p.grade && p.grade !== '-') ? p.grade : '미지정'; gc[g] = (gc[g] || 0) + 1; });
+  units.forEach(u => { const g = (u.grade && u.grade !== '-') ? u.grade : '미지정'; gc[g] = (gc[g] || 0) + 1; });
   const gkeys = Object.keys(gc).sort((a, b) => {
     if (a === '미지정') return 1; if (b === '미지정') return -1;
     return a.localeCompare(b);
@@ -2581,21 +2622,22 @@ function renderDashboard() {
     </div>`;
   }).join('') : '<div class="text-sm text-brand-gray text-center py-6">데이터가 없습니다.</div>';
 
-  // 5) 최근 완료 항목 (최대 6건)
-  const recent = pendingList.filter(p => p.done && _dashPendDateNum(p))
-    .sort((a, b) => _dashPendDateNum(b) - _dashPendDateNum(a))
+  // 5) 최근 완료 항목 (폴더 단위, 최대 6건)
+  const recent = units.filter(u => u.done && u.dateNum)
+    .sort((a, b) => b.dateNum - a.dateNum)
     .slice(0, 6);
   const recentEl = document.getElementById('dash-recent');
-  if (recentEl) recentEl.innerHTML = recent.length ? recent.map((p, i) => {
-    const meta = [p.folder ? '폴더 ' + _pendingEsc(p.folder) : '', p.code ? '상품 ' + _pendingEsc(p.code) : '']
+  if (recentEl) recentEl.innerHTML = recent.length ? recent.map((u, i) => {
+    const meta = [u.folder ? '폴더 ' + _pendingEsc(u.folder) : '', u.code ? '상품 ' + _pendingEsc(u.code) : '']
       .filter(Boolean).join(' · ');
+    const extra = u.count > 1 ? ` <span class="text-brand-gray font-normal">외 ${u.count - 1}건</span>` : '';
     return `<div class="flex items-center gap-3 py-2.5 ${i ? 'border-t border-brand-border' : ''}">
-      <span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-0.5 shrink-0 whitespace-nowrap">${_pendingEsc(p.date)}</span>
+      <span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-0.5 shrink-0 whitespace-nowrap">${_pendingEsc(u.date)}</span>
       <div class="min-w-0 flex-1">
-        <div class="font-bold text-sm truncate">${_pendingEsc(p.name || '(이름없음)')}</div>
+        <div class="font-bold text-sm truncate">${_pendingEsc(u.name || '(이름없음)')}${extra}</div>
         ${meta ? `<div class="text-xs text-brand-gray truncate">${meta}</div>` : ''}
       </div>
-      ${(p.grade && p.grade !== '-') ? `<span class="text-[11px] font-bold bg-brand-bg text-brand-black rounded-full px-2 py-1 shrink-0">${_pendingEsc(p.grade)}</span>` : ''}
+      ${(u.grade && u.grade !== '-') ? `<span class="text-[11px] font-bold bg-brand-bg text-brand-black rounded-full px-2 py-1 shrink-0">${_pendingEsc(u.grade)}</span>` : ''}
     </div>`;
   }).join('') : '<div class="text-sm text-brand-gray text-center py-6">완료한 항목이 없습니다.</div>';
 
