@@ -2554,8 +2554,20 @@ function renderPendingList() {
     return;
   }
   if (empty) empty.classList.add('hidden');
-  // 폴더코드 기준 정렬 (빈 폴더는 맨 뒤). 같은 폴더 내에서는 링크별로 묶기 위해 링크로 2차 정렬.
+  // 날짜 최근순 정렬 (내림차순). 폴더 그룹(rowspan 병합)은 유지하기 위해
+  // 폴더는 그 폴더 안에서 가장 최근 날짜를 기준으로 묶어서 이동시킴.
+  const _dateVal = (p) => { const d = _parseCompletedDate(p.date); return d ? (d.y * 10000 + d.m * 100 + d.d) : 0; };
+  const _folderDate = new Map();
+  visible.forEach(p => {
+    if (!p.folder) return;
+    const v = _dateVal(p);
+    if (!_folderDate.has(p.folder) || v > _folderDate.get(p.folder)) _folderDate.set(p.folder, v);
+  });
+  const _repDate = (p) => p.folder ? (_folderDate.get(p.folder) || 0) : _dateVal(p);
   visible.sort((a, b) => {
+    const da = _repDate(a), db = _repDate(b);
+    if (da !== db) return db - da;                     // 최근 날짜 먼저
+    // 같은 날짜 — 폴더로 묶고(빈 폴더는 맨 뒤), 같은 폴더 안에서는 링크별로 묶기
     const fa = a.folder || '￿';
     const fb = b.folder || '￿';
     if (fa !== fb) return fa.localeCompare(fb);
