@@ -78,6 +78,10 @@
   .img-card.sortable-ghost { opacity:0.4; }
   .img-card.sortable-drag { cursor:grabbing; transform:rotate(2deg); }
   .img-card img { width:100%; height:100%; object-fit:cover; pointer-events:none; }
+  /* 피그마(.fig) 카드 — 미리보기가 없는 첨부파일용 아이콘 카드 */
+  .fig-card-body { width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:12px; background:linear-gradient(135deg,#FDF2F8,#EFF6FF); pointer-events:none; }
+  .fig-card-body .fig-ext { font-size:11px; font-weight:800; color:#8E8E93; letter-spacing:.04em; }
+  .fig-card-body .fig-name { font-size:11px; font-weight:700; color:#1A1A1A; max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
   .img-overlay { position:absolute; inset:0; background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%); opacity:0; transition: opacity .2s; display:flex; flex-direction:column; justify-content:space-between; padding:8px; pointer-events:none; }
   .img-card:hover .img-overlay { opacity:1; }
   .img-overlay > * { pointer-events:auto; }
@@ -325,10 +329,10 @@
 
         <!-- 드롭존 -->
         <label class="drop-zone block" id="drop-zone">
-          <input type="file" id="file-input" multiple accept="image/*" class="hidden" onchange="handleFiles(event.target.files); event.target.value='';">
+          <input type="file" id="file-input" multiple accept="image/*,.fig" class="hidden" onchange="handleFiles(event.target.files); event.target.value='';">
           <div class="flex flex-col items-center gap-2 pointer-events-none">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="font-bold text-sm" id="drop-zone-label">이미지를 끌어다 놓거나 클릭해서 업로드</div>
+            <div class="font-bold text-sm" id="drop-zone-label">이미지·피그마(.fig)를 끌어다 놓거나 클릭해서 업로드</div>
             <div class="text-xs text-brand-gray">여러 개 한 번에 가능 · jpg, png, webp, gif</div>
           </div>
         </label>
@@ -380,6 +384,19 @@
           </div>
           <div id="image-grid-group" class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));"></div>
           <div id="image-empty-group" class="hidden text-center py-10 text-brand-gray text-sm">아직 상세페이지 이미지가 없습니다. 'Group' 으로 시작하는 파일을 업로드하세요.</div>
+        </div>
+
+        <!-- 피그마 그리드 (파일명이 .fig 로 끝나는 피그마 파일) -->
+        <div class="bg-white rounded-4xl panel p-6 md:p-7">
+          <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+            <h3 class="font-bold text-base">
+              <svg width="14" height="14" viewBox="0 0 38 57" class="inline mr-1 -mt-0.5"><path fill="#1abcfe" d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/><path fill="#0acf83" d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z"/><path fill="#ff7262" d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z"/><path fill="#f24e1e" d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/><path fill="#a259ff" d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/></svg>
+              피그마 <span class="text-brand-gray font-normal text-sm">(<span id="fig-count">0</span>개)</span>
+            </h3>
+            <p class="text-xs text-brand-gray">파일명이 <code class="px-1.5 py-0.5 bg-brand-bg rounded text-brand-black font-mono">.fig</code> 로 끝나면 자동 분류 · 더블클릭=다운로드</p>
+          </div>
+          <div id="image-grid-fig" class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));"></div>
+          <div id="image-empty-fig" class="hidden text-center py-10 text-brand-gray text-sm">아직 피그마 파일이 없습니다. .fig 파일을 업로드하세요.</div>
         </div>
       </section>
     </main>
@@ -1713,7 +1730,7 @@ function _rbMove(e) {
   } else {
     // 제품 상세 — 서브폴더 + 이미지 모두 검사
     apply(document.querySelectorAll('#subfolder-grid .folder-card'), 'subfolderId', _rbState.baseIds.sub);
-    apply(document.querySelectorAll('#image-grid-main .img-card, #image-grid-group .img-card'), 'imgId', _rbState.baseIds.img);
+    apply(document.querySelectorAll('#image-grid-main .img-card, #image-grid-group .img-card, #image-grid-fig .img-card'), 'imgId', _rbState.baseIds.img);
   }
 }
 function _rbEnd() {
@@ -1744,7 +1761,7 @@ function _rbEnd() {
       document.querySelectorAll('#subfolder-grid .folder-card.selected').forEach(card => {
         if (card.dataset.subfolderId) selectedSubfolderIds.add(card.dataset.subfolderId);
       });
-      document.querySelectorAll('#image-grid-main .img-card.selected, #image-grid-group .img-card.selected').forEach(card => {
+      document.querySelectorAll('#image-grid-main .img-card.selected, #image-grid-group .img-card.selected, #image-grid-fig .img-card.selected').forEach(card => {
         if (card.dataset.imgId) selectedImageIds.add(card.dataset.imgId);
       });
     }
@@ -1800,9 +1817,16 @@ function _ipOrdered() {
   const grp  = images.filter(im =>  _isGroup(im)).sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
   return [...main, ...grp];
 }
+// 라이트박스(크게 보기)용 — 미리보기가 불가능한 피그마(.fig)는 제외
+function _ipPreviewOrdered() {
+  return _ipOrdered().filter(im => !_isFig(im));
+}
 function openImagePreview(imgId) {
   if (_imageClickTimer) { clearTimeout(_imageClickTimer); _imageClickTimer = null; }
-  const ordered = _ipOrdered();
+  // 피그마 파일은 라이트박스 대신 다운로드
+  const target = images.find(i => i.id === imgId);
+  if (target && _isFig(target)) { downloadFig(imgId); return; }
+  const ordered = _ipPreviewOrdered();
   if (!ordered.find(i => i.id === imgId)) return;
   _previewImgId = imgId;
   _renderImagePreview();
@@ -1810,7 +1834,7 @@ function openImagePreview(imgId) {
   document.body.style.overflow = 'hidden';
 }
 function _renderImagePreview() {
-  const ordered = _ipOrdered();
+  const ordered = _ipPreviewOrdered();
   const idx = ordered.findIndex(i => i.id === _previewImgId);
   if (idx < 0) return;
   const im = ordered[idx];
@@ -1858,7 +1882,7 @@ function _ipResetZoom() {
   }
 }
 function navImagePreview(dir) {
-  const ordered = _ipOrdered();
+  const ordered = _ipPreviewOrdered();
   if (ordered.length <= 1) return;
   const idx = ordered.findIndex(i => i.id === _previewImgId);
   if (idx < 0) return;
@@ -3703,7 +3727,61 @@ async function loadImages(productId) {
 function _isGroup(im) {
   return /^group/i.test(im.file_name || '');
 }
+// 파일명이 .fig 로 끝나면 피그마 파일 (이미지가 아닌 첨부파일 — 미리보기 불가, 다운로드만)
+function _isFig(im) {
+  return /\.fig$/i.test((im && im.file_name) || '');
+}
+// 피그마(.fig) 다운로드 — 라이트박스 대신 원본 파일을 그대로 내려받음
+async function downloadFig(imgId) {
+  if (window._suppressClickUntil && Date.now() < window._suppressClickUntil) return;
+  if (window._draggingCard) return;
+  const im = images.find(i => i.id === imgId);
+  if (!im) return;
+  await _downloadSingleImageDirect(im);
+}
+// 피그마 카드 — 썸네일 대신 피그마 로고 아이콘 + 파일명, 더블클릭/다운로드 버튼으로 내려받기
+function _figCardHtml(im, idx) {
+  const selected = selectedImageIds.has(im.id);
+  return `
+    <div class="img-card ${selected ? 'selected' : ''}" data-img-id="${im.id}" onclick="onImageClick(event, '${im.id}')" ondblclick="downloadFig('${im.id}')" title="클릭=선택 / Shift+클릭=범위 / 더블클릭=다운로드 / 호버 버튼=다운로드·URL 복사">
+      <div class="fig-card-body">
+        <svg width="38" height="38" viewBox="0 0 38 57" xmlns="http://www.w3.org/2000/svg" aria-label="Figma">
+          <path fill="#1abcfe" d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0z"/>
+          <path fill="#0acf83" d="M0 47.5A9.5 9.5 0 0 1 9.5 38H19v9.5a9.5 9.5 0 1 1-19 0z"/>
+          <path fill="#ff7262" d="M19 0v19h9.5a9.5 9.5 0 1 0 0-19H19z"/>
+          <path fill="#f24e1e" d="M0 9.5A9.5 9.5 0 0 0 9.5 19H19V0H9.5A9.5 9.5 0 0 0 0 9.5z"/>
+          <path fill="#a259ff" d="M0 28.5A9.5 9.5 0 0 0 9.5 38H19V19H9.5A9.5 9.5 0 0 0 0 28.5z"/>
+        </svg>
+        <span class="fig-ext">FIGMA · .fig</span>
+        <span class="fig-name">${escapeHtml(im.file_name)}</span>
+      </div>
+      <div class="img-check" title="${selected ? '선택됨' : '미선택'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="img-overlay">
+        <div class="img-overlay-top">
+          <span class="img-order-badge">#${idx + 1}</span>
+          <div class="img-actions">
+            <div class="img-btn" onclick="event.stopPropagation(); downloadFig('${im.id}')" title="다운로드">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="img-btn" onclick="event.stopPropagation(); copyImageUrl('${im.id}')" title="URL 복사">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </div>
+            <div class="img-btn danger" onclick="event.stopPropagation(); confirmDeleteImage('${im.id}')" title="삭제">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+            </div>
+          </div>
+        </div>
+        <div class="img-overlay-bottom">
+          <span class="img-name">${escapeHtml(im.file_name)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
 function _imgCardHtml(im, idx) {
+  if (_isFig(im)) return _figCardHtml(im, idx);
   const selected = selectedImageIds.has(im.id);
   return `
     <div class="img-card ${selected ? 'selected' : ''}" data-img-id="${im.id}" onclick="onImageClick(event, '${im.id}')" ondblclick="openImagePreview('${im.id}')" title="클릭=선택 / Shift+클릭=범위 / 더블클릭=크게 보기 / 드래그=순서 변경 / 호버 버튼=URL·HTML 복사">
@@ -3734,17 +3812,21 @@ function _imgCardHtml(im, idx) {
   `;
 }
 function renderImages() {
-  // 두 그룹으로 분리 — 메인(파일명이 Group 으로 시작 안 함) / 그룹(Group 으로 시작)
-  const mainList  = images.filter(im => !_isGroup(im));
-  const groupList = images.filter(im =>  _isGroup(im));
+  // 세 그룹으로 분리 — 메인(썸네일) / 그룹(상세페이지, Group 으로 시작) / 피그마(.fig)
+  const figList   = images.filter(im =>  _isFig(im));
+  const mainList  = images.filter(im => !_isGroup(im) && !_isFig(im));
+  const groupList = images.filter(im =>  _isGroup(im) && !_isFig(im));
 
   const mainGridEl  = document.getElementById('image-grid-main');
   const groupGridEl = document.getElementById('image-grid-group');
+  const figGridEl   = document.getElementById('image-grid-fig');
   const mainEmptyEl  = document.getElementById('image-empty-main');
   const groupEmptyEl = document.getElementById('image-empty-group');
+  const figEmptyEl   = document.getElementById('image-empty-fig');
 
   document.getElementById('main-count').textContent  = mainList.length;
   document.getElementById('group-count').textContent = groupList.length;
+  document.getElementById('fig-count').textContent   = figList.length;
 
   // 메인
   if (mainList.length === 0) {
@@ -3762,11 +3844,20 @@ function renderImages() {
     groupEmptyEl.classList.add('hidden');
     groupGridEl.innerHTML = groupList.map((im, i) => _imgCardHtml(im, i)).join('');
   }
+  // 피그마
+  if (figList.length === 0) {
+    figGridEl.innerHTML = '';
+    figEmptyEl.classList.remove('hidden');
+  } else {
+    figEmptyEl.classList.add('hidden');
+    figGridEl.innerHTML = figList.map((im, i) => _imgCardHtml(im, i)).join('');
+  }
 
-  // Sortable 두 그리드에 각각 초기화 (각자 자기 순서만 관리)
+  // Sortable 세 그리드에 각각 초기화 (각자 자기 순서만 관리)
   // _suppressClickUntil: 드래그 직후 발생할 수 있는 onclick(HTML 복사) 을 짧게 차단
   if (window._sortableMain)  window._sortableMain.destroy();
   if (window._sortableGroup) window._sortableGroup.destroy();
+  if (window._sortableFig)   window._sortableFig.destroy();
   const sortOpts = (kind) => ({
     animation: 200, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
     onStart: () => { window._draggingCard = true; },
@@ -3774,12 +3865,14 @@ function renderImages() {
   });
   window._sortableMain  = new Sortable(mainGridEl,  sortOpts('main'));
   window._sortableGroup = new Sortable(groupGridEl, sortOpts('group'));
+  window._sortableFig   = new Sortable(figGridEl,   sortOpts('fig'));
 }
 async function handleReorder(kind) {
   // 해당 그리드의 DOM 순서대로 sort_order 재부여
-  // 메인은 1~999, 그룹은 1001~ 로 범위 분리해 서로 영향 없게
-  const gridEl = document.getElementById(kind === 'group' ? 'image-grid-group' : 'image-grid-main');
-  const base = (kind === 'group') ? 1000 : 0;
+  // 메인은 1~999, 그룹은 1001~, 피그마는 2001~ 로 범위 분리해 서로 영향 없게
+  const gridId = kind === 'group' ? 'image-grid-group' : (kind === 'fig' ? 'image-grid-fig' : 'image-grid-main');
+  const gridEl = document.getElementById(gridId);
+  const base = kind === 'group' ? 1000 : (kind === 'fig' ? 2000 : 0);
   const cards = [...gridEl.querySelectorAll('.img-card')];
   const newOrder = cards.map((c, i) => ({ id: c.dataset.imgId, sort_order: base + i + 1 }));
   const map = Object.fromEntries(newOrder.map(o => [o.id, o.sort_order]));
@@ -3829,8 +3922,8 @@ async function copyImageHtml(imgId) {
 async function copyAllHtml() {
   if (!images.length) return;
   // 썸네일 / 상세페이지 분리 — 상세페이지는 <center> 블록 + 인덱스 코멘트로 감싸기
-  const thumbs  = images.filter(im => !_isGroup(im));
-  const details = images.filter(im =>  _isGroup(im));
+  const thumbs  = images.filter(im => !_isGroup(im) && !_isFig(im));
+  const details = images.filter(im =>  _isGroup(im) && !_isFig(im));
   const parts = [];
   // 1) 썸네일 — 그대로 <img> 태그
   thumbs.forEach(im => parts.push(_imgTag(im)));
@@ -3846,7 +3939,7 @@ async function copyAllHtml() {
   }
   const text = parts.join('\n');
   await navigator.clipboard.writeText(text);
-  toast(`${images.length}개 HTML 태그 복사됨 (썸네일 ${thumbs.length} · 상세페이지 ${details.length})`, 'success');
+  toast(`${thumbs.length + details.length}개 HTML 태그 복사됨 (썸네일 ${thumbs.length} · 상세페이지 ${details.length})`, 'success');
 }
 function confirmDeleteImage(imgId) {
   const im = images.find(i => i.id === imgId);
@@ -3875,8 +3968,8 @@ function confirmDeleteImage(imgId) {
 // ════════════════════════════════════════════════════════
 async function handleFiles(fileList) {
   if (!currentProduct) { toast('먼저 제품을 선택해주세요.', 'error'); return; }
-  const files = [...fileList].filter(f => f.type.startsWith('image/'));
-  if (!files.length) { toast('이미지 파일만 업로드 가능합니다.', 'error'); return; }
+  const files = [...fileList].filter(f => f.type.startsWith('image/') || /\.fig$/i.test(f.name));
+  if (!files.length) { toast('이미지 또는 피그마(.fig) 파일만 업로드 가능합니다.', 'error'); return; }
   showUploadProgress(files.length);
   const baseOrder = images.length ? Math.max(...images.map(i => i.sort_order || 0)) : 0;
   let done = 0, fail = 0;
