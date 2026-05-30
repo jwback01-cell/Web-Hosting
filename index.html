@@ -511,8 +511,8 @@
     <div class="grid lg:grid-cols-2 gap-4">
       <!-- 최근 7일 완료 추이 -->
       <div class="bg-white rounded-4xl panel p-5 md:p-6">
-        <h3 class="font-bold text-base mb-4">최근 7일 완료 추이</h3>
-        <div id="dash-trend" class="flex items-end justify-between gap-2 h-36"></div>
+        <h3 class="font-bold text-base mb-4">주차별 완료 추이 <span class="text-brand-gray font-normal text-xs">(이번 달 · 주말 제외)</span></h3>
+        <div id="dash-trend" class="flex items-end justify-between gap-3 h-36"></div>
       </div>
       <!-- 등급별 분포 -->
       <div class="bg-white rounded-4xl panel p-5 md:p-6">
@@ -2588,19 +2588,29 @@ function renderDashboard() {
   set('dash-week',  weekCount.toLocaleString('ko-KR'));
   set('dash-month', monthCount.toLocaleString('ko-KR'));
 
-  // 3) 최근 7일 추이 막대
-  const counts = last7.map(d => (byDate.get(d.key) || []).length);
-  const max = Math.max(1, ...counts);
+  // 3) 이번 달 주차별 완료 추이 막대 (폴더 단위, 주말 제외)
+  //    주차: 1주차=1~7일, 2주차=8~14일, 3주차=15~21일, 4주차=22~말일
+  const weekBuckets = [0, 0, 0, 0];
+  const curY = now.getFullYear(), curM = now.getMonth() + 1;
+  units.forEach(u => {
+    if (!u.done) return;
+    const d = _parseCompletedDate(u.date);
+    if (!d || d.y !== curY || d.m !== curM) return;            // 이번 달만
+    const dow = new Date(d.y, d.m - 1, d.d).getDay();          // 0=일, 6=토
+    if (dow === 0 || dow === 6) return;                        // 주말 제외
+    weekBuckets[Math.min(3, Math.floor((d.d - 1) / 7))]++;
+  });
+  const wkLabels = ['1주차', '2주차', '3주차', '4주차'];
+  const wkMax = Math.max(1, ...weekBuckets);
+  const curWeek = Math.min(3, Math.floor((now.getDate() - 1) / 7));
   const trendEl = document.getElementById('dash-trend');
-  if (trendEl) trendEl.innerHTML = last7.map((d, i) => {
-    const c = counts[i];
-    const h = c ? Math.max(6, Math.round(c / max * 100)) : 2;
-    const isToday = d.key === todayKey;
-    const dowColor = d.dow === 0 ? 'text-red-500' : (d.dow === 6 ? 'text-blue-500' : 'text-brand-gray');
+  if (trendEl) trendEl.innerHTML = weekBuckets.map((c, i) => {
+    const h = c ? Math.max(6, Math.round(c / wkMax * 100)) : 2;
+    const isCur = i === curWeek;
     return `<div class="flex-1 flex flex-col items-center justify-end gap-1 h-full">
       <div class="text-[11px] font-bold ${c ? 'text-brand-black' : 'text-brand-gray'}">${c || ''}</div>
-      <div class="w-full rounded-lg ${isToday ? 'bg-brand-blue' : 'bg-brand-green'}" style="height:${h}%; min-height:2px;" title="${d.label} ${c}건"></div>
-      <div class="text-[10px] ${dowColor}">${d.label}</div>
+      <div class="w-full rounded-lg ${isCur ? 'bg-brand-blue' : 'bg-brand-green'}" style="height:${h}%; min-height:2px;" title="${wkLabels[i]} ${c}건 (주말 제외)"></div>
+      <div class="text-[10px] ${isCur ? 'text-brand-blue font-bold' : 'text-brand-gray'}">${wkLabels[i]}</div>
     </div>`;
   }).join('');
 
