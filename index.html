@@ -581,7 +581,9 @@
           <thead>
             <tr class="bg-brand-bg">
               <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
+              <th class="px-2 py-2.5 text-center font-bold border-b-2 border-brand-border w-[44px]">시작</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">시작날짜</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">완료날짜</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
@@ -640,8 +642,8 @@
       <!-- 헤더: 제목 + 월 이동 -->
       <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
         <div>
-          <h2 class="text-xl font-bold">완료 캘린더</h2>
-          <p class="text-brand-gray text-xs mt-0.5">등록 예정 리스트에서 완료한 항목을 완료일별로 확인합니다</p>
+          <h2 class="text-xl font-bold">진행 캘린더</h2>
+          <p class="text-brand-gray text-xs mt-0.5">시작일부터 완료일까지 기간으로 길게 이어서 표시합니다 · <span class="text-indigo-600 font-bold">■</span> 진행 중 · <span class="text-brand-green font-bold">■</span> 완료</p>
         </div>
         <div class="flex items-center gap-1.5">
           <button onclick="calShiftMonth(-1)" title="이전 달" class="w-9 h-9 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray">‹</button>
@@ -2458,10 +2460,41 @@ function calGoToday() {
   _calSelectedKey = _calDateKey(n.getFullYear(), n.getMonth()+1, n.getDate());
   renderCalendar();
 }
+// 폴더 단위를 시작~완료 기간 동안 '매일'에 매핑 (길게 이어지는 기간 표시용)
+//  - 시작·완료 둘 다: [시작 → 완료]
+//  - 시작만(미완료):  [시작 → 오늘] (진행 중)
+//  - 완료만:          [완료] 하루
+function _unitDayMap() {
+  const map = new Map();   // dateKey -> [{unit, isStart, isEnd, ongoing}]
+  const n = new Date();
+  const today = { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+  _pendingUnits().forEach(u => {
+    const s = _parseCompletedDate(u.startDate);
+    const e = u.done ? _parseCompletedDate(u.date) : null;
+    let startD, endD, ongoing = false;
+    if (s && e)       { startD = s; endD = e; }
+    else if (s && !e) { startD = s; endD = today; ongoing = true; }
+    else if (!s && e) { startD = e; endD = e; }
+    else return;
+    let cur = new Date(startD.y, startD.m - 1, startD.d);
+    let end = new Date(endD.y, endD.m - 1, endD.d);
+    if (end < cur) end = cur;                       // 완료일이 시작일보다 빠른 비정상 데이터 방지
+    const startKey = _calDateKey(startD.y, startD.m, startD.d);
+    const endKey   = _calDateKey(endD.y, endD.m, endD.d);
+    let guard = 0;
+    while (cur <= end && guard++ < 400) {
+      const key = _calDateKey(cur.getFullYear(), cur.getMonth() + 1, cur.getDate());
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push({ unit: u, isStart: key === startKey, isEnd: key === endKey, ongoing });
+      cur.setDate(cur.getDate() + 1);
+    }
+  });
+  return map;
+}
 function renderCalendar() {
   const now = new Date();
   if (_calYear == null) { _calYear = now.getFullYear(); _calMonth = now.getMonth(); }
-  const byDate = _getCompletedByDate();
+  const dayMap = _unitDayMap();
   const titleEl = document.getElementById('cal-title');
   if (titleEl) titleEl.textContent = `${_calYear}년 ${_calMonth+1}월`;
 
@@ -2469,41 +2502,48 @@ function renderCalendar() {
   const daysInMonth = new Date(_calYear, _calMonth+1, 0).getDate();
   const todayKey = _calDateKey(now.getFullYear(), now.getMonth()+1, now.getDate());
 
-  let monthDays = 0, monthItems = 0;
+  const monthUnits = new Set();
+  let monthDone = 0;
   const cells = [];
   for (let i = 0; i < startDow; i++) cells.push('<div></div>');   // 1일 앞 빈칸
   for (let d = 1; d <= daysInMonth; d++) {
     const key = _calDateKey(_calYear, _calMonth+1, d);
-    const items = byDate.get(key) || [];
-    if (items.length) { monthDays++; monthItems += items.length; }
+    const active = dayMap.get(key) || [];
+    active.forEach(a => { monthUnits.add(a.unit); if (a.isEnd && a.unit.done) monthDone++; });
     const isToday = key === todayKey;
     const isSel = key === _calSelectedKey;
     const dow = (startDow + d - 1) % 7;
     const dowColor = dow === 0 ? 'text-red-500' : (dow === 6 ? 'text-blue-500' : 'text-brand-black');
-    const hasItems = items.length > 0;
-    const names = items.slice(0, 2).map(it =>
-      `<div class="truncate text-[10px] text-brand-gray leading-tight">${_pendingEsc(it.name || it.folder || '(이름없음)')}</div>`
-    ).join('');
-    const more = items.length > 2 ? `<div class="text-[10px] text-brand-gray leading-tight">+${items.length-2}개</div>` : '';
+    const has = active.length > 0;
+    const bars = active.slice(0, 3).map(a => {
+      const u = a.unit;
+      const cls = u.done
+        ? (a.isEnd ? 'bg-brand-green text-white' : 'bg-brand-green-light text-brand-green')
+        : (a.isStart ? 'bg-indigo-500 text-white' : 'bg-indigo-100 text-indigo-700');
+      const round = (a.isStart ? 'rounded-l-md ' : '') + (a.isEnd ? 'rounded-r-md' : '');
+      const label = a.isStart ? _pendingEsc(u.name || u.folder || '') : (a.isEnd && u.done ? '완료' : '');
+      return `<div class="${cls} ${round} h-[15px] px-1 text-[9px] font-bold leading-[15px] truncate" title="${_pendingEsc(u.name || u.folder || '')}">${label}</div>`;
+    }).join('');
+    const more = active.length > 3 ? `<div class="text-[9px] text-brand-gray leading-tight">+${active.length-3}</div>` : '';
     cells.push(`
-      <div ${hasItems ? `onclick="calSelectDay('${key}')"` : ''}
-           class="min-h-[80px] rounded-xl border p-1.5 flex flex-col gap-0.5 transition-colors ${hasItems ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
+      <div ${has ? `onclick="calSelectDay('${key}')"` : ''}
+           class="min-h-[80px] rounded-xl border p-1.5 flex flex-col gap-0.5 transition-colors ${has ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold ${dowColor}">${d}${isToday ? '<span class="ml-1 text-[9px] text-brand-blue font-bold">오늘</span>' : ''}</span>
-          ${hasItems ? `<span class="text-[10px] font-black text-white bg-brand-green rounded-full px-1.5 py-0.5 leading-none">${items.length}</span>` : ''}
+          ${has ? `<span class="text-[10px] font-black text-white bg-brand-black/70 rounded-full px-1.5 py-0.5 leading-none">${active.length}</span>` : ''}
         </div>
-        ${names}${more}
+        ${bars}${more}
       </div>
     `);
   }
   const gridEl = document.getElementById('cal-grid');
   if (gridEl) gridEl.innerHTML = cells.join('');
   const sumEl = document.getElementById('cal-summary');
-  if (sumEl) sumEl.textContent = monthItems
-    ? `이번 달 완료 ${monthItems}건 · ${monthDays}일`
-    : '이번 달 완료한 항목이 없습니다.';
+  if (sumEl) sumEl.textContent = monthUnits.size
+    ? `이번 달 진행 ${monthUnits.size}건 · 완료 ${monthDone}건`
+    : '이번 달 진행 중이거나 완료한 항목이 없습니다.';
 
-  if (_calSelectedKey) _renderCalDetail(byDate);
+  if (_calSelectedKey) _renderCalDetail(dayMap);
 }
 function calSelectDay(key) {
   _calSelectedKey = key;
@@ -2511,32 +2551,38 @@ function calSelectDay(key) {
   const el = document.getElementById('cal-detail');
   if (el && !el.classList.contains('hidden')) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
-function _renderCalDetail(byDate) {
-  byDate = byDate || _getCompletedByDate();
+function _renderCalDetail(dayMap) {
+  dayMap = dayMap || _unitDayMap();
   const detail = document.getElementById('cal-detail');
   const titleEl = document.getElementById('cal-detail-title');
   const listEl = document.getElementById('cal-detail-list');
   if (!detail || !listEl) return;
-  const items = (_calSelectedKey && byDate.get(_calSelectedKey)) || [];
-  if (!items.length) { detail.classList.add('hidden'); return; }
+  const active = (_calSelectedKey && dayMap.get(_calSelectedKey)) || [];
+  if (!active.length) { detail.classList.add('hidden'); return; }
   detail.classList.remove('hidden');
   const [y, m, d] = _calSelectedKey.split('-').map(Number);
-  if (titleEl) titleEl.textContent = `${y}. ${m}. ${d} 완료 — ${items.length}건`;
-  listEl.innerHTML = items.map((it, i) => {
+  if (titleEl) titleEl.textContent = `${y}. ${m}. ${d} — ${active.length}건`;
+  listEl.innerHTML = active.map((a, i) => {
+    const u = a.unit;
     const meta = [
-      it.folder  ? `폴더 ${_pendingEsc(it.folder)}` : '',
-      it.code    ? `상품 ${_pendingEsc(it.code)}`   : '',
-      it.keyword ? _pendingEsc(it.keyword)          : '',
-      it.note    ? _pendingEsc(it.note)             : '',
+      u.folder ? `폴더 ${_pendingEsc(u.folder)}` : '',
+      u.code   ? `상품 ${_pendingEsc(u.code)}`   : '',
+      u.startDate ? `시작 ${_pendingEsc(u.startDate)}` : '',
+      (u.done && u.date) ? `완료 ${_pendingEsc(u.date)}` : '',
     ].filter(Boolean).join(' · ');
+    const badge = (u.done && a.isEnd)
+      ? '<span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-1 shrink-0">완료</span>'
+      : (a.isStart
+          ? '<span class="text-[11px] font-bold text-white bg-indigo-500 rounded-full px-2 py-1 shrink-0">시작</span>'
+          : '<span class="text-[11px] font-bold text-indigo-700 bg-indigo-100 rounded-full px-2 py-1 shrink-0">진행 중</span>');
     return `
       <div class="flex items-center gap-3 py-2.5 ${i ? 'border-t border-brand-border' : ''}">
         <span class="text-xs font-black text-brand-gray w-6 text-center shrink-0">${i+1}</span>
         <div class="min-w-0 flex-1">
-          <div class="font-bold text-sm truncate">${_pendingEsc(it.name || '(이름없음)')}</div>
+          <div class="font-bold text-sm truncate">${_pendingEsc(u.name || '(이름없음)')}${u.count > 1 ? ` <span class="text-brand-gray font-normal">외 ${u.count-1}건</span>` : ''}</div>
           ${meta ? `<div class="text-xs text-brand-gray truncate">${meta}</div>` : ''}
         </div>
-        ${it.grade ? `<span class="text-[11px] font-bold bg-brand-bg text-brand-black rounded-full px-2 py-1 shrink-0">${_pendingEsc(it.grade)}</span>` : ''}
+        ${badge}
       </div>`;
   }).join('');
 }
@@ -2569,7 +2615,8 @@ function _pendingUnits() {
       if (n >= dateNum) { dateNum = n; dateStr = r.date; }     // 완료일 = 폴더 내 완료행 중 가장 최근
     });
     const rep = rows[0] || {};
-    return { folder: u.folder, rows, count: rows.length, done, dateNum,
+    const startDate = (rows.find(r => r.startDate) || {}).startDate || '';
+    return { folder: u.folder, rows, count: rows.length, done, dateNum, startDate,
              date: dateStr || rep.date || '', grade: rep.grade || '', name: rep.name || '', code: rep.code || '' };
   });
 }
@@ -2672,8 +2719,11 @@ function renderDashboard() {
     .slice(0, 6);
   const recentEl = document.getElementById('dash-recent');
   if (recentEl) recentEl.innerHTML = recent.length ? recent.map((u, i) => {
-    const meta = [u.folder ? '폴더 ' + _pendingEsc(u.folder) : '', u.code ? '상품 ' + _pendingEsc(u.code) : '']
-      .filter(Boolean).join(' · ');
+    const meta = [
+      u.folder ? '폴더 ' + _pendingEsc(u.folder) : '',
+      u.code ? '상품 ' + _pendingEsc(u.code) : '',
+      u.startDate ? '시작 ' + _pendingEsc(u.startDate) : '',
+    ].filter(Boolean).join(' · ');
     const extra = u.count > 1 ? ` <span class="text-brand-gray font-normal">외 ${u.count - 1}건</span>` : '';
     return `<div class="flex items-center gap-3 py-2.5 ${i ? 'border-t border-brand-border' : ''}">
       <span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-0.5 shrink-0 whitespace-nowrap">${_pendingEsc(u.date)}</span>
@@ -2816,7 +2866,7 @@ function renderPendingList() {
   if (empty) empty.classList.add('hidden');
   // 날짜 최근순 정렬 (내림차순). 폴더 그룹(rowspan 병합)은 유지하기 위해
   // 폴더는 그 폴더 안에서 가장 최근 날짜를 기준으로 묶어서 이동시킴.
-  const _dateVal = (p) => { const d = _parseCompletedDate(p.date); return d ? (d.y * 10000 + d.m * 100 + d.d) : 0; };
+  const _dateVal = (p) => { const d = _parseCompletedDate(p.date) || _parseCompletedDate(p.startDate); return d ? (d.y * 10000 + d.m * 100 + d.d) : 0; };
   const _folderDate = new Map();
   visible.forEach(p => {
     if (!p.folder) return;
@@ -2880,7 +2930,11 @@ function renderPendingList() {
       }
       rowsHtml.push(`<tr data-pid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.done ? 'opacity-50' : ''} ${groupBg}">
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="2026. 5. 18" class="pending-input text-center"></td>
+        <td class="px-2 py-2 text-center align-middle">
+          <input type="checkbox" ${item.startDate ? 'checked' : ''} onchange="togglePendingStart('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-indigo-500" title="시작 — 체크하면 같은 폴더 전체가 오늘 날짜로 시작 표시됩니다">
+        </td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(item.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="완료일" class="pending-input text-center"></td>
         ${folderCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
@@ -3195,6 +3249,20 @@ function togglePendingDone(pid, done) {
   } else {
     item.done = done;
     item.date = done ? today : '';
+  }
+  _savePendingToStorage();
+  renderPendingList();
+}
+
+// 시작 토글 — 폴더코드 단위 cascade, 체크 시 오늘을 시작날짜로 기록 (해제 시 비움)
+function togglePendingStart(pid, start) {
+  const item = pendingList.find(p => p.id === pid);
+  if (!item) return;
+  const today = _todayStr();
+  if (item.folder) {
+    pendingList.filter(p => p.folder === item.folder).forEach(p => { p.startDate = start ? today : ''; });
+  } else {
+    item.startDate = start ? today : '';
   }
   _savePendingToStorage();
   renderPendingList();
