@@ -3820,10 +3820,25 @@ async function copyImageHtml(imgId) {
 }
 async function copyAllHtml() {
   if (!images.length) return;
-  // 순서대로 <img> 태그를 줄바꿈으로 구분 (쇼핑몰 에디터에 그대로 붙여넣기 가능)
-  const text = images.map(_imgTag).join('\n');
+  // 썸네일 / 상세페이지 분리 — 상세페이지는 <center> 블록 + 인덱스 코멘트로 감싸기
+  const thumbs  = images.filter(im => !_isGroup(im));
+  const details = images.filter(im =>  _isGroup(im));
+  const parts = [];
+  // 1) 썸네일 — 그대로 <img> 태그
+  thumbs.forEach(im => parts.push(_imgTag(im)));
+  // 2) 상세페이지 — <center><br /> + <!--(N)상세페이지--><br /> + <img> + 닫는 <center>
+  if (details.length) {
+    const lines = ['<center><br />'];
+    details.forEach((im, i) => {
+      lines.push(`<!--(${i + 1})상세페이지--><br />`);
+      lines.push(_imgTag(im));
+    });
+    lines.push('<center>');
+    parts.push(lines.join('\n'));
+  }
+  const text = parts.join('\n');
   await navigator.clipboard.writeText(text);
-  toast(`${images.length}개 HTML 태그 복사됨`, 'success');
+  toast(`${images.length}개 HTML 태그 복사됨 (썸네일 ${thumbs.length} · 상세페이지 ${details.length})`, 'success');
 }
 function confirmDeleteImage(imgId) {
   const im = images.find(i => i.id === imgId);
