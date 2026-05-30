@@ -210,6 +210,7 @@
         <div class="hidden md:flex items-center gap-1">
           <button class="menu-tab active px-4 py-1.5 rounded-full text-sm font-bold transition-colors" data-menu="dashboard" onclick="switchMenu('dashboard')">대시보드</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
+          <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="revise" onclick="switchMenu('revise')">수정요청</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="products" onclick="switchMenu('products')">상품관리</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="addon" onclick="switchMenu('addon')">캘린더</button>
@@ -232,6 +233,7 @@
     <div class="md:hidden flex gap-1 mt-3 overflow-x-auto pb-1">
       <button class="menu-tab active px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap" data-menu="dashboard" onclick="switchMenu('dashboard')">대시보드</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
+      <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="revise" onclick="switchMenu('revise')">수정요청</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="products" onclick="switchMenu('products')">상품관리</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="addon" onclick="switchMenu('addon')">캘린더</button>
@@ -588,6 +590,7 @@
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px]">추가상품</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px]">등급</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[140px]">비고</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">수정</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
               <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
             </tr>
@@ -597,6 +600,36 @@
       </div>
       <div id="pending-empty" class="text-center py-12 text-brand-gray text-sm hidden">
         등록 예정 상품이 없습니다. 위 "+ 새 행" 버튼을 눌러 추가하세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- 메뉴 6: 수정요청 -->
+  <div id="menu-revise" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div>
+        <h2 class="text-2xl font-bold">수정요청 <span id="revise-count" class="text-brand-pink">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
+        <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 여기에 모입니다. (비고에 수정할 내용을 적을 수 있어요)</p>
+      </div>
+      <div class="overflow-x-auto -mx-1 px-1">
+        <table class="w-full text-sm border-collapse">
+          <thead>
+            <tr class="bg-brand-bg">
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[240px]">링크</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[160px]">비고 (수정 내용)</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">해제</th>
+            </tr>
+          </thead>
+          <tbody id="revise-tbody"></tbody>
+        </table>
+      </div>
+      <div id="revise-empty" class="text-center py-12 text-brand-gray text-sm hidden">
+        수정요청된 항목이 없습니다. 등록 예정 리스트에서 '수정'을 체크하세요.
       </div>
     </div>
   </div>
@@ -2357,7 +2390,7 @@ function goHome() {
 
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['dashboard', 'images', 'products', 'pending', 'addon', 'grade'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'revise', 'addon', 'grade'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
@@ -2369,6 +2402,7 @@ function switchMenu(menuId) {
     btn.classList.toggle('text-brand-gray', !isActive);
   });
   if (menuId === 'dashboard') renderDashboard();
+  if (menuId === 'revise')   renderReviseList();
   if (menuId === 'pending')  renderPendingList();
   if (menuId === 'products') renderProductsList();
   if (menuId === 'addon')    renderCalendar();
@@ -2866,6 +2900,9 @@ function renderPendingList() {
         </td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 text-center align-middle">
+          <input type="checkbox" ${item.revise ? 'checked' : ''} onchange="togglePendingRevise('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 — 체크하면 '수정요청' 메뉴에 모입니다">
+        </td>
+        <td class="px-3 py-2 text-center align-middle">
           <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePendingDone('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
         </td>
         <td class="px-2 py-2 text-center align-middle">
@@ -3161,6 +3198,64 @@ function togglePendingDone(pid, done) {
   }
   _savePendingToStorage();
   renderPendingList();
+}
+
+// 수정요청 토글 — 완료와 동일하게 폴더코드 단위 cascade (폴더 없으면 해당 행만)
+function togglePendingRevise(pid, revise) {
+  const item = pendingList.find(p => p.id === pid);
+  if (!item) return;
+  if (item.folder) {
+    pendingList.filter(p => p.folder === item.folder).forEach(p => { p.revise = revise; });
+  } else {
+    item.revise = revise;
+  }
+  _savePendingToStorage();
+  renderPendingList();
+  if (typeof renderReviseList === 'function') renderReviseList();
+}
+
+// 수정요청 메뉴 — '수정' 체크된 항목 모아보기
+function renderReviseList() {
+  const tbody = document.getElementById('revise-tbody');
+  const empty = document.getElementById('revise-empty');
+  if (!tbody) return;
+  const items = pendingList.filter(p => p.revise);
+  const cntEl = document.getElementById('revise-count');
+  if (cntEl) cntEl.textContent = items.length;
+  if (!items.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+  if (empty) empty.classList.add('hidden');
+  // 날짜 최근순 → 같은 날짜는 폴더/상품코드로 묶기
+  items.sort((a, b) => {
+    const dv = _dashPendDateNum(b) - _dashPendDateNum(a);
+    if (dv) return dv;
+    const f = (a.folder || '￿').localeCompare(b.folder || '￿');
+    if (f) return f;
+    return (a.code || '').localeCompare(b.code || '');
+  });
+  tbody.innerHTML = items.map(p => {
+    const linkCell = p.link
+      ? `<a href="${_pendingEsc(p.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline truncate inline-block max-w-[300px] align-bottom" title="${_pendingEsc(p.link)}">${_pendingEsc(p.link)}</a>`
+      : '<span class="text-brand-gray">-</span>';
+    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${p.done ? 'opacity-60' : ''}">
+      <td class="px-3 py-2 text-center align-middle whitespace-nowrap">${_pendingEsc(p.date || '-')}</td>
+      <td class="px-3 py-2 text-center align-middle font-bold">${_pendingEsc(p.folder || '-')}</td>
+      <td class="px-3 py-2 text-center align-middle">${_pendingEsc(p.code || '-')}</td>
+      <td class="px-3 py-2 align-middle font-semibold">${_pendingEsc(p.name || '(이름없음)')}</td>
+      <td class="px-3 py-2 align-middle">${linkCell}</td>
+      <td class="px-3 py-2 align-middle"><input type="text" value="${_pendingEsc(p.note)}" onchange="updateReviseNote('${p.id}', this.value)" placeholder="수정할 내용 입력" class="pending-input"></td>
+      <td class="px-3 py-2 text-center align-middle">${p.done ? '<span class="text-[11px] font-bold text-brand-green bg-brand-green-light rounded-full px-2 py-1">완료</span>' : '<span class="text-[11px] text-brand-gray">-</span>'}</td>
+      <td class="px-3 py-2 text-center align-middle">
+        <button onclick="togglePendingRevise('${p.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+// 수정요청 화면에서 비고 수정 → 등록 예정 데이터에 반영
+function updateReviseNote(pid, val) {
+  const it = pendingList.find(p => p.id === pid);
+  if (!it) return;
+  it.note = val;
+  _savePendingToStorage();
 }
 
 function deletePendingRow(pid) {
