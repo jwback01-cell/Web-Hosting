@@ -202,13 +202,14 @@
   <header class="px-4 md:px-6 pt-5 pb-3">
     <nav class="glass-nav rounded-full px-4 md:px-6 py-3.5 flex justify-between items-center w-full">
       <div class="flex items-center gap-6 md:gap-8">
-        <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity" onclick="switchMenu('pending')" title="홈">
+        <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity" onclick="switchMenu('dashboard')" title="홈">
           <div class="w-7 h-7 bg-white border border-brand-border rounded-lg flex items-center justify-center text-brand-black font-black text-sm shadow-sm">G</div>
           <div class="font-black text-[1.15rem] tracking-tight">GPLAN — 이미지저장소</div>
         </div>
         <!-- 메뉴 탭 -->
         <div class="hidden md:flex items-center gap-1">
-          <button class="menu-tab active px-4 py-1.5 rounded-full text-sm font-bold transition-colors" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
+          <button class="menu-tab active px-4 py-1.5 rounded-full text-sm font-bold transition-colors" data-menu="dashboard" onclick="switchMenu('dashboard')">대시보드</button>
+          <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="products" onclick="switchMenu('products')">상품관리</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="addon" onclick="switchMenu('addon')">캘린더</button>
@@ -229,7 +230,8 @@
     </nav>
     <!-- 모바일용 메뉴 탭 -->
     <div class="md:hidden flex gap-1 mt-3 overflow-x-auto pb-1">
-      <button class="menu-tab active px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
+      <button class="menu-tab active px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap" data-menu="dashboard" onclick="switchMenu('dashboard')">대시보드</button>
+      <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="products" onclick="switchMenu('products')">상품관리</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="addon" onclick="switchMenu('addon')">캘린더</button>
@@ -474,8 +476,63 @@
     </div>
   </div>
 
-  <!-- 메뉴 3: 등록 예정 리스트 (홈) -->
-  <div id="menu-pending" class="flex-1 px-4 md:px-6 pb-6">
+  <!-- 메뉴 0: 대시보드 (홈) -->
+  <div id="menu-dashboard" class="flex-1 px-4 md:px-6 pb-6">
+    <!-- 요약 카드 -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4">
+      <div class="bg-white rounded-4xl panel p-5">
+        <div class="text-xs font-bold text-brand-gray mb-1">진행 예정 (미완료)</div>
+        <div class="text-3xl font-black text-brand-black"><span id="dash-todo">0</span><span class="text-base font-bold text-brand-gray ml-1">건</span></div>
+      </div>
+      <div class="bg-white rounded-4xl panel p-5">
+        <div class="text-xs font-bold text-brand-gray mb-1">완료</div>
+        <div class="text-3xl font-black text-brand-green"><span id="dash-done">0</span><span class="text-base font-bold text-brand-gray ml-1">건</span></div>
+        <div class="text-xs text-brand-gray mt-1">완료율 <span id="dash-rate" class="font-bold text-brand-black">0%</span></div>
+      </div>
+      <div class="bg-white rounded-4xl panel p-5">
+        <div class="text-xs font-bold text-brand-gray mb-1">총 이미지</div>
+        <div class="text-3xl font-black text-brand-blue"><span id="dash-img-count">…</span><span class="text-base font-bold text-brand-gray ml-1">장</span></div>
+        <div class="text-xs text-brand-gray mt-1">용량 <span id="dash-img-size" class="font-bold text-brand-black">…</span></div>
+      </div>
+      <div class="bg-white rounded-4xl panel p-5">
+        <div class="text-xs font-bold text-brand-gray mb-1">제품 수</div>
+        <div class="text-3xl font-black text-brand-black"><span id="dash-prod">…</span><span class="text-base font-bold text-brand-gray ml-1">개</span></div>
+        <div class="text-xs text-brand-gray mt-1">등록 예정 전체 <span id="dash-total" class="font-bold text-brand-black">0</span>건</div>
+      </div>
+    </div>
+
+    <!-- 완료 요약 (오늘 / 최근 7일 / 이번 달) -->
+    <div class="grid grid-cols-3 gap-3 md:gap-4 mb-4">
+      <div class="bg-white rounded-4xl panel p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">오늘 완료</div><div class="text-2xl font-black text-brand-green"><span id="dash-today">0</span></div></div>
+      <div class="bg-white rounded-4xl panel p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">최근 7일</div><div class="text-2xl font-black"><span id="dash-week">0</span></div></div>
+      <div class="bg-white rounded-4xl panel p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">이번 달</div><div class="text-2xl font-black"><span id="dash-month">0</span></div></div>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-4">
+      <!-- 최근 7일 완료 추이 -->
+      <div class="bg-white rounded-4xl panel p-5 md:p-6">
+        <h3 class="font-bold text-base mb-4">최근 7일 완료 추이</h3>
+        <div id="dash-trend" class="flex items-end justify-between gap-2 h-36"></div>
+      </div>
+      <!-- 등급별 분포 -->
+      <div class="bg-white rounded-4xl panel p-5 md:p-6">
+        <h3 class="font-bold text-base mb-4">등급별 분포 (등록 예정 전체)</h3>
+        <div id="dash-grade" class="flex flex-col gap-2.5"></div>
+      </div>
+    </div>
+
+    <!-- 최근 완료 항목 -->
+    <div class="bg-white rounded-4xl panel p-5 md:p-6 mt-4">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-bold text-base">최근 완료 항목</h3>
+        <button onclick="switchMenu('addon')" class="text-xs font-bold text-brand-blue hover:underline">캘린더에서 보기 →</button>
+      </div>
+      <div id="dash-recent"></div>
+    </div>
+  </div>
+
+  <!-- 메뉴 3: 등록 예정 리스트 -->
+  <div id="menu-pending" class="hidden flex-1 px-4 md:px-6 pb-6">
     <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
       <div class="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -980,8 +1037,9 @@ function showLogin() {
 function showMain() {
   document.getElementById('page-login').classList.add('hidden');
   document.getElementById('page-main').classList.remove('hidden');
-  // 홈 = 등록 예정 리스트 — 진입 직후 렌더
+  // 홈 = 대시보드 — 진입 직후 렌더 (등록 예정 리스트도 데이터 준비차 함께 렌더)
   try { if (typeof renderPendingList === 'function') renderPendingList(); } catch (_) {}
+  try { if (typeof renderDashboard === 'function') renderDashboard(); } catch (_) {}
   // 클라우드 동기화 PULL — 다른 PC 에서 변경된 등록 예정/상품관리 데이터 자동 반영
   try { if (typeof ihCloudPullAll === 'function') ihCloudPullAll(); } catch (_) {}
   // 사용자 아바타/이메일
@@ -2299,7 +2357,7 @@ function goHome() {
 
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['images', 'products', 'pending', 'addon', 'grade'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'addon', 'grade'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
@@ -2310,6 +2368,7 @@ function switchMenu(menuId) {
     btn.classList.toggle('text-white', isActive);
     btn.classList.toggle('text-brand-gray', !isActive);
   });
+  if (menuId === 'dashboard') renderDashboard();
   if (menuId === 'pending')  renderPendingList();
   if (menuId === 'products') renderProductsList();
   if (menuId === 'addon')    renderCalendar();
@@ -2446,6 +2505,121 @@ function _renderCalDetail(byDate) {
         ${it.grade ? `<span class="text-[11px] font-bold bg-brand-bg text-brand-black rounded-full px-2 py-1 shrink-0">${_pendingEsc(it.grade)}</span>` : ''}
       </div>`;
   }).join('');
+}
+
+// ── 대시보드 (등록 예정 현황 + 완료 추이 + 이미지 저장소 요약) ─────
+function _dashPendDateNum(p) {
+  const d = _parseCompletedDate(p.date);
+  return d ? (d.y * 10000 + d.m * 100 + d.d) : 0;
+}
+function renderDashboard() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+
+  // 1) 요약 — 등록 예정 현황
+  const total = pendingList.length;
+  const done  = pendingList.filter(p => p.done).length;
+  const todo  = total - done;
+  const rate  = total ? Math.round(done / total * 100) : 0;
+  set('dash-todo',  todo.toLocaleString('ko-KR'));
+  set('dash-done',  done.toLocaleString('ko-KR'));
+  set('dash-rate',  rate + '%');
+  set('dash-total', total.toLocaleString('ko-KR'));
+
+  // 2) 완료일 집계
+  const byDate = _getCompletedByDate();
+  const now = new Date();
+  const todayKey = _calDateKey(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const last7 = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    last7.push({
+      key: _calDateKey(d.getFullYear(), d.getMonth() + 1, d.getDate()),
+      label: `${d.getMonth() + 1}/${d.getDate()}`,
+      dow: d.getDay(),
+    });
+  }
+  const todayCount = (byDate.get(todayKey) || []).length;
+  const weekCount  = last7.reduce((s, d) => s + (byDate.get(d.key) || []).length, 0);
+  const ymPrefix   = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  let monthCount = 0;
+  byDate.forEach((arr, key) => { if (key.indexOf(ymPrefix) === 0) monthCount += arr.length; });
+  set('dash-today', todayCount.toLocaleString('ko-KR'));
+  set('dash-week',  weekCount.toLocaleString('ko-KR'));
+  set('dash-month', monthCount.toLocaleString('ko-KR'));
+
+  // 3) 최근 7일 추이 막대
+  const counts = last7.map(d => (byDate.get(d.key) || []).length);
+  const max = Math.max(1, ...counts);
+  const trendEl = document.getElementById('dash-trend');
+  if (trendEl) trendEl.innerHTML = last7.map((d, i) => {
+    const c = counts[i];
+    const h = c ? Math.max(6, Math.round(c / max * 100)) : 2;
+    const isToday = d.key === todayKey;
+    const dowColor = d.dow === 0 ? 'text-red-500' : (d.dow === 6 ? 'text-blue-500' : 'text-brand-gray');
+    return `<div class="flex-1 flex flex-col items-center justify-end gap-1 h-full">
+      <div class="text-[11px] font-bold ${c ? 'text-brand-black' : 'text-brand-gray'}">${c || ''}</div>
+      <div class="w-full rounded-lg ${isToday ? 'bg-brand-blue' : 'bg-brand-green'}" style="height:${h}%; min-height:2px;" title="${d.label} ${c}건"></div>
+      <div class="text-[10px] ${dowColor}">${d.label}</div>
+    </div>`;
+  }).join('');
+
+  // 4) 등급별 분포
+  const gc = {};
+  pendingList.forEach(p => { const g = (p.grade && p.grade !== '-') ? p.grade : '미지정'; gc[g] = (gc[g] || 0) + 1; });
+  const gkeys = Object.keys(gc).sort((a, b) => {
+    if (a === '미지정') return 1; if (b === '미지정') return -1;
+    return a.localeCompare(b);
+  });
+  const gmax = Math.max(1, ...gkeys.map(k => gc[k]));
+  const gradeEl = document.getElementById('dash-grade');
+  if (gradeEl) gradeEl.innerHTML = gkeys.length ? gkeys.map(k => {
+    const c = gc[k], w = Math.max(6, Math.round(c / gmax * 100));
+    return `<div class="flex items-center gap-3">
+      <span class="text-xs font-bold w-12 shrink-0 truncate">${_pendingEsc(k)}</span>
+      <div class="flex-1 bg-brand-bg rounded-full h-5 overflow-hidden"><div class="h-full bg-brand-blue rounded-full" style="width:${w}%"></div></div>
+      <span class="text-xs font-bold text-brand-gray w-10 text-right shrink-0">${c}건</span>
+    </div>`;
+  }).join('') : '<div class="text-sm text-brand-gray text-center py-6">데이터가 없습니다.</div>';
+
+  // 5) 최근 완료 항목 (최대 6건)
+  const recent = pendingList.filter(p => p.done && _dashPendDateNum(p))
+    .sort((a, b) => _dashPendDateNum(b) - _dashPendDateNum(a))
+    .slice(0, 6);
+  const recentEl = document.getElementById('dash-recent');
+  if (recentEl) recentEl.innerHTML = recent.length ? recent.map((p, i) => {
+    const meta = [p.folder ? '폴더 ' + _pendingEsc(p.folder) : '', p.code ? '상품 ' + _pendingEsc(p.code) : '']
+      .filter(Boolean).join(' · ');
+    return `<div class="flex items-center gap-3 py-2.5 ${i ? 'border-t border-brand-border' : ''}">
+      <span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-0.5 shrink-0 whitespace-nowrap">${_pendingEsc(p.date)}</span>
+      <div class="min-w-0 flex-1">
+        <div class="font-bold text-sm truncate">${_pendingEsc(p.name || '(이름없음)')}</div>
+        ${meta ? `<div class="text-xs text-brand-gray truncate">${meta}</div>` : ''}
+      </div>
+      ${(p.grade && p.grade !== '-') ? `<span class="text-[11px] font-bold bg-brand-bg text-brand-black rounded-full px-2 py-1 shrink-0">${_pendingEsc(p.grade)}</span>` : ''}
+    </div>`;
+  }).join('') : '<div class="text-sm text-brand-gray text-center py-6">완료한 항목이 없습니다.</div>';
+
+  // 6) 이미지 저장소 요약 (비동기)
+  _dashLoadStorage();
+}
+async function _dashLoadStorage() {
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  if (typeof sb === 'undefined' || !sb) return;
+  try {
+    const [imgRes, prodRes] = await Promise.all([
+      sb.from('images').select('file_size'),
+      sb.from('products').select('id'),
+    ]);
+    const imgs = imgRes.data || [];
+    let bytes = 0;
+    imgs.forEach(r => { bytes += Number(r.file_size) || 0; });
+    set('dash-img-count', imgs.length.toLocaleString('ko-KR'));
+    set('dash-img-size', _formatBytes(bytes));
+    set('dash-prod', (prodRes.data || []).length.toLocaleString('ko-KR'));
+  } catch (e) {
+    console.warn('[dashboard] 저장소 요약 조회 실패', e);
+    set('dash-img-count', '-'); set('dash-img-size', '-'); set('dash-prod', '-');
+  }
 }
 
 // ── 등록 예정 리스트 ─────────────────────────
