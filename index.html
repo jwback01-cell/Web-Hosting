@@ -658,11 +658,11 @@
         <table class="w-full text-sm border-collapse">
           <thead><tr class="bg-brand-bg">
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[160px]">날짜</th>
-            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">출근</th>
-            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">퇴근</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[170px]">출근</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[170px]">퇴근</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[120px]">근무시간</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[120px]">구분</th>
-            <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[160px]">비고</th>
+            <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border w-[200px]">비고</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[44px]"></th>
           </tr></thead>
           <tbody id="attend-tbody"></tbody>
@@ -2938,7 +2938,7 @@ function renderAttendance() {
       return `<td class="px-3 py-2 align-middle">
         <div class="flex items-center justify-center gap-1.5">
           <input type="checkbox" ${checked} onchange="_attendToggleCheck('${r.id}','${field}',this.checked)" class="w-4 h-4 rounded cursor-pointer accent-brand-green" title="${label} 체크">
-          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black rounded px-1 py-0.5 text-xs ${txtCls} focus:outline-none w-[70px]" title="시간 수정">
+          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black rounded px-1 py-0.5 text-xs ${txtCls} focus:outline-none w-[110px]" title="시간 수정">
         </div>
       </td>`;
     };
