@@ -2930,15 +2930,22 @@ function renderAttendance() {
     const hrs = _fmtHours(_attendWorkHours(r));
     const opts = LEAVES.map(v => `<option value="${v}" ${r.leave === v ? 'selected' : ''}>${v || '정상근무'}</option>`).join('');
     const dim = (r.leave === '연차' || r.leave === '병가') ? 'opacity-60' : '';
-    // 체크박스 + 시간 — 체크 시 현재 시간 자동 기록, 시간 직접 클릭하면 수정 가능
+    // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시 + ✕ 취소
     const _chkCell = (field, label) => {
       const v = r[field] || '';
-      const checked = v ? 'checked' : '';
-      const txtCls = v ? 'text-brand-black font-bold' : 'text-brand-gray';
-      return `<td class="px-3 py-2 align-middle">
-        <div class="flex items-center justify-center gap-1.5">
-          <input type="checkbox" ${checked} onchange="_attendToggleCheck('${r.id}','${field}',this.checked)" class="w-4 h-4 rounded cursor-pointer accent-brand-green" title="${label} 체크">
-          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black rounded px-1 py-0.5 text-xs ${txtCls} focus:outline-none w-[110px]" title="시간 수정">
+      if (!v) {
+        // 빈 셀 — 큰 버튼 (셀 전체)
+        return `<td class="p-1 align-middle">
+          <button onclick="_attendToggleCheck('${r.id}','${field}',true)" class="w-full py-2.5 rounded-lg border-2 border-dashed border-brand-border text-brand-gray hover:border-brand-green hover:text-brand-green hover:bg-brand-green-light/30 font-bold text-sm transition-colors">
+            ${label}
+          </button>
+        </td>`;
+      }
+      // 채워진 셀 — 시간 표시 (클릭=수정) + 작은 ✕ (취소)
+      return `<td class="p-1 align-middle">
+        <div class="flex items-center justify-center gap-1 bg-brand-green-light/40 rounded-lg py-1.5 px-2">
+          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-[100px] text-center cursor-pointer" title="시간 수정">
+          <button onclick="_attendToggleCheck('${r.id}','${field}',false)" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 취소">✕</button>
         </div>
       </td>`;
     };
