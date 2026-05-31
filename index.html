@@ -3296,6 +3296,37 @@ function deleteSelectedPending() {
   renderPendingList();
 }
 
+// 폴더 collapsed 행에서 키워드/비고를 공통 input 으로 표시하기 위한 헬퍼
+//   - 모든 제품 값이 같으면 그 값, 다르면 첫 값(placeholder "여러 값")
+function _pfFolderCommon(rows, field) {
+  if (!Array.isArray(rows) || !rows.length) return '';
+  const vals = rows.map(r => r[field] || '');
+  const uniq = [...new Set(vals.filter(Boolean))];
+  if (uniq.length === 1) return uniq[0];
+  if (uniq.length === 0) return '';
+  return ''; // 여러 값 → 빈칸 + placeholder
+}
+function _pfFolderHasMixed(rows, field) {
+  if (!Array.isArray(rows) || !rows.length) return false;
+  const uniq = [...new Set(rows.map(r => r[field] || '').filter(Boolean))];
+  return uniq.length > 1;
+}
+// 폴더 단위 입력 시 — 폴더 내 모든 제품에 동일 값 적용 (cascade)
+//   상품관리 연동도 동기화. focus 유지 위해 화면 재렌더는 안 함
+function _pfSetFolderField(folder, field, val) {
+  const rows = pendingList.filter(p => p.folder === folder);
+  if (!rows.length) return;
+  rows.forEach(r => {
+    r[field] = val;
+    if (field === 'note' || field === 'name' || field === 'code') {
+      if (!r.linkedPmId) _ensureLinkedPmForPending(r);
+      _syncPmFromPending(r, field);
+    }
+  });
+  clearTimeout(_pendingSaveTimer);
+  _pendingSaveTimer = setTimeout(_savePendingToStorage, 400);
+}
+
 // 폴더에 제품 2개 이상일 때 1줄로 접어서 그리는 행 (폴더 공통 항목은 인라인, 개별 제품은 팝업)
 function _pendingCollapsedRow(rows, groupBg) {
   const rep = rows[0];
@@ -3317,7 +3348,7 @@ function _pendingCollapsedRow(rows, groupBg) {
     <td class="px-3 py-2 align-middle text-center"><button onclick="openPendingFolderModal('${fEsc}')" class="text-[11px] font-bold text-brand-blue bg-brand-blue-light rounded-full px-2 py-1 hover:opacity-80" title="제품 ${n}개 — 클릭해 편집">${n}개</button></td>
     <td class="px-3 py-2 align-middle min-w-0"><button onclick="openPendingFolderModal('${fEsc}')" class="text-left font-semibold hover:text-brand-blue hover:underline w-full truncate" title="클릭하면 폴더 안 제품 ${n}개를 펼쳐 편집">${_pendingEsc(firstName)} <span class="text-brand-gray font-normal">외 ${n-1}개</span></button></td>
     <td class="px-3 py-2 align-middle">${linkHtml}</td>
-    <td class="px-3 py-2 align-middle text-center"><button onclick="openPendingFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline" title="키워드는 제품별 — 클릭해 편집">제품별</button></td>
+    <td class="px-3 py-2 align-middle"><input type="text" value="${_pendingEsc(_pfFolderCommon(rows, 'keyword'))}" oninput="_pfSetFolderField('${fEsc}', 'keyword', this.value)" placeholder="${_pfFolderHasMixed(rows, 'keyword') ? '여러 값' : '키워드'}" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none"></td>
     <td class="px-2 py-2 text-center align-middle"><button onclick="openPendingFolderModal('${fEsc}')" class="text-xs ${addonCnt ? 'text-brand-blue font-bold' : 'text-brand-gray'} hover:underline" title="추가상품 — 클릭해 편집">${addonCnt ? addonCnt + '개' : '-'}</button></td>
     <td class="px-2 py-2 text-center align-middle">
       <select onchange="setPendingGrade('${rep.id}', this.value)" class="pending-input text-center font-bold text-xs cursor-pointer" style="background-position:right 4px center;">
@@ -3328,7 +3359,7 @@ function _pendingCollapsedRow(rows, groupBg) {
         <option value="C" ${rep.grade === 'C' ? 'selected' : ''}>C</option>
       </select>
     </td>
-    <td class="px-3 py-2 align-middle"><button onclick="openPendingFolderModal('${fEsc}')" class="text-left text-xs ${noteSummary ? 'text-brand-black' : 'text-brand-gray'} hover:text-brand-blue hover:underline w-full truncate" title="비고는 제품별 — 클릭해 편집">${noteSummary ? _pendingEsc(noteSummary) : '제품별'}</button></td>
+    <td class="px-3 py-2 align-middle"><input type="text" value="${_pendingEsc(_pfFolderCommon(rows, 'note'))}" oninput="_pfSetFolderField('${fEsc}', 'note', this.value)" placeholder="${_pfFolderHasMixed(rows, 'note') ? '여러 값' : '비고'}" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none"></td>
     <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${rep.revise ? 'checked' : ''} onchange="togglePendingRevise('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 (폴더 전체)"></td>
     <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${allDone ? 'checked' : ''} onchange="togglePendingDone('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green" title="완료 (폴더 전체)"></td>
     <td class="px-2 py-2 text-center align-middle">
