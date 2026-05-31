@@ -611,7 +611,7 @@
     <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
       <div>
         <h2 class="text-2xl font-bold">수정요청 <span id="revise-count" class="text-brand-pink">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
-        <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 여기에 모입니다. (비고에 수정할 내용을 적을 수 있어요)</p>
+        <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 <b>폴더코드별로 1개씩</b> 모입니다. '수정 내용'을 클릭하면 팝업에서 항목별로 글과 사진을 추가할 수 있어요.</p>
       </div>
       <div class="overflow-x-auto -mx-1 px-1">
         <table class="w-full text-sm border-collapse">
@@ -619,10 +619,9 @@
             <tr class="bg-brand-bg">
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[220px]">제품 (폴더 내)</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[240px]">링크</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[160px]">비고 (수정 내용)</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border min-w-[180px]">수정 내용</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">해제</th>
             </tr>
@@ -3283,47 +3282,168 @@ function togglePendingRevise(pid, revise) {
 }
 
 // 수정요청 메뉴 — '수정' 체크된 항목 모아보기
+// 수정요청 항목을 폴더코드 단위로 묶음 (폴더 없으면 행 1개가 그룹). 같은 폴더는 1개로.
+function _reviseGroups() {
+  const map = new Map();   // key -> group
+  const order = [];
+  pendingList.forEach(p => {
+    if (!p.revise) return;
+    const key = p.folder ? ('F:' + p.folder) : ('R:' + p.id);
+    let g = map.get(key);
+    if (!g) { g = { key, folder: p.folder || '', rows: [] }; map.set(key, g); order.push(g); }
+    g.rows.push(p);
+  });
+  return order.map(g => {
+    const rows = g.rows;
+    const rep = rows[0];
+    // reviseItems 는 폴더 내 어느 행이든 동일 (cascade 저장). 비어있으면 []
+    const reviseItems = (rows.find(r => Array.isArray(r.reviseItems) && r.reviseItems.length) || {}).reviseItems
+                        || (Array.isArray(rep.reviseItems) ? rep.reviseItems : []);
+    return {
+      key: g.key,
+      folder: g.folder,
+      rows,
+      rep,
+      date: rep.date || '',
+      link: rep.link || '',
+      done: rows.every(r => r.done),
+      names: rows.map(r => r.name).filter(Boolean),
+      codes: rows.map(r => r.code).filter(Boolean),
+      reviseItems,
+      itemCount: (reviseItems || []).length,
+    };
+  });
+}
 function renderReviseList() {
   const tbody = document.getElementById('revise-tbody');
   const empty = document.getElementById('revise-empty');
   if (!tbody) return;
-  const items = pendingList.filter(p => p.revise);
+  const groups = _reviseGroups();
   const cntEl = document.getElementById('revise-count');
-  if (cntEl) cntEl.textContent = items.length;
-  if (!items.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+  if (cntEl) cntEl.textContent = groups.length;
+  if (!groups.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
   if (empty) empty.classList.add('hidden');
-  // 날짜 최근순 → 같은 날짜는 폴더/상품코드로 묶기
-  items.sort((a, b) => {
-    const dv = _dashPendDateNum(b) - _dashPendDateNum(a);
+  // 날짜 최근순 → 같은 날짜는 폴더코드로 정렬
+  groups.sort((a, b) => {
+    const dv = _dashPendDateNum(b.rep) - _dashPendDateNum(a.rep);
     if (dv) return dv;
-    const f = (a.folder || '￿').localeCompare(b.folder || '￿');
-    if (f) return f;
-    return (a.code || '').localeCompare(b.code || '');
+    return (a.folder || '￿').localeCompare(b.folder || '￿');
   });
-  tbody.innerHTML = items.map(p => {
-    const linkCell = p.link
-      ? `<a href="${_pendingEsc(p.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline truncate inline-block max-w-[300px] align-bottom" title="${_pendingEsc(p.link)}">${_pendingEsc(p.link)}</a>`
+  tbody.innerHTML = groups.map(g => {
+    const linkCell = g.link
+      ? `<a href="${_pendingEsc(g.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline truncate inline-block max-w-[300px] align-bottom" title="${_pendingEsc(g.link)}">${_pendingEsc(g.link)}</a>`
       : '<span class="text-brand-gray">-</span>';
-    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${p.done ? 'opacity-60' : ''}">
-      <td class="px-3 py-2 text-center align-middle whitespace-nowrap">${_pendingEsc(p.date || '-')}</td>
-      <td class="px-3 py-2 text-center align-middle font-bold">${_pendingEsc(p.folder || '-')}</td>
-      <td class="px-3 py-2 text-center align-middle">${_pendingEsc(p.code || '-')}</td>
-      <td class="px-3 py-2 align-middle font-semibold">${_pendingEsc(p.name || '(이름없음)')}</td>
-      <td class="px-3 py-2 align-middle">${linkCell}</td>
-      <td class="px-3 py-2 align-middle"><input type="text" value="${_pendingEsc(p.note)}" onchange="updateReviseNote('${p.id}', this.value)" placeholder="수정할 내용 입력" class="pending-input"></td>
-      <td class="px-3 py-2 text-center align-middle">${p.done ? '<span class="text-[11px] font-bold text-brand-green bg-brand-green-light rounded-full px-2 py-1">완료</span>' : '<span class="text-[11px] text-brand-gray">-</span>'}</td>
-      <td class="px-3 py-2 text-center align-middle">
-        <button onclick="togglePendingRevise('${p.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
+    const firstName = g.names[0] || '(이름없음)';
+    const extra = g.rows.length > 1 ? ` <span class="text-brand-gray font-normal">외 ${g.rows.length - 1}개</span>` : '';
+    const codesLine = g.codes.length ? `<div class="text-[11px] text-brand-gray truncate">${_pendingEsc(g.codes.join(', '))}</div>` : '';
+    const cnt = g.itemCount;
+    const editBtn = `<button onclick="openReviseModal('${g.key}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${cnt ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' : 'bg-brand-bg text-brand-gray hover:bg-brand-border'} transition-colors" title="클릭하면 수정 내용 팝업이 열립니다">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        ${cnt ? cnt + '개 항목' : '작성하기'}
+      </button>`;
+    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${g.done ? 'opacity-60' : ''}">
+      <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">${_pendingEsc(g.date || '-')}</td>
+      <td class="px-3 py-2.5 text-center align-middle font-bold">${_pendingEsc(g.folder || '-')}</td>
+      <td class="px-3 py-2.5 align-middle"><div class="font-semibold truncate">${_pendingEsc(firstName)}${extra}</div>${codesLine}</td>
+      <td class="px-3 py-2.5 align-middle">${linkCell}</td>
+      <td class="px-3 py-2.5 text-center align-middle">${editBtn}</td>
+      <td class="px-3 py-2.5 text-center align-middle">${g.done ? '<span class="text-[11px] font-bold text-brand-green bg-brand-green-light rounded-full px-2 py-1">완료</span>' : '<span class="text-[11px] text-brand-gray">-</span>'}</td>
+      <td class="px-3 py-2.5 text-center align-middle">
+        <button onclick="togglePendingRevise('${g.rep.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
       </td>
     </tr>`;
   }).join('');
 }
-// 수정요청 화면에서 비고 수정 → 등록 예정 데이터에 반영
-function updateReviseNote(pid, val) {
-  const it = pendingList.find(p => p.id === pid);
-  if (!it) return;
-  it.note = val;
+
+// ── 수정 내용 팝업 (폴더별, 항목마다 글 + 사진) ───────────────────
+let _reviseModal = null;   // { key, folder, items: [{text, images:[url]}] }
+function openReviseModal(groupKey) {
+  const groups = _reviseGroups();
+  const g = groups.find(x => x.key === groupKey);
+  if (!g) return;
+  // 깊은 복사로 편집 임시본 생성 (확인 눌러야 저장)
+  const items = (g.reviseItems || []).map(it => ({ text: it.text || '', images: Array.isArray(it.images) ? it.images.slice() : [] }));
+  if (!items.length) items.push({ text: '', images: [] });
+  _reviseModal = { key: groupKey, folder: g.folder, rows: g.rows, title: g.folder ? ('폴더 ' + g.folder) : (g.names[0] || '항목'), items };
+  openModal({
+    title: '수정 내용 — ' + _reviseModal.title,
+    bodyHtml: '<div id="revise-modal-body"></div>',
+    okText: '저장',
+    onOk: _saveReviseModal,
+  });
+  _renderReviseModalBody();
+}
+function _renderReviseModalBody() {
+  const box = document.getElementById('revise-modal-body');
+  if (!box || !_reviseModal) return;
+  const its = _reviseModal.items;
+  box.innerHTML = `
+    <div class="flex flex-col gap-3 text-brand-black">
+      ${its.map((it, i) => `
+        <div class="border border-brand-border rounded-2xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-brand-gray">항목 ${i + 1}</span>
+            <button onclick="_reviseRemoveItem(${i})" class="text-xs font-bold text-brand-pink hover:underline">삭제</button>
+          </div>
+          <textarea oninput="_reviseSetText(${i}, this.value)" rows="2" placeholder="수정할 내용을 입력하세요" class="w-full bg-white border border-brand-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-brand-black resize-y">${_pendingEsc(it.text)}</textarea>
+          <div class="flex flex-wrap gap-2 mt-2">
+            ${(it.images || []).map((url, k) => `
+              <div class="relative w-16 h-16 rounded-lg overflow-hidden border border-brand-border group">
+                <img src="${_pendingEsc(url)}" class="w-full h-full object-cover cursor-pointer" onclick="window.open('${_pendingEsc(url)}','_blank')">
+                <button onclick="_reviseRemoveImage(${i}, ${k})" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white text-[10px] leading-4 text-center">×</button>
+              </div>`).join('')}
+            <label class="w-16 h-16 rounded-lg border-2 border-dashed border-brand-border flex flex-col items-center justify-center cursor-pointer hover:border-brand-black text-brand-gray text-[10px] gap-0.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              사진
+              <input type="file" accept="image/*" multiple class="hidden" onchange="_reviseAddImages(${i}, this.files); this.value='';">
+            </label>
+          </div>
+        </div>`).join('')}
+      <button onclick="_reviseAddItem()" class="self-start text-sm font-bold text-brand-blue hover:underline">+ 항목 추가</button>
+    </div>`;
+}
+function _reviseSetText(i, val) { if (_reviseModal && _reviseModal.items[i]) _reviseModal.items[i].text = val; }
+function _reviseAddItem() { if (!_reviseModal) return; _reviseModal.items.push({ text: '', images: [] }); _renderReviseModalBody(); }
+function _reviseRemoveItem(i) {
+  if (!_reviseModal) return;
+  _reviseModal.items.splice(i, 1);
+  if (!_reviseModal.items.length) _reviseModal.items.push({ text: '', images: [] });
+  _renderReviseModalBody();
+}
+function _reviseRemoveImage(i, k) { if (_reviseModal && _reviseModal.items[i]) { _reviseModal.items[i].images.splice(k, 1); _renderReviseModalBody(); } }
+async function _reviseAddImages(i, fileList) {
+  if (!_reviseModal || !_reviseModal.items[i]) return;
+  const files = [...fileList].filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  toast(`사진 ${files.length}장 업로드 중...`);
+  const ts = Date.now();
+  for (let n = 0; n < files.length; n++) {
+    const f = files[n];
+    const ext = (f.name.match(/\.[a-zA-Z0-9]+$/) || ['.png'])[0].toLowerCase();
+    const folderSeg = (_reviseModal.folder || 'misc').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const key = `revise/${folderSeg}/${ts}_${i}_${n}${ext}`;
+    try {
+      const { publicUrl } = await _r2PresignAndPut(key, f);
+      _reviseModal.items[i].images.push(publicUrl);
+      _renderReviseModalBody();
+    } catch (e) {
+      toast('사진 업로드 실패: ' + (e.message || e), 'error');
+    }
+  }
+  toast('사진 업로드 완료', 'success');
+}
+function _saveReviseModal() {
+  if (!_reviseModal) return;
+  // 빈 항목(글·사진 모두 없음) 제거
+  const clean = _reviseModal.items
+    .map(it => ({ text: (it.text || '').trim(), images: it.images || [] }))
+    .filter(it => it.text || it.images.length);
+  // 같은 폴더(그룹)의 모든 행에 동일하게 저장 (cascade → 클라우드 동기화)
+  _reviseModal.rows.forEach(r => { r.reviseItems = clean.map(it => ({ text: it.text, images: it.images.slice() })); });
   _savePendingToStorage();
+  _reviseModal = null;
+  renderReviseList();
+  toast('수정 내용 저장됨', 'success');
 }
 
 function deletePendingRow(pid) {
