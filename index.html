@@ -213,6 +213,7 @@
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="revise" onclick="switchMenu('revise')">수정요청</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="products" onclick="switchMenu('products')">상품관리</button>
+          <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="attend" onclick="switchMenu('attend')">근태관리</button>
           <button class="menu-tab px-4 py-1.5 rounded-full text-sm font-bold text-brand-gray hover:bg-brand-bg transition-colors" data-menu="addon" onclick="switchMenu('addon')">캘린더</button>
         </div>
       </div>
@@ -235,6 +236,7 @@
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="revise" onclick="switchMenu('revise')">수정요청</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="products" onclick="switchMenu('products')">상품관리</button>
+      <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="attend" onclick="switchMenu('attend')">근태관리</button>
       <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="addon" onclick="switchMenu('addon')">캘린더</button>
     </div>
   </header>
@@ -630,6 +632,43 @@
       <div id="revise-empty" class="text-center py-12 text-brand-gray text-sm hidden">
         수정요청된 항목이 없습니다. 등록 예정 리스트에서 '수정'을 체크하세요.
       </div>
+    </div>
+  </div>
+
+  <!-- 메뉴 7: 근태관리 -->
+  <div id="menu-attend" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-2xl font-bold">근태관리</h2>
+          <p class="text-brand-gray text-sm mt-1">출근·퇴근 시간과 연차 사용을 기록합니다. 칸을 수정하면 자동 저장됩니다.</p>
+        </div>
+        <button onclick="addAttendRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          기록 추가
+        </button>
+      </div>
+      <!-- 이번 달 요약 -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-brand-bg rounded-2xl p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">이번 달 근무일</div><div class="text-2xl font-black"><span id="attend-workdays">0</span><span class="text-sm text-brand-gray font-bold"> 일</span></div></div>
+        <div class="bg-brand-bg rounded-2xl p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">연차 사용</div><div class="text-2xl font-black text-brand-pink"><span id="attend-leave">0</span><span class="text-sm text-brand-gray font-bold"> 일</span></div></div>
+        <div class="bg-brand-bg rounded-2xl p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">총 근무시간</div><div class="text-2xl font-black text-brand-blue"><span id="attend-hours">0</span><span class="text-sm text-brand-gray font-bold"> h</span></div></div>
+      </div>
+      <div class="overflow-x-auto -mx-1 px-1">
+        <table class="w-full text-sm border-collapse">
+          <thead><tr class="bg-brand-bg">
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[160px]">날짜</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">출근</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">퇴근</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[120px]">근무시간</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[120px]">구분</th>
+            <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[160px]">비고</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[44px]"></th>
+          </tr></thead>
+          <tbody id="attend-tbody"></tbody>
+        </table>
+      </div>
+      <div id="attend-empty" class="text-center py-12 text-brand-gray text-sm hidden">기록이 없습니다. "기록 추가" 버튼으로 시작하세요.</div>
     </div>
   </div>
 
@@ -2389,7 +2428,7 @@ function goHome() {
 
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['dashboard', 'images', 'products', 'pending', 'revise', 'addon'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'revise', 'attend', 'addon'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
@@ -2404,6 +2443,7 @@ function switchMenu(menuId) {
   if (menuId === 'revise')   renderReviseList();
   if (menuId === 'pending')  renderPendingList();
   if (menuId === 'products') renderProductsList();
+  if (menuId === 'attend')   renderAttendance();
   if (menuId === 'addon')    renderCalendar();
   // 좌측 하단 용량 표시는 이미지 저장소 메뉴에서만 보이게
   if (menuId === 'images') {
@@ -2756,6 +2796,99 @@ async function _dashLoadStorage() {
 }
 
 // ── 등록 예정 리스트 ─────────────────────────
+// ── 근태관리 (출근·퇴근·연차) ─────────────────────────
+const ATTEND_LS_KEY = 'ih_attendance_v1';
+let attendList = [];
+let _attendSaveTimer = null;
+function _loadAttend() {
+  try { attendList = JSON.parse(localStorage.getItem(ATTEND_LS_KEY) || '[]') || []; }
+  catch (_) { attendList = []; }
+}
+function _saveAttend() {
+  try { localStorage.setItem(ATTEND_LS_KEY, JSON.stringify(attendList)); } catch (_) {}
+}
+function _attendNewId() { return 'at_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function _attendWorkHours(rec) {
+  if (!rec.checkIn || !rec.checkOut) return 0;
+  const a = rec.checkIn.split(':').map(Number);
+  const b = rec.checkOut.split(':').map(Number);
+  if (a.length < 2 || b.length < 2 || a.concat(b).some(isNaN)) return 0;
+  let mins = (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]);
+  if (mins < 0) mins += 24 * 60;   // 자정 넘김
+  return mins / 60;
+}
+function _fmtHours(h) {
+  if (!h) return '-';
+  const H = Math.floor(h), M = Math.round((h - H) * 60);
+  return M ? `${H}시간 ${M}분` : `${H}시간`;
+}
+function _todayISO() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+function addAttendRow() {
+  attendList.unshift({ id: _attendNewId(), date: _todayISO(), checkIn: '', checkOut: '', leave: '', note: '' });
+  _saveAttend();
+  renderAttendance();
+}
+function deleteAttendRow(id) {
+  if (!confirm('이 기록을 삭제할까요?')) return;
+  attendList = attendList.filter(r => r.id !== id);
+  _saveAttend();
+  renderAttendance();
+}
+function _onAttendEdit(id, field, val) {
+  const r = attendList.find(x => x.id === id);
+  if (!r) return;
+  r[field] = val;
+  clearTimeout(_attendSaveTimer);
+  _attendSaveTimer = setTimeout(_saveAttend, 300);
+  if (field !== 'note') { _saveAttend(); renderAttendance(); }   // 시간/구분/날짜 변경 → 계산·정렬 즉시 갱신
+}
+function renderAttendance() {
+  _loadAttend();
+  const tbody = document.getElementById('attend-tbody');
+  const empty = document.getElementById('attend-empty');
+  if (!tbody) return;
+  const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+  const list = attendList.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  // 이번 달 요약
+  const now = new Date();
+  const ym = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  let workDays = 0, leaveDays = 0, totalH = 0;
+  list.forEach(r => {
+    if ((r.date || '').indexOf(ym) !== 0) return;
+    if (r.leave === '연차') leaveDays += 1;
+    else if (r.leave === '반차') leaveDays += 0.5;
+    if (r.checkIn && r.checkOut) { workDays++; totalH += _attendWorkHours(r); }
+  });
+  set('attend-workdays', workDays);
+  set('attend-leave', leaveDays);
+  set('attend-hours', totalH ? totalH.toFixed(1) : '0');
+
+  if (!list.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+  if (empty) empty.classList.add('hidden');
+
+  const cell = 'w-full bg-transparent border border-brand-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-brand-black';
+  const LEAVES = ['', '연차', '반차', '병가', '기타'];
+  tbody.innerHTML = list.map(r => {
+    const hrs = _fmtHours(_attendWorkHours(r));
+    const opts = LEAVES.map(v => `<option value="${v}" ${r.leave === v ? 'selected' : ''}>${v || '정상근무'}</option>`).join('');
+    const dim = (r.leave === '연차' || r.leave === '병가') ? 'opacity-60' : '';
+    return `<tr class="border-b border-brand-border hover:bg-blue-50/40 ${dim}">
+      <td class="px-3 py-2 align-middle"><input type="date" value="${_pmEsc(r.date)}" onchange="_onAttendEdit('${r.id}','date',this.value)" class="${cell} text-center"></td>
+      <td class="px-3 py-2 align-middle"><input type="time" value="${_pmEsc(r.checkIn)}" onchange="_onAttendEdit('${r.id}','checkIn',this.value)" class="${cell} text-center"></td>
+      <td class="px-3 py-2 align-middle"><input type="time" value="${_pmEsc(r.checkOut)}" onchange="_onAttendEdit('${r.id}','checkOut',this.value)" class="${cell} text-center"></td>
+      <td class="px-3 py-2 align-middle text-center font-bold ${hrs === '-' ? 'text-brand-gray' : 'text-brand-black'}">${hrs}</td>
+      <td class="px-3 py-2 align-middle"><select onchange="_onAttendEdit('${r.id}','leave',this.value)" class="${cell} text-center font-bold cursor-pointer ${r.leave ? 'text-brand-pink' : 'text-brand-black'}">${opts}</select></td>
+      <td class="px-3 py-2 align-middle"><input type="text" value="${_pmEsc(r.note)}" oninput="_onAttendEdit('${r.id}','note',this.value)" placeholder="" class="${cell} text-left"></td>
+      <td class="px-2 py-2 text-center align-middle"><button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
+    </tr>`;
+  }).join('');
+}
+document.addEventListener('DOMContentLoaded', _loadAttend);
+
 const PENDING_LS_KEY = 'ih_pending_products_v1';
 let pendingList = [];
 let _pendingSaveTimer = null;
