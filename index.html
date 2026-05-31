@@ -3367,9 +3367,10 @@ function openReviseModal(groupKey) {
   _reviseModal = { key: groupKey, folder: g.folder, rows: g.rows, title: g.folder ? ('폴더 ' + g.folder) : (g.names[0] || '항목'), items };
   openModal({
     title: '수정 내용 — ' + _reviseModal.title,
-    bodyHtml: '<div id="revise-modal-body"></div>',
+    descHtml: '<div id="revise-modal-body" style="max-height:60vh;overflow-y:auto;text-align:left;"></div>',
     okText: '저장',
-    onOk: _saveReviseModal,
+    wide: true,
+    onConfirm: _saveReviseModal,
   });
   _renderReviseModalBody();
 }
@@ -3423,7 +3424,7 @@ async function _reviseAddImages(i, fileList) {
     const folderSeg = (_reviseModal.folder || 'misc').replace(/[^a-zA-Z0-9_-]/g, '_');
     const key = `revise/${folderSeg}/${ts}_${i}_${n}${ext}`;
     try {
-      const { publicUrl } = await _r2PresignAndPut(key, f);
+      const { publicUrl } = await r2Upload(key, f);
       _reviseModal.items[i].images.push(publicUrl);
       _renderReviseModalBody();
     } catch (e) {
