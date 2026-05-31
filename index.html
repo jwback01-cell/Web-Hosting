@@ -3370,7 +3370,7 @@ function openReviseModal(groupKey) {
     descHtml: '<div id="revise-modal-body" style="max-height:60vh;overflow-y:auto;text-align:left;"></div>',
     okText: '저장',
     wide: true,
-    onConfirm: _saveReviseModal,
+    onOk: _saveReviseModal,
   });
   _renderReviseModalBody();
 }
@@ -4777,6 +4777,9 @@ function openModal(opts) {
   const ok     = document.getElementById('modal-ok');
   title.textContent = opts.title || '확인';
   desc.textContent  = opts.desc  || '';
+  if (opts.descHtml) desc.innerHTML = opts.descHtml;   // 커스텀 HTML 본문 지원
+  const _mcard = document.querySelector('#modal-bd .modal-card');
+  if (_mcard) _mcard.style.maxWidth = opts.wide ? '640px' : '';   // 넓은 모달 옵션
   if (opts.showInput) {
     input.classList.remove('hidden');
     input.placeholder = opts.inputPlaceholder || '';
