@@ -42,34 +42,63 @@
   .nav-item:not(.active):hover { background:#F9F9FB; color:#1A1A1A; }
   /* 상단 메뉴 탭 */
   .menu-tab.active { background:#1A1A1A; color:white; }
-  /* 좌측 사이드바 메뉴 */
-  .side-menu {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 12px;
-    font-size: 13.5px; font-weight: 700;
-    color: #8E8E93; text-align: left; width: 100%;
-    cursor: pointer; transition: background 0.15s, color 0.15s;
-    border: none; background: transparent;
+  /* ─── 지파고 스타일 사이드바 ─── */
+  .nav-item {
+    position: relative; transition: all .18s ease;
+    color: #1A1A1A; background: #fff;
+    border: 1px solid #F2F2F7;
+    box-shadow: 0 1px 2px rgba(0,0,0,.02);
+    font-weight: 600;
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 16px; border-radius: 9999px;
+    font-size: 15px; cursor: pointer; width: 100%;
+    text-align: left;
   }
-  .side-menu:hover { background: #F9F9FB; color: #1A1A1A; }
-  .side-menu.active { background: #1A1A1A; color: white; }
-  .side-menu.active svg { stroke: white; }
-  .side-menu svg { stroke: currentColor; }
-  /* 우측 점 (지파고 스타일) — 비활성: 회색, 활성: 초록 */
-  .menu-dot {
-    width: 6px; height: 6px; border-radius: 50%;
-    background: #D1D5DB; transition: background 0.15s;
-    flex-shrink: 0;
+  .nav-item::after {
+    content: ''; position: absolute; right: 16px; top: 50%;
+    transform: translateY(-50%);
+    width: 6px; height: 6px; border-radius: 999px;
+    background: #E5E5EA; transition: background .18s;
   }
-  .side-menu.active .menu-dot { background: #4ADE80; }
-  /* 그룹 제목 — 작은 회색 글씨 */
-  .menu-group-title {
-    font-size: 10px; font-weight: 800; color: #8E8E93;
-    letter-spacing: 0.06em;
-    padding: 14px 12px 4px;
+  .nav-item:hover { background: #F9F9FB; border-color: #E5E5EA; }
+  .nav-item:hover::after { background: #00C853; }
+  .nav-item.active {
+    background: #fff; border-color: #E5E5EA;
+    box-shadow: 0 4px 14px rgba(0,0,0,.06);
+    font-weight: 800;
   }
-  /* 그룹 하위 메뉴 — 살짝 들여쓰기 */
-  .side-sub { padding-left: 18px; }
+  .nav-item.active::after { background: #00C853; box-shadow: 0 0 0 3px rgba(0,200,83,.18); }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: -6px; top: 18%; bottom: 18%;
+    width: 3px; border-radius: 2px; background: #2196F3;
+  }
+  .nav-item > svg:first-of-type {
+    color: #8E8E93; border-radius: 999px;
+    box-shadow: 0 0 0 8px #F9F9FB;
+    margin-left: 4px; margin-right: 6px;
+    transition: all .18s; flex-shrink: 0;
+  }
+  .nav-item:hover > svg:first-of-type,
+  .nav-item.active > svg:first-of-type {
+    color: #2196F3; box-shadow: 0 0 0 8px #EFF6FF;
+  }
+  /* 하위 메뉴 */
+  .nav-sub {
+    position: relative; color: #8E8E93; font-weight: 600;
+    padding: 4px 0 4px 22px; font-size: 13px;
+    cursor: pointer; transition: all .18s;
+    display: block;
+  }
+  .nav-sub::before {
+    content: ''; position: absolute; left: 8px; top: 50%;
+    transform: translateY(-50%);
+    width: 6px; height: 6px; border-radius: 999px;
+    background: #E5E5EA; transition: background .18s;
+  }
+  .nav-sub:hover { color: #1A1A1A; }
+  .nav-sub:hover::before { background: #8E8E93; }
+  .nav-sub.active { color: #1A1A1A; font-weight: 800; }
+  .nav-sub.active::before { background: #00C853; box-shadow: 0 0 0 3px rgba(0,200,83,.18); }
   /* 인라인 편집 input — 평소엔 평문, 호버/포커스 시에도 잔잔하게 */
   .pending-input {
     width: 100%; border: 1px solid transparent; background: transparent;
@@ -249,57 +278,42 @@
 
   <!-- ─ 사이드바 + 메인 영역 ─ -->
   <div class="flex flex-1 min-h-0">
-  <!-- ─ 좌측 사이드바 (데스크톱) — 로고는 헤더로 이동, 메뉴부터 시작 ─ -->
-  <aside class="hidden md:flex w-[230px] shrink-0 bg-white border-r border-brand-border flex-col py-5 px-4 gap-2 sticky top-0 h-screen self-start">
-    <!-- MENU 헤더 -->
-    <div class="text-[11px] font-bold text-brand-gray tracking-wider px-3 pt-2 pb-1">MENU</div>
-    <!-- 메뉴 항목 (그룹화, 지파고 스타일 — 우측 점) -->
-    <nav class="flex flex-col gap-1">
+  <!-- ─ 좌측 사이드바 (데스크톱) — 지파고 스타일 nav-item ─ -->
+  <aside class="hidden md:flex w-[260px] shrink-0 bg-white rounded-4xl panel p-6 flex-col gap-2 sticky top-0 self-start ml-6 my-5 max-h-[calc(100vh-40px)] overflow-y-auto">
+    <div class="text-xs font-bold text-brand-gray tracking-wider mb-2 px-2">MENU</div>
+    <nav class="flex flex-col gap-2">
       <!-- 대시보드 (단독) -->
-      <button class="menu-tab side-menu active" data-menu="dashboard" onclick="switchMenu('dashboard')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-        <span class="flex-1 text-left">대시보드</span>
-        <span class="menu-dot"></span>
-      </button>
+      <a class="nav-item menu-tab active" data-menu="dashboard" onclick="switchMenu('dashboard')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+        대시보드
+      </a>
 
       <!-- 업무관리 그룹 -->
-      <div class="menu-group-title">업무관리</div>
-      <button class="menu-tab side-menu side-sub" data-menu="pending" onclick="switchMenu('pending')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span class="flex-1 text-left">등록 예정 리스트</span>
-        <span class="menu-dot"></span>
-      </button>
-      <button class="menu-tab side-menu side-sub" data-menu="revise" onclick="switchMenu('revise')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        <span class="flex-1 text-left">수정요청</span>
-        <span class="menu-dot"></span>
-      </button>
-      <button class="menu-tab side-menu side-sub" data-menu="images" onclick="switchMenu('images')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <span class="flex-1 text-left">이미지 저장소</span>
-        <span class="menu-dot"></span>
-      </button>
+      <a class="nav-item" data-page-group="work" onclick="toggleWorkGroup(event)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span class="flex-1">업무관리</span>
+      </a>
+      <div id="work-submenu" class="hidden flex-col gap-1.5 ml-7 mb-1">
+        <a class="nav-sub menu-tab" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</a>
+        <a class="nav-sub menu-tab" data-menu="revise"  onclick="switchMenu('revise')">수정요청</a>
+        <a class="nav-sub menu-tab" data-menu="images"  onclick="switchMenu('images')">이미지 저장소</a>
+      </div>
 
       <!-- 근무관리 그룹 -->
-      <div class="menu-group-title">근무관리</div>
-      <button class="menu-tab side-menu side-sub" data-menu="attend" onclick="switchMenu('attend')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span class="flex-1 text-left">근태관리</span>
-        <span class="menu-dot"></span>
-      </button>
-      <button class="menu-tab side-menu side-sub" data-menu="addon" onclick="switchMenu('addon')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span class="flex-1 text-left">캘린더</span>
-        <span class="menu-dot"></span>
-      </button>
+      <a class="nav-item" data-page-group="duty" onclick="toggleDutyGroup(event)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span class="flex-1">근무관리</span>
+      </a>
+      <div id="duty-submenu" class="hidden flex-col gap-1.5 ml-7 mb-1">
+        <a class="nav-sub menu-tab" data-menu="attend" onclick="switchMenu('attend')">근태관리</a>
+        <a class="nav-sub menu-tab" data-menu="addon"  onclick="switchMenu('addon')">캘린더</a>
+      </div>
 
       <!-- 상품관리 (단독) -->
-      <div class="menu-group-title">상품관리</div>
-      <button class="menu-tab side-menu side-sub" data-menu="products" onclick="switchMenu('products')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        <span class="flex-1 text-left">상품 목록</span>
-        <span class="menu-dot"></span>
-      </button>
+      <a class="nav-item menu-tab" data-menu="products" onclick="switchMenu('products')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        상품관리
+      </a>
     </nav>
     <!-- 하단: 도움/문의 (사용자 정보+로그아웃은 우상단으로 이동) -->
     <div class="mt-auto pt-3 border-t border-brand-border px-2">
@@ -2526,6 +2540,24 @@ function goHome() {
   backToFolders();
 }
 
+// 사이드바 그룹 토글 (지파고 스타일) — 메뉴 클릭 시 자동 펼침도 처리
+function toggleWorkGroup(e) {
+  if (e) e.preventDefault();
+  const sub = document.getElementById('work-submenu');
+  if (!sub) return;
+  const isHidden = sub.classList.contains('hidden');
+  if (isHidden) { sub.classList.remove('hidden'); sub.classList.add('flex'); switchMenu('pending'); }
+  else          { sub.classList.add('hidden');    sub.classList.remove('flex'); }
+}
+function toggleDutyGroup(e) {
+  if (e) e.preventDefault();
+  const sub = document.getElementById('duty-submenu');
+  if (!sub) return;
+  const isHidden = sub.classList.contains('hidden');
+  if (isHidden) { sub.classList.remove('hidden'); sub.classList.add('flex'); switchMenu('attend'); }
+  else          { sub.classList.add('hidden');    sub.classList.remove('flex'); }
+}
+
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
   ['dashboard', 'images', 'products', 'pending', 'revise', 'attend', 'addon'].forEach(m => {
@@ -2535,10 +2567,23 @@ function switchMenu(menuId) {
   document.querySelectorAll('.menu-tab').forEach(btn => {
     const isActive = btn.dataset.menu === menuId;
     btn.classList.toggle('active', isActive);
-    btn.classList.toggle('bg-brand-black', isActive);
-    btn.classList.toggle('text-white', isActive);
-    btn.classList.toggle('text-brand-gray', !isActive);
   });
+  // 그룹 자동 펼침/접힘 — 활성 메뉴가 속한 그룹은 펼침
+  const workSub = document.getElementById('work-submenu');
+  const dutySub = document.getElementById('duty-submenu');
+  const inWork = ['pending', 'revise', 'images'].includes(menuId);
+  const inDuty = ['attend', 'addon'].includes(menuId);
+  if (workSub) {
+    if (inWork) { workSub.classList.remove('hidden'); workSub.classList.add('flex'); }
+  }
+  if (dutySub) {
+    if (inDuty) { dutySub.classList.remove('hidden'); dutySub.classList.add('flex'); }
+  }
+  // 그룹 헤더 active 표시
+  const workHeader = document.querySelector('[data-page-group="work"]');
+  const dutyHeader = document.querySelector('[data-page-group="duty"]');
+  if (workHeader) workHeader.classList.toggle('active', inWork);
+  if (dutyHeader) dutyHeader.classList.toggle('active', inDuty);
   if (menuId === 'dashboard') renderDashboard();
   if (menuId === 'revise')   renderReviseList();
   if (menuId === 'pending')  renderPendingList();
