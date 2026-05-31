@@ -212,20 +212,20 @@
      PAGE: MAIN APP
 ══════════════════════════════════════════════════════ -->
 <div id="page-main" class="hidden min-h-screen flex flex-col">
-  <!-- ─ 상단 둥근 검정 헤더 카드 (지플랜 스타일, 전체 폭) ─ -->
-  <header class="hidden md:flex items-center justify-between bg-brand-black text-white rounded-2xl mx-6 mt-5 px-6 py-3 shadow-sm">
-    <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition-opacity" onclick="switchMenu('dashboard')" title="홈">
-      <div class="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-brand-black font-black text-sm shadow-sm">G</div>
-      <span class="font-black text-[1.15rem] tracking-tight">GPLAN</span>
+  <!-- ─ 상단 둥근 헤더 카드 (지파고 스타일 — 흰색, 전체 폭) ─ -->
+  <header class="hidden md:flex items-center justify-between glass-nav rounded-2xl mx-6 mt-5 px-6 py-3">
+    <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity" onclick="switchMenu('dashboard')" title="홈">
+      <div class="w-8 h-8 bg-white border border-brand-border rounded-lg flex items-center justify-center text-brand-black font-black text-sm shadow-sm">G</div>
+      <span class="font-black text-[1.15rem] tracking-tight text-brand-black">GPLAN</span>
       <span class="text-[10px] font-black bg-brand-blue-light text-brand-blue px-1.5 py-0.5 rounded-full leading-none">이미지</span>
     </div>
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-2.5">
         <div class="w-8 h-8 rounded-full bg-brand-blue-light flex items-center justify-center text-brand-blue font-bold text-sm" id="user-avatar">U</div>
-        <span id="user-email" class="font-semibold text-sm text-white"></span>
+        <span id="user-email" class="font-semibold text-sm text-brand-black"></span>
       </div>
-      <div class="h-5 w-px bg-white/20"></div>
-      <button onclick="doLogout()" class="text-white/70 hover:text-white flex items-center gap-1.5 text-sm font-semibold transition-colors">
+      <div class="h-5 w-px bg-brand-border"></div>
+      <button onclick="doLogout()" class="text-brand-gray hover:text-brand-black flex items-center gap-1.5 text-sm font-semibold transition-colors">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
         <span>로그아웃</span>
       </button>
