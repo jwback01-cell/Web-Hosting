@@ -1620,19 +1620,20 @@ async function _readFolderTreeFromEntry(directoryEntry) {
   return tree;
 }
 
-// 공통 처리: tree({name, files, subfolders[]}) → 제품 생성 + 이미지 업로드
+// 공통 처리: tree({name, files, subfolders[]}) → 제품 생성 + 이미지/피그마 업로드
 async function _processFolderTree(tree) {
-  // 모든 이미지 파일 수집 (1단계 하위 폴더까지만 — 그 이상은 모두 평면화)
+  // 이미지 + 피그마(.fig) 파일 수집 (1단계 하위 폴더까지만 — 그 이상은 모두 평면화)
   const allImages = [];  // [{ file, subName }]
+  const isAccepted = (f) => f.type.startsWith('image/') || /\.fig$/i.test(f.name);
   for (const f of tree.files) {
-    if (f.type.startsWith('image/')) allImages.push({ file: f, subName: null });
+    if (isAccepted(f)) allImages.push({ file: f, subName: null });
   }
   for (const sub of tree.subfolders) {
     _collectImagesUnder(sub, sub.name, allImages);
   }
   if (!allImages.length) {
     hideUploadProgress();
-    toast(`'${tree.name}' 폴더에 이미지가 없습니다`, 'error');
+    toast(`'${tree.name}' 폴더에 이미지·피그마(.fig) 파일이 없습니다`, 'error');
     return;
   }
   // 제품 생성
@@ -1730,9 +1731,11 @@ async function _processFolderTree(tree) {
 }
 
 function _collectImagesUnder(node, topSubName, out) {
-  // 1단계 이하 폴더의 이미지를 모두 같은 topSubName(첫 단계 폴더명) 으로 평면화
+  // 1단계 이하 폴더의 이미지·피그마(.fig)를 모두 같은 topSubName(첫 단계 폴더명) 으로 평면화
   for (const f of node.files) {
-    if (f.type.startsWith('image/')) out.push({ file: f, subName: topSubName });
+    if (f.type.startsWith('image/') || /\.fig$/i.test(f.name)) {
+      out.push({ file: f, subName: topSubName });
+    }
   }
   for (const sub of node.subfolders) {
     _collectImagesUnder(sub, topSubName, out);
