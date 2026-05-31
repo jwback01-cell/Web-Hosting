@@ -3362,15 +3362,15 @@ function _renderPfBody() {
     <div class="text-brand-black">
       <div class="text-xs text-brand-gray mb-2">제품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
       <div style="overflow-x:auto;">
-      <table class="w-full text-sm border-collapse" style="min-width:560px;">
+      <table class="w-full text-sm border-collapse" style="min-width:880px;">
         <thead>
           <tr class="bg-brand-bg">
             <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[26px]">#</th>
-            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border">제품명</th>
-            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[92px]">상품코드</th>
-            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[110px]">키워드</th>
-            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[130px]">비고</th>
-            <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[38px]">추가</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border min-w-[300px]">제품명</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[100px]">상품코드</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[140px]">키워드</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[180px]">비고</th>
+            <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[44px]">추가</th>
             <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[30px]"></th>
           </tr>
         </thead>
@@ -4231,18 +4231,18 @@ function _renderPmfBody() {
     <div class="text-brand-black">
       <div class="text-xs text-brand-gray mb-2">상품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
       <div style="overflow-x:auto;">
-      <table class="w-full text-sm border-collapse" style="min-width:820px;">
+      <table class="w-full text-sm border-collapse" style="min-width:1050px;">
         <thead><tr class="bg-brand-bg">
           <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[26px]">#</th>
-          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border">제품명</th>
-          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[84px]">상품코드</th>
-          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[70px]">원가</th>
-          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[70px]">판매가</th>
-          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[70px]">공급가</th>
-          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[64px]">배송비</th>
-          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[110px]">비고</th>
-          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[100px]">키워드</th>
-          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[100px]">카테고리</th>
+          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border min-w-[260px]">제품명</th>
+          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[100px]">상품코드</th>
+          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[80px]">원가</th>
+          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[80px]">판매가</th>
+          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[80px]">공급가</th>
+          <th class="px-1.5 py-1.5 text-right font-bold border-b border-brand-border w-[70px]">배송비</th>
+          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[130px]">비고</th>
+          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[120px]">키워드</th>
+          <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[120px]">카테고리</th>
           <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[30px]"></th>
         </tr></thead>
         <tbody>
@@ -5201,7 +5201,7 @@ function openModal(opts) {
   desc.textContent  = opts.desc  || '';
   if (opts.descHtml) desc.innerHTML = opts.descHtml;   // 커스텀 HTML 본문 지원
   const _mcard = document.querySelector('#modal-bd .modal-card');
-  if (_mcard) _mcard.style.maxWidth = opts.wide ? '640px' : '';   // 넓은 모달 옵션
+  if (_mcard) _mcard.style.maxWidth = opts.wide ? 'min(1100px, 95vw)' : '';   // 넓은 모달 옵션 (제품명 안 잘리도록 확장)
   if (opts.showInput) {
     input.classList.remove('hidden');
     input.placeholder = opts.inputPlaceholder || '';
