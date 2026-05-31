@@ -2391,7 +2391,7 @@ function goHome() {
 
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['dashboard', 'images', 'products', 'pending', 'revise', 'addon', 'grade'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'revise', 'addon'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
