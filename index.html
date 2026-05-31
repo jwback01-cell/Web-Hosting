@@ -214,10 +214,13 @@
 <div id="page-main" class="hidden min-h-screen flex">
   <!-- ─ 좌측 사이드바 (데스크톱) ─ -->
   <aside class="hidden md:flex w-[230px] shrink-0 bg-white border-r border-brand-border flex-col py-5 px-4 gap-2 sticky top-0 h-screen">
-    <!-- 로고 -->
-    <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity px-2 pb-3 border-b border-brand-border mb-2" onclick="switchMenu('dashboard')" title="홈">
-      <div class="w-8 h-8 bg-white border border-brand-border rounded-lg flex items-center justify-center text-brand-black font-black text-sm shadow-sm">G</div>
-      <div class="font-black text-[0.95rem] tracking-tight leading-tight">GPLAN<br><span class="text-[10px] text-brand-gray font-bold tracking-wider">이미지저장소</span></div>
+    <!-- 로고 — 지플랜/지파고와 동일 스타일 (큰 G 아이콘 + 큰 사이트명 + 작은 배지) -->
+    <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity px-1 pb-3 border-b border-brand-border mb-2" onclick="switchMenu('dashboard')" title="홈">
+      <div class="w-9 h-9 bg-white border border-brand-border rounded-xl flex items-center justify-center text-brand-black font-black text-base shadow-sm">G</div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-black text-[1.1rem] tracking-tight">GPLAN</span>
+        <span class="text-[10px] font-black text-brand-blue bg-brand-blue-light px-1.5 py-0.5 rounded-full leading-none">이미지</span>
+      </div>
     </div>
     <!-- MENU 헤더 -->
     <div class="text-[11px] font-bold text-brand-gray tracking-wider px-3 pt-2 pb-1">MENU</div>
