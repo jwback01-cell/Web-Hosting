@@ -255,21 +255,26 @@
         <span>캘린더</span>
       </button>
     </nav>
-    <!-- 하단: 사용자 정보 + 로그아웃 -->
-    <div class="mt-auto pt-3 border-t border-brand-border">
-      <div class="flex items-center gap-2.5 px-2 py-2">
-        <div class="w-8 h-8 rounded-full bg-brand-blue-light flex items-center justify-center text-brand-blue font-bold text-xs shrink-0" id="user-avatar">U</div>
-        <span id="user-email" class="font-semibold text-[11px] truncate flex-1 min-w-0"></span>
-      </div>
-      <button onclick="doLogout()" class="w-full mt-1 px-3 py-2 rounded-lg text-brand-gray hover:bg-brand-bg hover:text-brand-black flex items-center gap-2 text-xs font-semibold transition-colors">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-        <span>로그아웃</span>
-      </button>
+    <!-- 하단: 도움/문의 (사용자 정보+로그아웃은 우상단으로 이동) -->
+    <div class="mt-auto pt-3 border-t border-brand-border px-2">
+      <div class="text-[11px] font-bold text-brand-gray mb-1.5">도움이 필요하신가요?</div>
+      <a href="mailto:jwback01@nate.com" class="block w-full px-3 py-2 rounded-full border border-brand-border text-center text-xs font-bold text-brand-black hover:bg-brand-bg transition-colors">고객센터 문의</a>
     </div>
   </aside>
 
   <!-- ─ 메인 영역 (사이드바 옆) ─ -->
   <div class="flex-1 flex flex-col min-w-0 md:pt-5">
+    <!-- 데스크톱: 우상단 사용자 정보 + 로그아웃 (지플랜/지파고 스타일) -->
+    <div class="hidden md:flex items-center justify-end gap-3 px-6 pb-3">
+      <div class="flex items-center gap-2.5 bg-white border border-brand-border rounded-full px-3 py-1.5">
+        <div class="w-7 h-7 rounded-full bg-brand-blue-light flex items-center justify-center text-brand-blue font-bold text-xs" id="user-avatar">U</div>
+        <span id="user-email" class="font-semibold text-sm text-brand-black"></span>
+      </div>
+      <button onclick="doLogout()" class="text-brand-gray hover:text-brand-black flex items-center gap-1.5 text-sm font-semibold transition-colors px-3 py-1.5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+        <span>로그아웃</span>
+      </button>
+    </div>
     <!-- 모바일용 상단 헤더 (md 미만) -->
     <header class="md:hidden px-4 pt-5 pb-3">
       <nav class="glass-nav rounded-full px-4 py-3.5 flex justify-between items-center w-full">
