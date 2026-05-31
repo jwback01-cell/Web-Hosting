@@ -37,8 +37,8 @@
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background:#F9F9FB; color:#1A1A1A; -webkit-font-smoothing: antialiased; }
   .panel { box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 24px rgba(0,0,0,0.04); }
   .glass-nav { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); border: 1px solid #F2F2F7; }
-  /* 상단 메뉴 탭 (모바일 헤더) */
-  .menu-tab.active { background:#1A1A1A; color:white; }
+  /* 상단 메뉴 탭 (모바일 헤더 전용) — 사이드바 nav-item 에는 영향 안 가도록 .glass-nav 안으로 한정 */
+  .glass-nav .menu-tab.active { background:#1A1A1A; color:white; }
   /* ─── 지파고 스타일 사이드바 (아래 .nav-item 정의가 우선) ─── */
   .nav-item {
     position: relative; transition: all .18s ease;
