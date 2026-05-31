@@ -211,17 +211,30 @@
 <!-- ══════════════════════════════════════════════════════
      PAGE: MAIN APP
 ══════════════════════════════════════════════════════ -->
-<div id="page-main" class="hidden min-h-screen flex">
-  <!-- ─ 좌측 사이드바 (데스크톱) ─ -->
-  <aside class="hidden md:flex w-[230px] shrink-0 bg-white border-r border-brand-border flex-col py-5 px-4 gap-2 sticky top-0 h-screen">
-    <!-- 로고 — 지플랜/지파고와 동일 스타일 (큰 G 아이콘 + 큰 사이트명 + 작은 배지) -->
-    <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity px-1 pb-3 border-b border-brand-border mb-2" onclick="switchMenu('dashboard')" title="홈">
+<div id="page-main" class="hidden min-h-screen flex flex-col">
+  <!-- ─ 상단 전체 폭 헤더 (지파고 스타일 — 좌측 로고 + 우측 사용자 정보, 한 줄) ─ -->
+  <header class="hidden md:flex items-center justify-between px-6 py-3 bg-white border-b border-brand-border">
+    <div class="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity" onclick="switchMenu('dashboard')" title="홈">
       <div class="w-9 h-9 bg-white border border-brand-border rounded-xl flex items-center justify-center text-brand-black font-black text-base shadow-sm">G</div>
-      <div class="flex items-center gap-1.5">
-        <span class="font-black text-[1.1rem] tracking-tight">GPLAN</span>
-        <span class="text-[10px] font-black text-brand-blue bg-brand-blue-light px-1.5 py-0.5 rounded-full leading-none">이미지</span>
-      </div>
+      <span class="font-black text-[1.15rem] tracking-tight">GPLAN</span>
+      <span class="text-[10px] font-black text-brand-blue bg-brand-blue-light px-1.5 py-0.5 rounded-full leading-none">이미지</span>
     </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-full bg-brand-blue-light flex items-center justify-center text-brand-blue font-bold text-xs" id="user-avatar">U</div>
+        <span id="user-email" class="font-semibold text-sm text-brand-black"></span>
+      </div>
+      <button onclick="doLogout()" class="text-brand-gray hover:text-brand-black flex items-center gap-1.5 text-sm font-semibold transition-colors px-3 py-1.5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+        <span>로그아웃</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ─ 사이드바 + 메인 영역 (좌우 분할) ─ -->
+  <div class="flex flex-1 min-h-0">
+  <!-- ─ 좌측 사이드바 (데스크톱) ─ -->
+  <aside class="hidden md:flex w-[230px] shrink-0 bg-white border-r border-brand-border flex-col py-5 px-4 gap-2 sticky top-0 h-screen self-start">
     <!-- MENU 헤더 -->
     <div class="text-[11px] font-bold text-brand-gray tracking-wider px-3 pt-2 pb-1">MENU</div>
     <!-- 메뉴 항목 (세로) -->
@@ -264,17 +277,6 @@
 
   <!-- ─ 메인 영역 (사이드바 옆) ─ -->
   <div class="flex-1 flex flex-col min-w-0 md:pt-5">
-    <!-- 데스크톱: 우상단 사용자 정보 + 로그아웃 (지플랜/지파고 스타일) -->
-    <div class="hidden md:flex items-center justify-end gap-3 px-6 pb-3">
-      <div class="flex items-center gap-2.5 bg-white border border-brand-border rounded-full px-3 py-1.5">
-        <div class="w-7 h-7 rounded-full bg-brand-blue-light flex items-center justify-center text-brand-blue font-bold text-xs" id="user-avatar">U</div>
-        <span id="user-email" class="font-semibold text-sm text-brand-black"></span>
-      </div>
-      <button onclick="doLogout()" class="text-brand-gray hover:text-brand-black flex items-center gap-1.5 text-sm font-semibold transition-colors px-3 py-1.5">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-        <span>로그아웃</span>
-      </button>
-    </div>
     <!-- 모바일용 상단 헤더 (md 미만) -->
     <header class="md:hidden px-4 pt-5 pb-3">
       <nav class="glass-nav rounded-full px-4 py-3.5 flex justify-between items-center w-full">
@@ -780,6 +782,7 @@
     </div>
   </div>
   </div><!-- /메인 영역 -->
+  </div><!-- /사이드바+메인 wrapper -->
 </div>
 
 <!-- ── 공용 모달 (신규 제품 / 이름 변경 / 확인 다이얼로그) ── -->
