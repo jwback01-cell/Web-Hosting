@@ -2826,6 +2826,46 @@ function _todayISO() {
   const n = new Date();
   return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
 }
+// 평일 판정 (월~금) — YYYY-MM-DD
+function _isWeekday(dateStr) {
+  if (!dateStr) return false;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return false;
+  const day = d.getDay();
+  return day !== 0 && day !== 6;
+}
+function _dateAddDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+// 주말 제외 매일 자동 기록 추가 — 마지막 기록일 다음날부터 오늘까지 빠진 평일 채움
+//   처음 사용 시(기록 없음)은 오늘만 추가. 이미 오늘 기록 있으면 아무것도 안 함.
+function _ensureWeekdayAttendUpToToday() {
+  const today = _todayISO();
+  const haveByDate = new Set(attendList.map(r => r.date));
+  let cursor;
+  if (attendList.length) {
+    const sorted = attendList.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const last = sorted[0].date || '';
+    cursor = (last && last < today) ? _dateAddDays(last, 1) : today;
+  } else {
+    cursor = today;   // 빈 상태 — 오늘만
+  }
+  let added = false;
+  // 안전장치: 최대 60일치만 채움 (오래된 데이터 폭증 방지)
+  let safety = 60;
+  while (cursor <= today && safety-- > 0) {
+    if (_isWeekday(cursor) && !haveByDate.has(cursor)) {
+      attendList.push({ id: _attendNewId(), date: cursor, checkIn: '', checkOut: '', leave: '', note: '' });
+      haveByDate.add(cursor);
+      added = true;
+    }
+    cursor = _dateAddDays(cursor, 1);
+  }
+  if (added) _saveAttend();
+  return added;
+}
 function addAttendRow() {
   attendList.unshift({ id: _attendNewId(), date: _todayISO(), checkIn: '', checkOut: '', leave: '', note: '' });
   _saveAttend();
@@ -2834,6 +2874,19 @@ function addAttendRow() {
 function deleteAttendRow(id) {
   if (!confirm('이 기록을 삭제할까요?')) return;
   attendList = attendList.filter(r => r.id !== id);
+  _saveAttend();
+  renderAttendance();
+}
+// 출근/퇴근 체크박스 토글 — 체크 시 현재 시간 자동 기록, 해제 시 빈 값
+function _attendToggleCheck(id, field, checked) {
+  const r = attendList.find(x => x.id === id);
+  if (!r) return;
+  if (checked) {
+    const n = new Date();
+    r[field] = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+  } else {
+    r[field] = '';
+  }
   _saveAttend();
   renderAttendance();
 }
@@ -2847,6 +2900,7 @@ function _onAttendEdit(id, field, val) {
 }
 function renderAttendance() {
   _loadAttend();
+  _ensureWeekdayAttendUpToToday();   // 주말 제외 매일 자동 행 1개 추가 (있으면 skip)
   const tbody = document.getElementById('attend-tbody');
   const empty = document.getElementById('attend-empty');
   if (!tbody) return;
@@ -2876,10 +2930,22 @@ function renderAttendance() {
     const hrs = _fmtHours(_attendWorkHours(r));
     const opts = LEAVES.map(v => `<option value="${v}" ${r.leave === v ? 'selected' : ''}>${v || '정상근무'}</option>`).join('');
     const dim = (r.leave === '연차' || r.leave === '병가') ? 'opacity-60' : '';
+    // 체크박스 + 시간 — 체크 시 현재 시간 자동 기록, 시간 직접 클릭하면 수정 가능
+    const _chkCell = (field, label) => {
+      const v = r[field] || '';
+      const checked = v ? 'checked' : '';
+      const txtCls = v ? 'text-brand-black font-bold' : 'text-brand-gray';
+      return `<td class="px-3 py-2 align-middle">
+        <div class="flex items-center justify-center gap-1.5">
+          <input type="checkbox" ${checked} onchange="_attendToggleCheck('${r.id}','${field}',this.checked)" class="w-4 h-4 rounded cursor-pointer accent-brand-green" title="${label} 체크">
+          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black rounded px-1 py-0.5 text-xs ${txtCls} focus:outline-none w-[70px]" title="시간 수정">
+        </div>
+      </td>`;
+    };
     return `<tr class="border-b border-brand-border hover:bg-blue-50/40 ${dim}">
       <td class="px-3 py-2 align-middle"><input type="date" value="${_pmEsc(r.date)}" onchange="_onAttendEdit('${r.id}','date',this.value)" class="${cell} text-center"></td>
-      <td class="px-3 py-2 align-middle"><input type="time" value="${_pmEsc(r.checkIn)}" onchange="_onAttendEdit('${r.id}','checkIn',this.value)" class="${cell} text-center"></td>
-      <td class="px-3 py-2 align-middle"><input type="time" value="${_pmEsc(r.checkOut)}" onchange="_onAttendEdit('${r.id}','checkOut',this.value)" class="${cell} text-center"></td>
+      ${_chkCell('checkIn', '출근')}
+      ${_chkCell('checkOut', '퇴근')}
       <td class="px-3 py-2 align-middle text-center font-bold ${hrs === '-' ? 'text-brand-gray' : 'text-brand-black'}">${hrs}</td>
       <td class="px-3 py-2 align-middle"><select onchange="_onAttendEdit('${r.id}','leave',this.value)" class="${cell} text-center font-bold cursor-pointer ${r.leave ? 'text-brand-pink' : 'text-brand-black'}">${opts}</select></td>
       <td class="px-3 py-2 align-middle"><input type="text" value="${_pmEsc(r.note)}" oninput="_onAttendEdit('${r.id}','note',this.value)" placeholder="" class="${cell} text-left"></td>
@@ -2887,7 +2953,11 @@ function renderAttendance() {
     </tr>`;
   }).join('');
 }
-document.addEventListener('DOMContentLoaded', _loadAttend);
+document.addEventListener('DOMContentLoaded', () => {
+  _loadAttend();
+  // 페이지 로드 시 자동 행 추가 — 메뉴 안 들어가도 매일 보장
+  try { _ensureWeekdayAttendUpToToday(); } catch (e) { console.warn('[attend auto-add]', e); }
+});
 
 const PENDING_LS_KEY = 'ih_pending_products_v1';
 let pendingList = [];
