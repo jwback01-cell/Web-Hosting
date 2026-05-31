@@ -643,7 +643,7 @@
           <h2 class="text-2xl font-bold">근태관리</h2>
           <p class="text-brand-gray text-sm mt-1">출근·퇴근 시간과 연차 사용을 기록합니다. 칸을 수정하면 자동 저장됩니다.</p>
         </div>
-        <button onclick="addAttendRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1">
+        <button id="attend-add-btn" onclick="addAttendRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           기록 추가
         </button>
@@ -658,8 +658,8 @@
         <table class="w-full text-sm border-collapse">
           <thead><tr class="bg-brand-bg">
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[160px]">날짜</th>
-            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[170px]">출근</th>
-            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[170px]">퇴근</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[200px]">출근</th>
+            <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[200px]">퇴근</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[120px]">근무시간</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[120px]">구분</th>
             <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border w-[200px]">비고</th>
@@ -2884,6 +2884,9 @@ function addAttendRow() {
   renderAttendance();
 }
 function deleteAttendRow(id) {
+  // 마스터(사장님)만 삭제 가능 — 직원 계정의 기록은 영구
+  const isMaster = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
+  if (!isMaster) { alert('근태 기록 삭제는 관리자만 가능합니다.'); return; }
   if (!confirm('이 기록을 삭제할까요?')) return;
   attendList = attendList.filter(r => r.id !== id);
   _saveAttend();
@@ -2916,6 +2919,10 @@ function renderAttendance() {
   const tbody = document.getElementById('attend-tbody');
   const empty = document.getElementById('attend-empty');
   if (!tbody) return;
+  // 마스터(사장님)만 "기록 추가" 버튼 보이기 — 직원은 자동 생성 행만 사용
+  const _isMasterTop = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
+  const addBtn = document.getElementById('attend-add-btn');
+  if (addBtn) addBtn.style.display = _isMasterTop ? '' : 'none';
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   const list = attendList.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
@@ -2937,11 +2944,13 @@ function renderAttendance() {
   if (empty) empty.classList.add('hidden');
 
   const cell = 'w-full bg-transparent border border-brand-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-brand-black';
-  const LEAVES = ['', '연차', '반차', '병가', '기타'];
+  const LEAVES = ['', '연차'];
+  // 마스터 권한 판정 — 사장님 계정만 행 삭제 가능, 직원은 본인 출퇴근 기록은 영구
+  const _isMaster = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
   tbody.innerHTML = list.map(r => {
     const hrs = _fmtHours(_attendWorkHours(r));
     const opts = LEAVES.map(v => `<option value="${v}" ${r.leave === v ? 'selected' : ''}>${v || '정상근무'}</option>`).join('');
-    const dim = (r.leave === '연차' || r.leave === '병가') ? 'opacity-60' : '';
+    const dim = (r.leave === '연차') ? 'opacity-60' : '';
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시 + ✕ 취소
     const _chkCell = (field, label) => {
       const v = r[field] || '';
@@ -2956,7 +2965,7 @@ function renderAttendance() {
       // 채워진 셀 — 시간 표시 (클릭=수정) + 작은 ✕ (취소)
       return `<td class="p-1 align-middle">
         <div class="flex items-center justify-center gap-1 bg-brand-green-light/40 rounded-lg py-1.5 px-2">
-          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-[100px] text-center cursor-pointer" title="시간 수정">
+          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-[130px] text-center cursor-pointer" title="시간 수정">
           <button onclick="_attendToggleCheck('${r.id}','${field}',false)" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 취소">✕</button>
         </div>
       </td>`;
@@ -2968,7 +2977,7 @@ function renderAttendance() {
       <td class="px-3 py-2 align-middle text-center font-bold ${hrs === '-' ? 'text-brand-gray' : 'text-brand-black'}">${hrs}</td>
       <td class="px-3 py-2 align-middle"><select onchange="_onAttendEdit('${r.id}','leave',this.value)" class="${cell} text-center font-bold cursor-pointer ${r.leave ? 'text-brand-pink' : 'text-brand-black'}">${opts}</select></td>
       <td class="px-3 py-2 align-middle"><input type="text" value="${_pmEsc(r.note)}" oninput="_onAttendEdit('${r.id}','note',this.value)" placeholder="" class="${cell} text-left"></td>
-      <td class="px-2 py-2 text-center align-middle"><button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>
+      <td class="px-2 py-2 text-center align-middle">${_isMaster ? `<button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}</td>
     </tr>`;
   }).join('');
 }
