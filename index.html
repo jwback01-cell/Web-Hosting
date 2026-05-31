@@ -2909,6 +2909,10 @@ function renderPendingList() {
         k += span;
       }
     }
+    if (folderSize >= 2) {
+      // 폴더에 제품 2개 이상 → 1줄로 접어서 표시 (개별 제품은 제품명 클릭 팝업에서 편집)
+      rowsHtml.push(_pendingCollapsedRow(visible.slice(i, i + folderSize), groupBg));
+    } else
     for (let j = 0; j < folderSize; j++) {
       const item = visible[i + j];
       const folderCell = (j === 0)
@@ -3142,8 +3146,11 @@ function _updatePendingSelectLabel() {
 }
 
 function deleteSelectedPending() {
-  const ids = [...document.querySelectorAll('#pending-tbody .pending-row-cb:checked')].map(cb => cb.dataset.pid);
-  if (!ids.length) { alert('삭제할 행을 선택해주세요.'); return; }
+  const cbs = [...document.querySelectorAll('#pending-tbody .pending-row-cb:checked')];
+  if (!cbs.length) { alert('삭제할 행을 선택해주세요.'); return; }
+  const _pidSet = new Set(cbs.map(cb => cb.dataset.pid));
+  const _folderSet = new Set(cbs.map(cb => cb.dataset.folder).filter(Boolean));   // 접힌 폴더 행 → 폴더 전체
+  const ids = pendingList.filter(p => _pidSet.has(p.id) || (p.folder && _folderSet.has(p.folder))).map(p => p.id);
   if (!confirm(`선택한 ${ids.length}개 행을 삭제할까요? (연동된 상품관리 행도 함께 삭제됩니다)`)) return;
   const idset = new Set(ids);
   // 연동된 pm 행도 삭제
@@ -3154,6 +3161,145 @@ function deleteSelectedPending() {
     _savePmToStorage();
   }
   pendingList = pendingList.filter(p => !idset.has(p.id));
+  _savePendingToStorage();
+  renderPendingList();
+}
+
+// 폴더에 제품 2개 이상일 때 1줄로 접어서 그리는 행 (폴더 공통 항목은 인라인, 개별 제품은 팝업)
+function _pendingCollapsedRow(rows, groupBg) {
+  const rep = rows[0];
+  const n = rows.length;
+  const fEsc = _pendingEsc(rep.folder || '');
+  const firstName = rep.name || '(이름없음)';
+  const allDone = rows.every(r => r.done);
+  const addonCnt = rows.filter(r => r.addon).length;
+  const noteSummary = (rows.find(r => r.note) || {}).note || '';
+  const linkHtml = rep.link
+    ? `<a href="${_pendingEsc(rep.link)}" target="_blank" rel="noopener" ondblclick="_pendingEditLinkCell(event, '${rep.id}')" class="text-brand-black hover:underline text-xs break-all cursor-pointer block" title="더블클릭=수정(폴더 전체) · 클릭=새 탭">${_pendingEsc(rep.link.length > 80 ? rep.link.slice(0,80)+'…' : rep.link)}</a>`
+    : `<span class="text-brand-gray text-xs">-</span>`;
+  return `<tr data-pid="${rep.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${allDone ? 'opacity-50' : ''} ${groupBg}">
+    <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${rep.id}" data-folder="${fEsc}" onchange="_updatePendingSelectLabel()"></td>
+    <td class="px-2 py-2 text-center align-middle"><input type="checkbox" ${rep.startDate ? 'checked' : ''} onchange="togglePendingStart('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-indigo-500" title="시작 (폴더 전체)"></td>
+    <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(rep.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
+    <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(rep.date)}" placeholder="완료일" class="pending-input text-center"></td>
+    <td class="px-3 py-2 align-middle text-center font-bold ${groupBg}"><input type="text" data-field="folder" value="${fEsc}" placeholder="0000" class="pending-input font-mono text-xs text-center"></td>
+    <td class="px-3 py-2 align-middle text-center"><button onclick="openPendingFolderModal('${fEsc}')" class="text-[11px] font-bold text-brand-blue bg-brand-blue-light rounded-full px-2 py-1 hover:opacity-80" title="제품 ${n}개 — 클릭해 편집">${n}개</button></td>
+    <td class="px-3 py-2 align-middle min-w-0"><button onclick="openPendingFolderModal('${fEsc}')" class="text-left font-semibold hover:text-brand-blue hover:underline w-full truncate" title="클릭하면 폴더 안 제품 ${n}개를 펼쳐 편집">${_pendingEsc(firstName)} <span class="text-brand-gray font-normal">외 ${n-1}개</span></button></td>
+    <td class="px-3 py-2 align-middle">${linkHtml}</td>
+    <td class="px-3 py-2 align-middle text-center"><button onclick="openPendingFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline" title="키워드는 제품별 — 클릭해 편집">제품별</button></td>
+    <td class="px-2 py-2 text-center align-middle"><button onclick="openPendingFolderModal('${fEsc}')" class="text-xs ${addonCnt ? 'text-brand-blue font-bold' : 'text-brand-gray'} hover:underline" title="추가상품 — 클릭해 편집">${addonCnt ? addonCnt + '개' : '-'}</button></td>
+    <td class="px-2 py-2 text-center align-middle">
+      <select onchange="setPendingGrade('${rep.id}', this.value)" class="pending-input text-center font-bold text-xs cursor-pointer" style="background-position:right 4px center;">
+        <option value=""  ${!rep.grade ? 'selected' : ''}>-</option>
+        <option value="S" ${rep.grade === 'S' ? 'selected' : ''}>S</option>
+        <option value="A" ${rep.grade === 'A' ? 'selected' : ''}>A</option>
+        <option value="B" ${rep.grade === 'B' ? 'selected' : ''}>B</option>
+        <option value="C" ${rep.grade === 'C' ? 'selected' : ''}>C</option>
+      </select>
+    </td>
+    <td class="px-3 py-2 align-middle"><button onclick="openPendingFolderModal('${fEsc}')" class="text-left text-xs ${noteSummary ? 'text-brand-black' : 'text-brand-gray'} hover:text-brand-blue hover:underline w-full truncate" title="비고는 제품별 — 클릭해 편집">${noteSummary ? _pendingEsc(noteSummary) : '제품별'}</button></td>
+    <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${rep.revise ? 'checked' : ''} onchange="togglePendingRevise('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 (폴더 전체)"></td>
+    <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${allDone ? 'checked' : ''} onchange="togglePendingDone('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green" title="완료 (폴더 전체)"></td>
+    <td class="px-2 py-2 text-center align-middle">
+      <button onclick="deletePendingFolder('${fEsc}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="폴더 전체 삭제">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </td>
+  </tr>`;
+}
+
+// 폴더 제품 편집 팝업 — 폴더 안 제품들의 제품명/상품코드/키워드/비고/추가상품 편집
+let _pfFolder = null;
+function openPendingFolderModal(folder) {
+  _pfFolder = folder;
+  if (!pendingList.some(p => p.folder === folder)) return;
+  openModal({
+    title: `폴더 ${folder} — 제품 편집`,
+    descHtml: '<div id="pf-modal-body" style="max-height:62vh;overflow-y:auto;text-align:left;"></div>',
+    okText: '닫기',
+    wide: true,
+    onOk: () => { renderPendingList(); },
+  });
+  _renderPfBody();
+}
+function _renderPfBody() {
+  const box = document.getElementById('pf-modal-body');
+  if (!box || _pfFolder == null) return;
+  const rows = pendingList.filter(p => p.folder === _pfFolder);
+  box.innerHTML = `
+    <div class="flex flex-col gap-2.5 text-brand-black">
+      ${rows.map((p, i) => `
+        <div class="border border-brand-border rounded-2xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-black text-brand-gray">제품 ${i + 1}</span>
+            <button onclick="_pfDeleteProduct('${p.id}')" class="text-xs font-bold text-brand-pink hover:underline">삭제</button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <label class="text-[11px] text-brand-gray font-bold block">제품명
+              <input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black font-semibold">
+            </label>
+            <label class="text-[11px] text-brand-gray font-bold block">상품코드
+              <input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black font-mono">
+            </label>
+            <label class="text-[11px] text-brand-gray font-bold block">키워드
+              <input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black">
+            </label>
+            <label class="text-[11px] text-brand-gray font-bold block">비고
+              <input type="text" value="${_pendingEsc(p.note)}" oninput="_pfEdit('${p.id}','note',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black">
+            </label>
+          </div>
+          <label class="flex items-center gap-2 mt-2 text-xs font-bold text-brand-gray cursor-pointer w-fit">
+            <input type="checkbox" ${p.addon ? 'checked' : ''} onchange="togglePendingAddon('${p.id}', this.checked)" class="w-4 h-4 rounded accent-brand-blue"> 추가상품
+          </label>
+        </div>`).join('')}
+      <button onclick="_pfAddProduct()" class="self-start text-sm font-bold text-brand-blue hover:underline">+ 제품 추가</button>
+    </div>`;
+}
+function _pfEdit(pid, field, val) {
+  const it = pendingList.find(p => p.id === pid);
+  if (!it) return;
+  it[field] = val;
+  if (field === 'code' || field === 'name' || field === 'note') {
+    if (!it.linkedPmId) _ensureLinkedPmForPending(it);
+    _syncPmFromPending(it, field);
+  }
+  clearTimeout(_pendingSaveTimer);
+  _pendingSaveTimer = setTimeout(_savePendingToStorage, 400);
+}
+function _pfAddProduct() {
+  if (_pfFolder == null) return;
+  const rows = pendingList.filter(p => p.folder === _pfFolder);
+  const rep = rows[0] || {};
+  const np = {
+    id: _pendingNewId(),
+    date: rep.date || '', startDate: rep.startDate || '',
+    folder: _pfFolder, code: '', name: '', link: rep.link || '',
+    note: '', keyword: '', addon: false, grade: rep.grade || '',
+    done: rep.done || false, revise: rep.revise || false, linkedPmId: '',
+  };
+  _ensureLinkedPmForPending(np);
+  let lastIdx = -1;
+  pendingList.forEach((p, idx) => { if (p.folder === _pfFolder) lastIdx = idx; });
+  if (lastIdx >= 0) pendingList.splice(lastIdx + 1, 0, np); else pendingList.push(np);
+  _savePendingToStorage();
+  _renderPfBody();
+}
+function _pfDeleteProduct(pid) {
+  const it = pendingList.find(p => p.id === pid);
+  if (!it) return;
+  if (!confirm('이 제품을 삭제할까요? (연동된 상품관리 행도 함께 삭제됩니다)')) return;
+  if (typeof _deleteLinkedPm === 'function') _deleteLinkedPm(it);
+  pendingList = pendingList.filter(p => p.id !== pid);
+  _savePendingToStorage();
+  if (!pendingList.some(p => p.folder === _pfFolder)) { closeModal(); renderPendingList(); return; }
+  _renderPfBody();
+}
+function deletePendingFolder(folder) {
+  const rows = pendingList.filter(p => p.folder === folder);
+  if (!rows.length) return;
+  if (!confirm(`폴더 ${folder} 의 제품 ${rows.length}개를 모두 삭제할까요? (연동된 상품관리 행도 함께 삭제됩니다)`)) return;
+  rows.forEach(it => { if (typeof _deleteLinkedPm === 'function') _deleteLinkedPm(it); });
+  pendingList = pendingList.filter(p => p.folder !== folder);
   _savePendingToStorage();
   renderPendingList();
 }
@@ -3195,6 +3341,10 @@ function _onPendingCellEdit(el, isBlur) {
   }
 
   item[field] = newVal;
+  // 시작/완료 날짜·링크는 폴더 단위로 동일 적용 (접힌 폴더 행에서 수정 시 전체 반영)
+  if ((field === 'date' || field === 'startDate' || field === 'link') && item.folder) {
+    pendingList.filter(p => p.folder === item.folder).forEach(p => { p[field] = newVal; });
+  }
   // 상품관리에 연동된 필드 동기화 (상품코드 / 제품명 / 비고)
   if (field === 'code' || field === 'name' || field === 'note') {
     if (!item.linkedPmId) _ensureLinkedPmForPending(item);
