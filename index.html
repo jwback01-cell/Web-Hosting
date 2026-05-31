@@ -3226,33 +3226,38 @@ function _renderPfBody() {
   const box = document.getElementById('pf-modal-body');
   if (!box || _pfFolder == null) return;
   const rows = pendingList.filter(p => p.folder === _pfFolder);
+  const inpCls = 'w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-1.5 py-1 focus:outline-none';
   box.innerHTML = `
-    <div class="flex flex-col gap-2.5 text-brand-black">
-      ${rows.map((p, i) => `
-        <div class="border border-brand-border rounded-2xl p-3">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-black text-brand-gray">제품 ${i + 1}</span>
-            <button onclick="_pfDeleteProduct('${p.id}')" class="text-xs font-bold text-brand-pink hover:underline">삭제</button>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <label class="text-[11px] text-brand-gray font-bold block">제품명
-              <input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black font-semibold">
-            </label>
-            <label class="text-[11px] text-brand-gray font-bold block">상품코드
-              <input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black font-mono">
-            </label>
-            <label class="text-[11px] text-brand-gray font-bold block">키워드
-              <input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black">
-            </label>
-            <label class="text-[11px] text-brand-gray font-bold block">비고
-              <input type="text" value="${_pendingEsc(p.note)}" oninput="_pfEdit('${p.id}','note',this.value)" class="mt-0.5 w-full bg-white border border-brand-border rounded-lg px-2 py-1.5 text-sm text-brand-black focus:outline-none focus:border-brand-black">
-            </label>
-          </div>
-          <label class="flex items-center gap-2 mt-2 text-xs font-bold text-brand-gray cursor-pointer w-fit">
-            <input type="checkbox" ${p.addon ? 'checked' : ''} onchange="togglePendingAddon('${p.id}', this.checked)" class="w-4 h-4 rounded accent-brand-blue"> 추가상품
-          </label>
-        </div>`).join('')}
-      <button onclick="_pfAddProduct()" class="self-start text-sm font-bold text-brand-blue hover:underline">+ 제품 추가</button>
+    <div class="text-brand-black">
+      <div class="text-xs text-brand-gray mb-2">제품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
+      <div style="overflow-x:auto;">
+      <table class="w-full text-sm border-collapse" style="min-width:560px;">
+        <thead>
+          <tr class="bg-brand-bg">
+            <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[26px]">#</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border">제품명</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[92px]">상품코드</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[110px]">키워드</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[130px]">비고</th>
+            <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[38px]">추가</th>
+            <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[30px]"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((p, i) => `
+            <tr class="border-b border-brand-border hover:bg-brand-bg/60">
+              <td class="px-1 py-0.5 text-center text-xs text-brand-gray font-bold">${i + 1}</td>
+              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold"></td>
+              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" placeholder="GB0000" class="${inpCls} text-xs font-mono"></td>
+              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
+              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.note)}" oninput="_pfEdit('${p.id}','note',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
+              <td class="px-1 py-0.5 text-center"><input type="checkbox" ${p.addon ? 'checked' : ''} onchange="togglePendingAddon('${p.id}', this.checked)" class="w-4 h-4 rounded accent-brand-blue cursor-pointer"></td>
+              <td class="px-1 py-0.5 text-center"><button onclick="_pfDeleteProduct('${p.id}')" class="text-brand-gray hover:text-brand-pink font-bold" title="삭제">✕</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      </div>
+      <button onclick="_pfAddProduct()" class="mt-3 text-sm font-bold text-brand-blue hover:underline">+ 제품 추가</button>
     </div>`;
 }
 function _pfEdit(pid, field, val) {
