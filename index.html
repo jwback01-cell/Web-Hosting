@@ -2797,15 +2797,27 @@ async function _dashLoadStorage() {
 
 // ── 등록 예정 리스트 ─────────────────────────
 // ── 근태관리 (출근·퇴근·연차) ─────────────────────────
-const ATTEND_LS_KEY = 'ih_attendance_v1';
+// v2 : 계정별 분리 — 로그인 user.id 별로 별도 storage key 사용
+//   - 로그인 전 / 게스트 → 'ih_attendance_v1' (공통 키)
+//   - 로그인 후 → 'ih_attendance_v1__<userId>' (개인 키)
+//   - 기존 'ih_attendance_v1' 데이터는 본인(updated_by 일치) 계정으로 자동 마이그레이션
+const ATTEND_LS_KEY = 'ih_attendance_v1';   // 옛 공통 키 (마이그레이션·게스트 fallback)
+function _attendKey() {
+  const uid = (window.currentUser && window.currentUser.id) || '';
+  return uid ? `ih_attendance_v1__${uid}` : ATTEND_LS_KEY;
+}
+// 근태 키 판정 (cloud sync 후킹/PULL 필터링용)
+function _isAttendKey(k) {
+  return k === ATTEND_LS_KEY || (typeof k === 'string' && k.startsWith('ih_attendance_v1__'));
+}
 let attendList = [];
 let _attendSaveTimer = null;
 function _loadAttend() {
-  try { attendList = JSON.parse(localStorage.getItem(ATTEND_LS_KEY) || '[]') || []; }
+  try { attendList = JSON.parse(localStorage.getItem(_attendKey()) || '[]') || []; }
   catch (_) { attendList = []; }
 }
 function _saveAttend() {
-  try { localStorage.setItem(ATTEND_LS_KEY, JSON.stringify(attendList)); } catch (_) {}
+  try { localStorage.setItem(_attendKey(), JSON.stringify(attendList)); } catch (_) {}
 }
 function _attendNewId() { return 'at_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function _attendWorkHours(rec) {
@@ -3973,7 +3985,9 @@ async function ihCloudPullAll() {
     if (!sb) return 0;
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return 0;
-    const { data, error } = await sb.from('ih_kv').select('key, data');
+    const myUid = session.user.id;
+    const myAttendKey = `ih_attendance_v1__${myUid}`;
+    const { data, error } = await sb.from('ih_kv').select('key, data, updated_by');
     if (error) {
       if (String(error.message||'').toLowerCase().includes('does not exist') || error.code === '42P01') {
         console.warn('[ih-sync] ih_kv 테이블이 없습니다. SQL 을 먼저 실행하세요.');
@@ -3983,8 +3997,18 @@ async function ihCloudPullAll() {
     }
     let pulled = 0;
     const pulledKeys = new Set();
+    let legacyAttendRow = null;   // 옛 공통 ih_attendance_v1 row (마이그레이션 후보)
     for (const row of (data || [])) {
-      if (!IH_SYNC_KEYS.includes(row.key)) continue;
+      // 공통 키 + 내 user-specific attendance 키만 받음
+      const isAttend = _isAttendKey(row.key);
+      if (isAttend) {
+        // 다른 사용자의 user-specific attendance row → 무시
+        if (row.key.startsWith('ih_attendance_v1__') && row.key !== myAttendKey) continue;
+        // 옛 공통 ih_attendance_v1 → 마이그레이션 후보로만 보관 (직접 localStorage 안 씀)
+        if (row.key === ATTEND_LS_KEY) { legacyAttendRow = row; continue; }
+      } else if (!IH_SYNC_KEYS.includes(row.key)) {
+        continue;
+      }
       if (row.data == null) continue;
       pulledKeys.add(row.key);
       try {
@@ -3994,11 +4018,24 @@ async function ihCloudPullAll() {
       } catch (_) {}
     }
     _ihCloudReady = true;
+    // 마이그레이션 — 옛 공통 row가 내가 만든 거(updated_by 일치)이고 내 개인 key가 아직 없으면 복사
+    if (legacyAttendRow && !pulledKeys.has(myAttendKey) && legacyAttendRow.updated_by === myUid) {
+      try {
+        const s = (typeof legacyAttendRow.data === 'string') ? legacyAttendRow.data : JSON.stringify(legacyAttendRow.data);
+        Storage.prototype._ihOrigSetItem.call(localStorage, myAttendKey, s);
+        console.log('[ih-sync] migrated legacy attendance → user-specific key');
+        // 옛 공통 row 삭제 + 내 key 로 PUSH 는 hook 이 처리
+        _ihCloudPushKey(myAttendKey);
+        try { await sb.from('ih_kv').delete().eq('key', ATTEND_LS_KEY); } catch (_) {}
+      } catch (e) { console.warn('[ih-sync] attendance migration failed', e); }
+    }
     // PULL 받은 데이터로 리스트 재로딩
     try { _loadPendingFromStorage(); renderPendingList(); } catch (_) {}
     try { _loadPmFromStorage();      renderProductsList(); } catch (_) {}
+    try { _loadAttend();             if (typeof renderAttendance === 'function') renderAttendance(); } catch (_) {}
     // 클라우드에 없는데 로컬에 있는 키 → 첫 PUSH (사고 방지: 빈 배열은 건너뜀)
-    for (const key of IH_SYNC_KEYS) {
+    const localOnlyCandidates = [...IH_SYNC_KEYS, myAttendKey];
+    for (const key of localOnlyCandidates) {
       if (pulledKeys.has(key)) continue;
       const localRaw = localStorage.getItem(key);
       if (localRaw == null) continue;
@@ -4016,7 +4053,9 @@ async function ihCloudPullAll() {
 
 function _ihCloudPushKey(key) {
   if (!_ihCloudReady) return;
-  if (!IH_SYNC_KEYS.includes(key)) return;
+  // IH_SYNC_KEYS 에 있는 키 또는 user-specific attendance 키만 push
+  const isUserAttend = (typeof key === 'string') && key.startsWith('ih_attendance_v1__');
+  if (!IH_SYNC_KEYS.includes(key) && !isUserAttend) return;
   clearTimeout(_ihPushTimers[key]);
   _ihPushTimers[key] = setTimeout(async () => {
     try {
@@ -4035,7 +4074,7 @@ function _ihCloudPushKey(key) {
   }, 1500);
 }
 
-// localStorage.setItem 후킹 — IH_SYNC_KEYS 만 자동 PUSH
+// localStorage.setItem 후킹 — IH_SYNC_KEYS + user-specific attendance 만 자동 PUSH
 (function hookIhSync() {
   if (Storage.prototype._ihOrigSetItem) return;
   Storage.prototype._ihOrigSetItem = Storage.prototype.setItem;
