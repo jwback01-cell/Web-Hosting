@@ -2514,7 +2514,7 @@ function renderCalendar() {
     const dow = (startDow + d - 1) % 7;
     const dowColor = dow === 0 ? 'text-red-500' : (dow === 6 ? 'text-blue-500' : 'text-brand-black');
     const has = active.length > 0;
-    const bars = active.slice(0, 3).map(a => {
+    const bars = active.slice(0, 6).map(a => {
       const u = a.unit;
       const cls = u.done
         ? (a.isEnd ? 'bg-brand-green text-white' : 'bg-brand-green-light text-brand-green')
@@ -2523,10 +2523,10 @@ function renderCalendar() {
       const label = a.isStart ? _pendingEsc(u.name || u.folder || '') : (a.isEnd && u.done ? '완료' : '');
       return `<div class="${cls} ${round} h-[15px] px-1 text-[9px] font-bold leading-[15px] truncate" title="${_pendingEsc(u.name || u.folder || '')}">${label}</div>`;
     }).join('');
-    const more = active.length > 3 ? `<div class="text-[9px] text-brand-gray leading-tight">+${active.length-3}</div>` : '';
+    const more = active.length > 6 ? `<div class="text-[9px] text-brand-gray leading-tight">+${active.length-6}</div>` : '';
     cells.push(`
       <div ${has ? `onclick="calSelectDay('${key}')"` : ''}
-           class="min-h-[80px] rounded-xl border p-1.5 flex flex-col gap-0.5 transition-colors ${has ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
+           class="min-h-[150px] rounded-xl border p-1.5 flex flex-col gap-0.5 transition-colors ${has ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold ${dowColor}">${d}${isToday ? '<span class="ml-1 text-[9px] text-brand-blue font-bold">오늘</span>' : ''}</span>
           ${has ? `<span class="text-[10px] font-black text-white bg-brand-black/70 rounded-full px-1.5 py-0.5 leading-none">${active.length}</span>` : ''}
