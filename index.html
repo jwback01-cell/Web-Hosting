@@ -763,6 +763,7 @@
       <div class="overflow-x-auto -mx-1 px-1">
         <table class="w-full text-sm border-collapse">
           <thead><tr class="bg-brand-bg">
+            <th id="attend-th-owner" class="hidden px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[140px]">직원</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[160px]">날짜</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[200px]">출근</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[200px]">퇴근</th>
@@ -3074,7 +3075,17 @@ function renderAttendance() {
   const addBtn = document.getElementById('attend-add-btn');
   if (addBtn) addBtn.style.display = _isMasterTop ? '' : 'none';
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-  const list = attendList.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  // 마스터는 본인 + 모든 직원 attendance 통합 표시, 직원은 본인만
+  const myUid = (window.currentUser && window.currentUser.id) || '';
+  const myEmail = (window.currentUser && window.currentUser.email) || '';
+  let list = attendList.slice().map(r => ({ ...r, _ownerUid: myUid, _ownerEmail: myEmail }));
+  if (_isMasterTop && window._attendOthersByUser) {
+    Object.entries(window._attendOthersByUser).forEach(([uid, rows]) => {
+      if (!Array.isArray(rows)) return;
+      rows.forEach(r => list.push({ ...r, _ownerUid: uid, _ownerEmail: '' }));
+    });
+  }
+  list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(a._ownerUid).localeCompare(String(b._ownerUid)));
 
   // 이번 달 요약
   const now = new Date();
@@ -3097,14 +3108,25 @@ function renderAttendance() {
   const LEAVES = ['', '연차'];
   // 마스터 권한 판정 — 사장님 계정만 행 삭제 가능, 직원은 본인 출퇴근 기록은 영구
   const _isMaster = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
+  // 마스터일 때만 "직원" 컬럼 헤더 표시
+  const ownerTh = document.getElementById('attend-th-owner');
+  if (ownerTh) ownerTh.classList.toggle('hidden', !_isMaster);
   tbody.innerHTML = list.map(r => {
     const hrs = _fmtHours(_attendWorkHours(r));
     const opts = LEAVES.map(v => `<option value="${v}" ${r.leave === v ? 'selected' : ''}>${v || '정상근무'}</option>`).join('');
     const dim = (r.leave === '연차') ? 'opacity-60' : '';
+    // 본인 row 인지 (마스터는 본인 + 다른 직원, 다른 직원 row 는 read-only)
+    const isMine = (r._ownerUid === myUid);
+    const readonly = !isMine;
+    // 직원 표시 — 본인 user id 짧게(8자), 또는 본인이면 "나"
+    const ownerShort = isMine ? '나' : String(r._ownerUid || '').slice(0, 8);
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시 + ✕ 취소
     const _chkCell = (field, label) => {
       const v = r[field] || '';
       if (!v) {
+        if (readonly) {
+          return `<td class="p-1 align-middle text-center text-brand-gray text-xs">-</td>`;
+        }
         // 빈 셀 — 큰 버튼 (셀 전체)
         return `<td class="p-1 align-middle">
           <button onclick="_attendToggleCheck('${r.id}','${field}',true)" class="w-full py-2.5 rounded-lg border-2 border-dashed border-brand-border text-brand-gray hover:border-brand-green hover:text-brand-green hover:bg-brand-green-light/30 font-bold text-sm transition-colors">
@@ -3113,6 +3135,14 @@ function renderAttendance() {
         </td>`;
       }
       // 채워진 셀 — 시간 표시 (클릭=수정) + 작은 ✕ (취소)
+      //   다른 직원 row 면 시간만 표시 (수정/취소 불가)
+      if (readonly) {
+        return `<td class="p-1 align-middle">
+          <div class="flex items-center justify-center bg-brand-green-light/40 rounded-lg py-1.5 px-2">
+            <span class="text-brand-black font-bold text-sm">${_pmEsc(v)}</span>
+          </div>
+        </td>`;
+      }
       return `<td class="p-1 align-middle">
         <div class="flex items-center justify-center gap-1 bg-brand-green-light/40 rounded-lg py-1.5 px-2">
           <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-[130px] text-center cursor-pointer" title="시간 수정">
@@ -3120,14 +3150,28 @@ function renderAttendance() {
         </div>
       </td>`;
     };
-    return `<tr class="border-b border-brand-border hover:bg-blue-50/40 ${dim}">
-      <td class="px-3 py-2 align-middle"><input type="date" value="${_pmEsc(r.date)}" onchange="_onAttendEdit('${r.id}','date',this.value)" class="${cell} text-center"></td>
+    const ownerCell = _isMaster ? `<td class="px-3 py-2 align-middle text-center text-xs font-bold ${isMine ? 'text-brand-blue' : 'text-brand-gray'}">${_pmEsc(ownerShort)}</td>` : '';
+    const dateCell = readonly
+      ? `<td class="px-3 py-2 align-middle text-center text-sm">${_pmEsc(r.date)}</td>`
+      : `<td class="px-3 py-2 align-middle"><input type="date" value="${_pmEsc(r.date)}" onchange="_onAttendEdit('${r.id}','date',this.value)" class="${cell} text-center"></td>`;
+    const leaveCell = readonly
+      ? `<td class="px-3 py-2 align-middle text-center text-sm ${r.leave ? 'text-brand-pink font-bold' : 'text-brand-gray'}">${r.leave || '정상근무'}</td>`
+      : `<td class="px-3 py-2 align-middle"><select onchange="_onAttendEdit('${r.id}','leave',this.value)" class="${cell} text-center font-bold cursor-pointer ${r.leave ? 'text-brand-pink' : 'text-brand-black'}">${opts}</select></td>`;
+    const noteCell = readonly
+      ? `<td class="px-3 py-2 align-middle text-sm text-brand-gray">${_pmEsc(r.note || '')}</td>`
+      : `<td class="px-3 py-2 align-middle"><input type="text" value="${_pmEsc(r.note)}" oninput="_onAttendEdit('${r.id}','note',this.value)" placeholder="" class="${cell} text-left"></td>`;
+    const delCell = _isMaster && isMine
+      ? `<td class="px-2 py-2 text-center align-middle"><button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>`
+      : `<td class="px-2 py-2"></td>`;
+    return `<tr class="border-b border-brand-border ${readonly ? 'bg-brand-bg/30' : 'hover:bg-blue-50/40'} ${dim}">
+      ${ownerCell}
+      ${dateCell}
       ${_chkCell('checkIn', '출근')}
       ${_chkCell('checkOut', '퇴근')}
       <td class="px-3 py-2 align-middle text-center font-bold ${hrs === '-' ? 'text-brand-gray' : 'text-brand-black'}">${hrs}</td>
-      <td class="px-3 py-2 align-middle"><select onchange="_onAttendEdit('${r.id}','leave',this.value)" class="${cell} text-center font-bold cursor-pointer ${r.leave ? 'text-brand-pink' : 'text-brand-black'}">${opts}</select></td>
-      <td class="px-3 py-2 align-middle"><input type="text" value="${_pmEsc(r.note)}" oninput="_onAttendEdit('${r.id}','note',this.value)" placeholder="" class="${cell} text-left"></td>
-      <td class="px-2 py-2 text-center align-middle">${_isMaster ? `<button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>` : ''}</td>
+      ${leaveCell}
+      ${noteCell}
+      ${delCell}
     </tr>`;
   }).join('');
 }
@@ -4139,6 +4183,10 @@ const IH_SYNC_KEYS = [
 let _ihCloudReady = false;
 const _ihPushTimers = {};
 
+// 마스터 전용 — 다른 직원의 attendance 데이터 (read-only 조회용)
+//   key: userId, value: { rows: [...], email: '...' }
+window._attendOthersByUser = {};
+
 async function ihCloudPullAll() {
   try {
     if (!sb) return 0;
@@ -4146,6 +4194,7 @@ async function ihCloudPullAll() {
     if (!session) return 0;
     const myUid = session.user.id;
     const myAttendKey = `ih_attendance_v1__${myUid}`;
+    const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
     const { data, error } = await sb.from('ih_kv').select('key, data, updated_by');
     if (error) {
       if (String(error.message||'').toLowerCase().includes('does not exist') || error.code === '42P01') {
@@ -4157,12 +4206,24 @@ async function ihCloudPullAll() {
     let pulled = 0;
     const pulledKeys = new Set();
     let legacyAttendRow = null;   // 옛 공통 ih_attendance_v1 row (마이그레이션 후보)
+    // 마스터용 — 다른 직원 attendance 임시 보관
+    const othersTemp = {};
     for (const row of (data || [])) {
       // 공통 키 + 내 user-specific attendance 키만 받음
       const isAttend = _isAttendKey(row.key);
       if (isAttend) {
-        // 다른 사용자의 user-specific attendance row → 무시
-        if (row.key.startsWith('ih_attendance_v1__') && row.key !== myAttendKey) continue;
+        // 다른 사용자의 user-specific attendance row
+        if (row.key.startsWith('ih_attendance_v1__') && row.key !== myAttendKey) {
+          if (isMaster && row.data != null) {
+            // 마스터는 모든 직원 attendance 를 조회용으로 수집
+            const otherUid = row.key.replace('ih_attendance_v1__', '');
+            try {
+              const parsed = (typeof row.data === 'string') ? JSON.parse(row.data) : row.data;
+              othersTemp[otherUid] = Array.isArray(parsed) ? parsed : [];
+            } catch (_) {}
+          }
+          continue;
+        }
         // 옛 공통 ih_attendance_v1 → 마이그레이션 후보로만 보관 (직접 localStorage 안 씀)
         if (row.key === ATTEND_LS_KEY) { legacyAttendRow = row; continue; }
       } else if (!IH_SYNC_KEYS.includes(row.key)) {
@@ -4176,6 +4237,7 @@ async function ihCloudPullAll() {
         pulled++;
       } catch (_) {}
     }
+    window._attendOthersByUser = othersTemp;
     _ihCloudReady = true;
     // 마이그레이션 — 옛 공통 row가 내가 만든 거(updated_by 일치)이고 내 개인 key가 아직 없으면 복사
     if (legacyAttendRow && !pulledKeys.has(myAttendKey) && legacyAttendRow.updated_by === myUid) {
