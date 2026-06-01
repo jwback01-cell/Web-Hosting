@@ -1084,10 +1084,15 @@ async function r2Download(imageRow) {
   return { data: null, error: new Error('이미지를 찾을 수 없습니다') };
 }
 
+// v1+ : Supabase 키 하드코딩 — 모든 PC에서 추가 설정 없이 자동 연결
+//   anon public key 는 RLS(Row Level Security)로 보호되어 공개돼도 안전
+//   사용자가 별도 프로젝트를 쓰려면 localStorage 에 값을 넣으면 그게 우선
+const DEFAULT_IH_SUPABASE_URL = 'https://ktqqibjkwpocnxrtsvpd.supabase.co';
+const DEFAULT_IH_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtOcXFpYmprd3BvY254cnRzdnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDI2NjIsImV4cCI6MjA5NDMxODY2Mn0.ix3dhqOhJI_li-GIki8AniUo5ZS2eW_OUbiPZzUqPL8';
 function getSupabaseConfig() {
   return {
-    url: (localStorage.getItem('ih_supabase_url') || '').trim(),
-    key: (localStorage.getItem('ih_supabase_key') || '').trim(),
+    url: (localStorage.getItem('ih_supabase_url') || DEFAULT_IH_SUPABASE_URL).trim(),
+    key: (localStorage.getItem('ih_supabase_key') || DEFAULT_IH_SUPABASE_KEY).trim(),
   };
 }
 function _isValidUrl(u) { return /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(u); }
