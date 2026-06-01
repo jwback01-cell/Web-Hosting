@@ -4238,6 +4238,13 @@ async function ihCloudPullAll() {
       } catch (_) {}
     }
     window._attendOthersByUser = othersTemp;
+    if (isMaster) {
+      const allAttendKeys = (data || []).filter(r => r.key && r.key.startsWith('ih_attendance_v1__')).map(r => r.key);
+      console.log('[ih-sync MASTER] 전체 attendance 키:', allAttendKeys, '내 키 제외 직원 수:', Object.keys(othersTemp).length);
+      if (allAttendKeys.length <= 1 && Object.keys(othersTemp).length === 0) {
+        console.warn('[ih-sync MASTER] ⚠ 직원 attendance row 가 안 보입니다. Supabase RLS 정책이 SELECT 를 본인 row 로 제한할 가능성. SQL Editor 에서 정책 확인 필요');
+      }
+    }
     _ihCloudReady = true;
     // 마이그레이션 — 옛 공통 row가 내가 만든 거(updated_by 일치)이고 내 개인 key가 아직 없으면 복사
     if (legacyAttendRow && !pulledKeys.has(myAttendKey) && legacyAttendRow.updated_by === myUid) {
