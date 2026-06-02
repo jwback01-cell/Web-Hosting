@@ -869,15 +869,15 @@
       <div class="flex flex-col gap-3">
         <div>
           <label class="block text-xs font-bold text-brand-gray mb-1.5">제목</label>
-          <input id="ihtodo-input-title" type="text" placeholder="예: 거래처 정산 메일 발송" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+          <input id="ihtodo-input-title" type="text" placeholder="예: 거래처 정산 메일 발송" onkeydown="if(event.key==='Enter'){event.preventDefault();ihtodoSubmitAdd();}" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
         </div>
         <div>
-          <label class="block text-xs font-bold text-brand-gray mb-1.5">태그 (선택)</label>
-          <input id="ihtodo-input-tag" type="text" placeholder="예: 클릭나라, 지플랜, CS, 마케팅 ..." class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+          <label class="block text-xs font-bold text-brand-gray mb-1.5">내용 (선택)</label>
+          <textarea id="ihtodo-input-tag" rows="6" placeholder="자세한 내용을 입력하세요…&#10;(Enter로 줄바꿈, Ctrl+Enter 로 추가)" onkeydown="if(event.key==='Enter' && (event.ctrlKey || event.metaKey)){event.preventDefault();ihtodoSubmitAdd();}" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black resize-y min-h-[140px]"></textarea>
         </div>
         <div>
           <label class="block text-xs font-bold text-brand-gray mb-1.5">마감일</label>
-          <input id="ihtodo-input-due" type="date" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+          <input id="ihtodo-input-due" type="date" onkeydown="if(event.key==='Enter'){event.preventDefault();ihtodoSubmitAdd();}" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
         </div>
       </div>
       <div class="flex gap-2 mt-2">
@@ -3431,16 +3431,17 @@ function ihtodoRender() {
     } else {
       if (emptyEl) emptyEl.classList.add('hidden');
       listEl.innerHTML = pending.map(it => {
-        const tagHtml = it.tag
-          ? `<span class="bg-brand-blue-light text-brand-blue px-2.5 py-1 rounded-lg text-xs font-bold">${_pmEsc(it.tag)}</span>`
+        const bodyHtml = it.tag
+          ? `<div class="text-sm text-brand-black/80 whitespace-pre-wrap mt-1 mb-1">${_pmEsc(it.tag)}</div>`
           : '';
         const dueHtml = `<span class="text-brand-gray text-sm font-medium">${_pmEsc(_ihtodoFmtDateLong(it.due))} 마감</span>`;
-        return `<div class="flex items-center justify-between p-4 border border-brand-border rounded-2xl hover:bg-brand-bg transition-all group">
-          <div class="flex items-center gap-4 min-w-0">
-            <button onclick="ihtodoToggleDone('${it.id}')" class="w-7 h-7 rounded-full border-2 border-brand-border hover:border-brand-green hover:bg-brand-green-light/40 transition-colors shrink-0" title="완료 처리"></button>
+        return `<div class="flex items-start justify-between p-4 border border-brand-border rounded-2xl hover:bg-brand-bg transition-all group">
+          <div class="flex items-start gap-4 min-w-0">
+            <button onclick="ihtodoToggleDone('${it.id}')" class="w-7 h-7 rounded-full border-2 border-brand-border hover:border-brand-green hover:bg-brand-green-light/40 transition-colors shrink-0 mt-1" title="완료 처리"></button>
             <div class="min-w-0">
-              <div class="font-bold text-base mb-1">${_pmEsc(it.title)}</div>
-              <div class="flex items-center gap-2 flex-wrap">${tagHtml}${dueHtml}</div>
+              <div class="font-bold text-base">${_pmEsc(it.title)}</div>
+              ${bodyHtml}
+              <div class="flex items-center gap-2 flex-wrap">${dueHtml}</div>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0 ml-3">
