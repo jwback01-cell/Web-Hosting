@@ -292,6 +292,7 @@
       </a>
       <div id="work-submenu" class="hidden flex-col gap-1.5 ml-7 mb-1">
         <a class="nav-sub menu-tab" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</a>
+        <a class="nav-sub menu-tab" data-menu="fakebuy" onclick="switchMenu('fakebuy')">가구매</a>
         <a class="nav-sub menu-tab" data-menu="revise"  onclick="switchMenu('revise')">수정요청</a>
         <a class="nav-sub menu-tab" data-menu="images"  onclick="switchMenu('images')">이미지 저장소</a>
       </div>
@@ -709,6 +710,57 @@
       </div>
       <div id="pending-empty" class="text-center py-12 text-brand-gray text-sm hidden">
         등록 예정 상품이 없습니다. 위 "+ 새 행" 버튼을 눌러 추가하세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- 메뉴: 가구매 -->
+  <div id="menu-fakebuy" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">가구매</h1>
+          <p class="text-brand-gray text-sm mt-1">셀을 클릭하면 바로 수정됩니다. 자동 저장.</p>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <label class="flex items-center gap-1.5 text-xs font-semibold text-brand-gray cursor-pointer">
+            <input type="checkbox" id="fakebuy-show-completed" onchange="renderFakebuyList()" class="w-4 h-4 rounded">
+            완료 항목도 보기
+          </label>
+          <button onclick="addFakebuyRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-xs font-bold hover:bg-[#333] flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            새 행
+          </button>
+        </div>
+      </div>
+
+      <!-- 선택 툴바 -->
+      <div class="flex items-center gap-3 px-1 py-2 border-y border-brand-border">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="fakebuy-select-all" onchange="toggleFakebuySelectAll(this.checked)" class="w-4 h-4 rounded">
+          <span id="fakebuy-select-all-label" class="text-xs font-bold text-brand-gray">전체 선택 (0개)</span>
+        </label>
+        <button onclick="deleteSelectedFakebuy()" class="text-xs font-bold text-brand-pink hover:opacity-80">선택 삭제</button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm border-collapse" id="fakebuy-table">
+          <thead>
+            <tr class="bg-brand-bg">
+              <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[220px]">제품명</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[200px]">링크</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[160px]">키워드</th>
+              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[180px]">비고</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px]">완료</th>
+              <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
+            </tr>
+          </thead>
+          <tbody id="fakebuy-tbody"></tbody>
+        </table>
+      </div>
+      <div id="fakebuy-empty" class="text-center py-12 text-brand-gray text-sm hidden">
+        가구매 항목이 없습니다. 위 "+ 새 행" 버튼을 눌러 추가하세요.
       </div>
     </div>
   </div>
@@ -2649,9 +2701,9 @@ function toggleDutyGroup(e) {
   else          { sub.classList.add('hidden');    sub.classList.remove('flex'); }
 }
 
-// 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
+// 메뉴 전환 — 'images' | 'products' | 'pending' | 'fakebuy' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['dashboard', 'images', 'products', 'pending', 'revise', 'attend', 'addon', 'todo'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'fakebuy', 'revise', 'attend', 'addon', 'todo'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
@@ -2662,7 +2714,7 @@ function switchMenu(menuId) {
   // 그룹 자동 펼침/접힘 — 활성 메뉴가 속한 그룹은 펼침
   const workSub = document.getElementById('work-submenu');
   const dutySub = document.getElementById('duty-submenu');
-  const inWork = ['pending', 'revise', 'images'].includes(menuId);
+  const inWork = ['pending', 'fakebuy', 'revise', 'images'].includes(menuId);
   const inDuty = ['attend', 'addon', 'todo'].includes(menuId);
   if (workSub) {
     if (inWork) { workSub.classList.remove('hidden'); workSub.classList.add('flex'); }
@@ -2678,6 +2730,7 @@ function switchMenu(menuId) {
   if (menuId === 'dashboard') renderDashboard();
   if (menuId === 'revise')   renderReviseList();
   if (menuId === 'pending')  renderPendingList();
+  if (menuId === 'fakebuy')  renderFakebuyList();
   if (menuId === 'products') renderProductsList();
   if (menuId === 'attend')   renderAttendance();
   if (menuId === 'addon')    renderCalendar();
@@ -3613,6 +3666,114 @@ function ihtodoRender() {
 }
 // 페이지 로드 시 데이터 로드 (자동)
 document.addEventListener('DOMContentLoaded', _ihtodoLoad);
+
+// ── 가구매 (등록예정과 별개 — 간단한 메모형 리스트) ─────────────────
+const FAKEBUY_LS_KEY = 'ih_fakebuy_v1';
+let fakebuyList = [];
+let _fakebuySaveTimer = null;
+function _loadFakebuy() {
+  try { fakebuyList = JSON.parse(localStorage.getItem(FAKEBUY_LS_KEY) || '[]') || []; }
+  catch (_) { fakebuyList = []; }
+}
+function _saveFakebuy() {
+  try { localStorage.setItem(FAKEBUY_LS_KEY, JSON.stringify(fakebuyList)); } catch (_) {}
+}
+function _fakebuyNewId() { return 'fb_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function addFakebuyRow() {
+  fakebuyList.unshift({
+    id: _fakebuyNewId(),
+    name: '', link: '', keyword: '', note: '',
+    done: false, selected: false,
+    createdAt: new Date().toISOString(),
+  });
+  _saveFakebuy();
+  renderFakebuyList();
+  setTimeout(() => {
+    const first = document.querySelector('#fakebuy-tbody tr input[data-field="name"]');
+    if (first) first.focus();
+  }, 50);
+}
+function deleteFakebuyRow(id) {
+  if (!confirm('이 행을 삭제할까요?')) return;
+  fakebuyList = fakebuyList.filter(r => r.id !== id);
+  _saveFakebuy();
+  renderFakebuyList();
+}
+function _onFakebuyEdit(id, field, val) {
+  const r = fakebuyList.find(x => x.id === id);
+  if (!r) return;
+  if (field === 'done' || field === 'selected') r[field] = !!val;
+  else r[field] = val;
+  clearTimeout(_fakebuySaveTimer);
+  _fakebuySaveTimer = setTimeout(_saveFakebuy, 300);
+  if (field === 'done' || field === 'selected') { _saveFakebuy(); renderFakebuyList(); }
+}
+function toggleFakebuySelectAll(checked) {
+  const showCompleted = document.getElementById('fakebuy-show-completed')?.checked || false;
+  fakebuyList.forEach(r => { if (showCompleted || !r.done) r.selected = !!checked; });
+  _saveFakebuy();
+  renderFakebuyList();
+}
+function deleteSelectedFakebuy() {
+  const n = fakebuyList.filter(r => r.selected).length;
+  if (!n) { toast && toast('선택된 항목이 없습니다'); return; }
+  if (!confirm(`선택한 ${n}개 항목을 삭제할까요?`)) return;
+  fakebuyList = fakebuyList.filter(r => !r.selected);
+  _saveFakebuy();
+  renderFakebuyList();
+}
+function renderFakebuyList() {
+  _loadFakebuy();
+  const tbody = document.getElementById('fakebuy-tbody');
+  const empty = document.getElementById('fakebuy-empty');
+  if (!tbody) return;
+  const showCompleted = document.getElementById('fakebuy-show-completed')?.checked || false;
+  const visible = fakebuyList.filter(r => showCompleted || !r.done);
+  // 선택 카운트 라벨
+  const selN = visible.filter(r => r.selected).length;
+  const lbl = document.getElementById('fakebuy-select-all-label');
+  if (lbl) lbl.textContent = `전체 선택 (${selN}개)`;
+  const allSel = document.getElementById('fakebuy-select-all');
+  if (allSel) allSel.checked = visible.length > 0 && visible.every(r => r.selected);
+
+  if (!visible.length) {
+    tbody.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  const inp = 'w-full bg-transparent border border-transparent hover:border-brand-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-brand-black focus:bg-white';
+  tbody.innerHTML = visible.map(r => {
+    const doneRow = r.done ? 'opacity-60' : '';
+    return `<tr class="border-b border-brand-border ${doneRow}" data-id="${r.id}">
+      <td class="px-2 py-1 align-middle text-center">
+        <input type="checkbox" ${r.selected ? 'checked' : ''} onchange="_onFakebuyEdit('${r.id}','selected',this.checked)" class="w-4 h-4 rounded">
+      </td>
+      <td class="px-2 py-1 align-middle">
+        <input type="text" data-field="name" value="${_pmEsc(r.name)}" placeholder="제품명" oninput="_onFakebuyEdit('${r.id}','name',this.value)" class="${inp} font-semibold">
+      </td>
+      <td class="px-2 py-1 align-middle">
+        <input type="text" data-field="link" value="${_pmEsc(r.link)}" placeholder="https://..." oninput="_onFakebuyEdit('${r.id}','link',this.value)" class="${inp} text-xs text-brand-blue">
+      </td>
+      <td class="px-2 py-1 align-middle">
+        <input type="text" data-field="keyword" value="${_pmEsc(r.keyword)}" placeholder="" oninput="_onFakebuyEdit('${r.id}','keyword',this.value)" class="${inp} text-xs">
+      </td>
+      <td class="px-2 py-1 align-middle">
+        <input type="text" data-field="note" value="${_pmEsc(r.note)}" placeholder="" oninput="_onFakebuyEdit('${r.id}','note',this.value)" class="${inp} text-xs">
+      </td>
+      <td class="px-2 py-1 align-middle text-center">
+        <label class="inline-flex items-center justify-center cursor-pointer">
+          <input type="checkbox" ${r.done ? 'checked' : ''} onchange="_onFakebuyEdit('${r.id}','done',this.checked)" class="w-5 h-5 rounded">
+        </label>
+      </td>
+      <td class="px-2 py-1 align-middle text-center">
+        <button onclick="deleteFakebuyRow('${r.id}')" title="행 삭제" class="text-brand-gray hover:text-brand-pink text-lg leading-none px-1">×</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+document.addEventListener('DOMContentLoaded', _loadFakebuy);
 
 const PENDING_LS_KEY = 'ih_pending_products_v1';
 let pendingList = [];
@@ -4636,6 +4797,7 @@ document.addEventListener('DOMContentLoaded', _loadPendingFromStorage);
 const IH_SYNC_KEYS = [
   'ih_pending_products_v1',   // 등록 예정 리스트
   'ih_products_v1',           // 상품관리
+  'ih_fakebuy_v1',            // 가구매
   // 'ih_attendance_v1' (옛 공통 키) 는 user-specific key 'ih_attendance_v1__<uid>' 로 분리됨
   //   IH_SYNC_KEYS 에 두면 마이그레이션 완료 후에도 매번 PUSH 시도 → 403 발생하므로 제외
 ];
