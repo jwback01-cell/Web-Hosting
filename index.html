@@ -790,31 +790,31 @@
   <div id="menu-addon" class="hidden flex-1 px-4 md:px-6 pb-6">
     <div class="bg-white rounded-4xl panel p-5 md:p-7">
       <!-- 헤더: 제목 + 월 이동 -->
-      <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h2 class="text-xl font-bold">진행 캘린더</h2>
-          <p class="text-brand-gray text-xs mt-0.5">시작일부터 완료일까지 기간으로 길게 이어서 표시합니다 · <span class="text-indigo-600 font-bold">■</span> 진행 중 · <span class="text-brand-green font-bold">■</span> 완료</p>
+          <h2 class="text-2xl font-bold">진행 캘린더</h2>
+          <p class="text-brand-gray text-sm mt-1">시작일부터 완료일까지 기간으로 길게 이어서 표시합니다 · <span class="text-indigo-600 font-bold">■</span> 진행 중 · <span class="text-brand-green font-bold">■</span> 완료 · <span class="text-pink-500 font-bold">■</span> 할 일</p>
         </div>
         <div class="flex items-center gap-1.5">
-          <button onclick="calShiftMonth(-1)" title="이전 달" class="w-9 h-9 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray">‹</button>
-          <span id="cal-title" class="text-base font-bold text-center min-w-[110px]">—</span>
-          <button onclick="calShiftMonth(1)" title="다음 달" class="w-9 h-9 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray">›</button>
-          <button onclick="calGoToday()" class="ml-1 px-3 h-9 rounded-full border border-brand-border hover:bg-brand-bg text-xs font-bold text-brand-black">오늘</button>
+          <button onclick="calShiftMonth(-1)" title="이전 달" class="w-10 h-10 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray text-lg">‹</button>
+          <span id="cal-title" class="text-lg font-bold text-center min-w-[130px]">—</span>
+          <button onclick="calShiftMonth(1)" title="다음 달" class="w-10 h-10 rounded-full border border-brand-border hover:bg-brand-bg flex items-center justify-center font-bold text-brand-gray text-lg">›</button>
+          <button onclick="calGoToday()" class="ml-1 px-4 h-10 rounded-full border border-brand-border hover:bg-brand-bg text-sm font-bold text-brand-black">오늘</button>
         </div>
       </div>
-      <div id="cal-summary" class="text-xs text-brand-gray mb-3">—</div>
+      <div id="cal-summary" class="text-sm text-brand-gray mb-3">—</div>
       <!-- 요일 헤더 -->
-      <div class="grid gap-1 mb-1" style="grid-template-columns: repeat(7, minmax(0,1fr));">
-        <div class="text-center text-xs font-bold text-red-500 py-1">일</div>
-        <div class="text-center text-xs font-bold text-brand-gray py-1">월</div>
-        <div class="text-center text-xs font-bold text-brand-gray py-1">화</div>
-        <div class="text-center text-xs font-bold text-brand-gray py-1">수</div>
-        <div class="text-center text-xs font-bold text-brand-gray py-1">목</div>
-        <div class="text-center text-xs font-bold text-brand-gray py-1">금</div>
-        <div class="text-center text-xs font-bold text-blue-500 py-1">토</div>
+      <div class="grid gap-1.5 mb-1.5" style="grid-template-columns: repeat(7, minmax(0,1fr));">
+        <div class="text-center text-sm font-bold text-red-500 py-1.5">일</div>
+        <div class="text-center text-sm font-bold text-brand-gray py-1.5">월</div>
+        <div class="text-center text-sm font-bold text-brand-gray py-1.5">화</div>
+        <div class="text-center text-sm font-bold text-brand-gray py-1.5">수</div>
+        <div class="text-center text-sm font-bold text-brand-gray py-1.5">목</div>
+        <div class="text-center text-sm font-bold text-brand-gray py-1.5">금</div>
+        <div class="text-center text-sm font-bold text-blue-500 py-1.5">토</div>
       </div>
       <!-- 날짜 그리드 -->
-      <div id="cal-grid" class="grid gap-1" style="grid-template-columns: repeat(7, minmax(0,1fr));"></div>
+      <div id="cal-grid" class="grid gap-1.5" style="grid-template-columns: repeat(7, minmax(0,1fr));"></div>
     </div>
     <!-- 선택한 날짜의 완료 항목 상세 -->
     <div id="cal-detail" class="bg-white rounded-4xl panel p-5 md:p-7 mt-4 hidden">
@@ -882,7 +882,6 @@
       </div>
       <div class="flex gap-2 mt-2">
         <button onclick="ihtodoCloseModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm">취소</button>
-        <button id="ihtodo-modal-delete" onclick="ihtodoDeleteFromModal()" class="hidden px-4 py-3 rounded-full bg-white border border-brand-border text-brand-pink hover:bg-brand-pink hover:text-white font-bold text-sm">삭제</button>
         <button id="ihtodo-modal-submit" onclick="ihtodoSubmitAdd()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm">추가</button>
       </div>
     </div>
@@ -2726,7 +2725,7 @@ function calGoToday() {
 //  - 시작만(미완료):  [시작 → 오늘] (진행 중)
 //  - 완료만:          [완료] 하루
 function _unitDayMap() {
-  const map = new Map();   // dateKey -> [{unit, isStart, isEnd, ongoing}]
+  const map = new Map();   // dateKey -> [{unit, isStart, isEnd, ongoing, kind}]
   const n = new Date();
   const today = { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
   _pendingUnits().forEach(u => {
@@ -2746,10 +2745,20 @@ function _unitDayMap() {
     while (cur <= end && guard++ < 400) {
       const key = _calDateKey(cur.getFullYear(), cur.getMonth() + 1, cur.getDate());
       if (!map.has(key)) map.set(key, []);
-      map.get(key).push({ unit: u, isStart: key === startKey, isEnd: key === endKey, ongoing });
+      map.get(key).push({ unit: u, isStart: key === startKey, isEnd: key === endKey, ongoing, kind: 'product' });
       cur.setDate(cur.getDate() + 1);
     }
   });
+  // 할 일 목록 — due 날짜 하루 칸으로 추가
+  try {
+    _ihtodoLoad();
+    (ihtodoList || []).forEach(t => {
+      if (!t || !t.due) return;
+      const key = t.due;   // 이미 YYYY-MM-DD 형식
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push({ unit: t, isStart: true, isEnd: true, ongoing: !t.done, kind: 'todo' });
+    });
+  } catch (_) {}
   return map;
 }
 function renderCalendar() {
@@ -2765,33 +2774,53 @@ function renderCalendar() {
 
   const monthUnits = new Set();
   let monthDone = 0;
+  const monthTodos = new Set();
+  let monthTodosDone = 0;
   const cells = [];
   for (let i = 0; i < startDow; i++) cells.push('<div></div>');   // 1일 앞 빈칸
   for (let d = 1; d <= daysInMonth; d++) {
     const key = _calDateKey(_calYear, _calMonth+1, d);
     const active = dayMap.get(key) || [];
-    active.forEach(a => { monthUnits.add(a.unit); if (a.isEnd && a.unit.done) monthDone++; });
+    active.forEach(a => {
+      if (a.kind === 'todo') {
+        if (!monthTodos.has(a.unit)) { monthTodos.add(a.unit); if (a.unit.done) monthTodosDone++; }
+      } else {
+        monthUnits.add(a.unit);
+        if (a.isEnd && a.unit.done) monthDone++;
+      }
+    });
     const isToday = key === todayKey;
     const isSel = key === _calSelectedKey;
     const dow = (startDow + d - 1) % 7;
     const dowColor = dow === 0 ? 'text-red-500' : (dow === 6 ? 'text-blue-500' : 'text-brand-black');
     const has = active.length > 0;
-    const bars = active.slice(0, 6).map(a => {
+    const bars = active.slice(0, 8).map(a => {
       const u = a.unit;
-      const cls = u.done
-        ? (a.isEnd ? 'bg-brand-green text-white' : 'bg-brand-green-light text-brand-green')
-        : (a.isStart ? 'bg-indigo-500 text-white' : 'bg-indigo-100 text-indigo-700');
-      const round = (a.isStart ? 'rounded-l-md ' : '') + (a.isEnd ? 'rounded-r-md' : '');
-      const label = a.isStart ? _pendingEsc(u.name || u.folder || '') : (a.isEnd && u.done ? '완료' : '');
-      return `<div class="${cls} ${round} h-[15px] px-1 text-[9px] font-bold leading-[15px] truncate" title="${_pendingEsc(u.name || u.folder || '')}">${label}</div>`;
+      let cls, round, label, titleAttr;
+      if (a.kind === 'todo') {
+        cls = u.done
+          ? 'bg-brand-green text-white'
+          : 'bg-pink-500 text-white';
+        round = 'rounded-md';
+        label = `📋 ${_pendingEsc(u.title || '')}`;
+        titleAttr = _pendingEsc(u.title || '') + (u.tag ? ' — ' + _pendingEsc(u.tag) : '');
+      } else {
+        cls = u.done
+          ? (a.isEnd ? 'bg-brand-green text-white' : 'bg-brand-green-light text-brand-green')
+          : (a.isStart ? 'bg-indigo-500 text-white' : 'bg-indigo-100 text-indigo-700');
+        round = (a.isStart ? 'rounded-l-md ' : '') + (a.isEnd ? 'rounded-r-md' : '');
+        label = a.isStart ? _pendingEsc(u.name || u.folder || '') : (a.isEnd && u.done ? '완료' : '');
+        titleAttr = _pendingEsc(u.name || u.folder || '');
+      }
+      return `<div class="${cls} ${round} h-[20px] px-1.5 text-[11px] font-bold leading-[20px] truncate" title="${titleAttr}">${label}</div>`;
     }).join('');
-    const more = active.length > 6 ? `<div class="text-[9px] text-brand-gray leading-tight">+${active.length-6}</div>` : '';
+    const more = active.length > 8 ? `<div class="text-[10px] text-brand-gray leading-tight pl-1">+${active.length-8}건 더</div>` : '';
     cells.push(`
       <div ${has ? `onclick="calSelectDay('${key}')"` : ''}
-           class="min-h-[150px] rounded-xl border p-1.5 flex flex-col gap-0.5 transition-colors ${has ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
+           class="min-h-[170px] rounded-xl border p-2 flex flex-col gap-1 transition-colors ${has ? 'cursor-pointer hover:border-brand-black' : ''} ${isSel ? 'border-brand-black border-2 bg-blue-50' : 'border-brand-border'} ${isToday && !isSel ? 'bg-brand-bg' : (isSel ? '' : 'bg-white')}">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold ${dowColor}">${d}${isToday ? '<span class="ml-1 text-[9px] text-brand-blue font-bold">오늘</span>' : ''}</span>
-          ${has ? `<span class="text-[10px] font-black text-white bg-brand-black/70 rounded-full px-1.5 py-0.5 leading-none">${active.length}</span>` : ''}
+          <span class="text-sm font-bold ${dowColor}">${d}${isToday ? '<span class="ml-1 text-[10px] text-brand-blue font-bold">오늘</span>' : ''}</span>
+          ${has ? `<span class="text-[11px] font-black text-white bg-brand-black/70 rounded-full px-2 py-0.5 leading-none">${active.length}</span>` : ''}
         </div>
         ${bars}${more}
       </div>
@@ -2800,9 +2829,14 @@ function renderCalendar() {
   const gridEl = document.getElementById('cal-grid');
   if (gridEl) gridEl.innerHTML = cells.join('');
   const sumEl = document.getElementById('cal-summary');
-  if (sumEl) sumEl.textContent = monthUnits.size
-    ? `이번 달 진행 ${monthUnits.size}건 · 완료 ${monthDone}건`
-    : '이번 달 진행 중이거나 완료한 항목이 없습니다.';
+  if (sumEl) {
+    const parts = [];
+    if (monthUnits.size) parts.push(`진행 ${monthUnits.size}건 · 완료 ${monthDone}건`);
+    if (monthTodos.size) parts.push(`할 일 ${monthTodos.size}건 · 완료 ${monthTodosDone}건`);
+    sumEl.textContent = parts.length
+      ? `이번 달 — ${parts.join(' / ')}`
+      : '이번 달 진행 중이거나 완료한 항목이 없습니다.';
+  }
 
   if (_calSelectedKey) _renderCalDetail(dayMap);
 }
@@ -2825,6 +2859,21 @@ function _renderCalDetail(dayMap) {
   if (titleEl) titleEl.textContent = `${y}. ${m}. ${d} — ${active.length}건`;
   listEl.innerHTML = active.map((a, i) => {
     const u = a.unit;
+    if (a.kind === 'todo') {
+      const badge = u.done
+        ? '<span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-1 shrink-0">완료</span>'
+        : '<span class="text-[11px] font-bold text-white bg-pink-500 rounded-full px-2 py-1 shrink-0">할 일</span>';
+      const meta = u.tag ? `<div class="text-xs text-brand-gray whitespace-pre-wrap">${_pendingEsc(u.tag)}</div>` : '';
+      return `
+        <div class="flex items-start gap-3 py-2.5 ${i ? 'border-t border-brand-border' : ''} cursor-pointer hover:bg-brand-bg/40 rounded-lg px-1" onclick="switchMenu('todo');setTimeout(()=>ihtodoOpenEditModal('${u.id}'),50)" title="클릭하면 할 일 수정">
+          <span class="text-xs font-black text-brand-gray w-6 text-center shrink-0 mt-0.5">${i+1}</span>
+          <div class="min-w-0 flex-1">
+            <div class="font-bold text-sm truncate">📋 ${_pendingEsc(u.title || '(제목없음)')}</div>
+            ${meta}
+          </div>
+          ${badge}
+        </div>`;
+    }
     const meta = [
       u.folder ? `폴더 ${_pendingEsc(u.folder)}` : '',
       u.code   ? `상품 ${_pendingEsc(u.code)}`   : '',
@@ -3361,15 +3410,12 @@ let _ihtodoEditId = null;   // null = 추가 모드, id = 편집 모드
 function _ihtodoApplyMode() {
   const titleEl = document.getElementById('ihtodo-modal-title');
   const submitEl = document.getElementById('ihtodo-modal-submit');
-  const delEl = document.getElementById('ihtodo-modal-delete');
   if (_ihtodoEditId) {
     if (titleEl) titleEl.textContent = '업무 수정 ✏️';
     if (submitEl) submitEl.textContent = '저장';
-    if (delEl) delEl.classList.remove('hidden');
   } else {
     if (titleEl) titleEl.textContent = '업무 추가 📋';
     if (submitEl) submitEl.textContent = '추가';
-    if (delEl) delEl.classList.add('hidden');
   }
 }
 function ihtodoOpenAddModal() {
@@ -3399,12 +3445,6 @@ function ihtodoOpenEditModal(id) {
 function ihtodoCloseModal() {
   document.getElementById('ihtodo-modal')?.classList.add('hidden');
   _ihtodoEditId = null;
-}
-function ihtodoDeleteFromModal() {
-  if (!_ihtodoEditId) return;
-  const id = _ihtodoEditId;
-  ihtodoCloseModal();
-  ihtodoDelete(id);
 }
 function ihtodoSubmitAdd() {
   const title = (document.getElementById('ihtodo-input-title').value || '').trim();
