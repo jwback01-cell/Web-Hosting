@@ -3999,7 +3999,7 @@ function _renderReviseModalBody() {
           <div class="flex flex-wrap gap-2 mt-2">
             ${(it.images || []).map((url, k) => `
               <div class="relative w-16 h-16 rounded-lg overflow-hidden border border-brand-border group">
-                <img src="${_pendingEsc(url)}" class="w-full h-full object-cover cursor-pointer" onclick="window.open('${_pendingEsc(url)}','_blank')">
+                <img src="${_pendingEsc(url)}" data-url="${_pendingEsc(url)}" class="w-full h-full object-cover cursor-zoom-in" onclick="_reviseLightbox(this.dataset.url)" title="클릭하면 크게 보기">
                 <button onclick="_reviseRemoveImage(${i}, ${k})" class="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white text-[10px] leading-4 text-center">×</button>
               </div>`).join('')}
             <label class="w-16 h-16 rounded-lg border-2 border-dashed border-brand-border flex flex-col items-center justify-center cursor-pointer hover:border-brand-black text-brand-gray text-[10px] gap-0.5">
@@ -4011,6 +4011,22 @@ function _renderReviseModalBody() {
         </div>`).join('')}
       <button onclick="_reviseAddItem()" class="self-start text-sm font-bold text-brand-blue hover:underline">+ 항목 추가</button>
     </div>`;
+}
+// 수정요청 이미지 라이트박스 — URL 받아 큰 이미지 팝업으로 표시 (새 탭 X)
+function _reviseLightbox(url) {
+  if (!url) return;
+  const old = document.getElementById('revise-lightbox');
+  if (old) old.remove();
+  const div = document.createElement('div');
+  div.id = 'revise-lightbox';
+  div.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn .15s ease;';
+  div.onclick = () => { div.remove(); document.removeEventListener('keydown', onKey); };
+  div.innerHTML = `
+    <img src="${url.replace(/"/g, '&quot;')}" style="max-width:92vw;max-height:92vh;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.4);" onclick="event.stopPropagation()">
+    <button style="position:absolute;top:20px;right:24px;width:40px;height:40px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:white;font-size:20px;cursor:pointer;backdrop-filter:blur(8px);">×</button>`;
+  const onKey = (e) => { if (e.key === 'Escape') { div.remove(); document.removeEventListener('keydown', onKey); } };
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(div);
 }
 function _reviseSetText(i, val) { if (_reviseModal && _reviseModal.items[i]) _reviseModal.items[i].text = val; }
 function _reviseAddItem() { if (!_reviseModal) return; _reviseModal.items.push({ text: '', images: [] }); _renderReviseModalBody(); }
