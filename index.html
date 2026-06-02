@@ -303,6 +303,7 @@
       </a>
       <div id="duty-submenu" class="hidden flex-col gap-1.5 ml-7 mb-1">
         <a class="nav-sub menu-tab" data-menu="attend" onclick="switchMenu('attend')">근태관리</a>
+        <a class="nav-sub menu-tab" data-menu="todo"   onclick="switchMenu('todo')">할 일 목록</a>
         <a class="nav-sub menu-tab" data-menu="addon"  onclick="switchMenu('addon')">캘린더</a>
       </div>
 
@@ -819,6 +820,70 @@
     <div id="cal-detail" class="bg-white rounded-4xl panel p-5 md:p-7 mt-4 hidden">
       <h3 id="cal-detail-title" class="font-bold text-base mb-2"></h3>
       <div id="cal-detail-list"></div>
+    </div>
+  </div>
+
+  <!-- 메뉴: 할 일 목록 (지플랜과 독립) -->
+  <div id="menu-todo" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-2xl font-bold">할 일 목록 📋</h2>
+          <p class="text-brand-gray text-sm mt-1">오늘 처리해야 할 <b id="ihtodo-count" class="text-brand-black">0</b>개의 업무가 남아있습니다.</p>
+        </div>
+        <button onclick="ihtodoOpenAddModal()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          업무 추가
+        </button>
+      </div>
+      <!-- 날짜 필터 -->
+      <div class="flex items-center gap-2 flex-wrap pb-3 border-b border-brand-border">
+        <span class="text-sm font-bold text-brand-gray mr-1">날짜:</span>
+        <button onclick="ihtodoShiftDate(-1)" class="w-8 h-8 rounded-full bg-brand-bg hover:bg-brand-border flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <input type="date" id="ihtodo-date" onchange="ihtodoSetDate(this.value)" class="px-3 py-1.5 bg-brand-bg border border-brand-border rounded-lg text-sm focus:outline-none focus:border-brand-black">
+        <button onclick="ihtodoShiftDate(1)" class="w-8 h-8 rounded-full bg-brand-bg hover:bg-brand-border flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
+        <button onclick="ihtodoSetDate('today')" class="px-3 py-1.5 rounded-full bg-brand-bg border border-brand-border text-xs font-bold hover:bg-white">오늘</button>
+        <span id="ihtodo-date-label" class="text-sm font-semibold text-brand-gray ml-2"></span>
+      </div>
+      <!-- 진행 중 업무 -->
+      <div id="ihtodo-list" class="flex flex-col gap-3"></div>
+      <div id="ihtodo-empty" class="hidden text-center py-12 text-brand-gray text-sm">📭 이 날짜에 업무가 없습니다. "업무 추가" 버튼으로 시작하세요.</div>
+      <!-- 완료된 업무 -->
+      <div id="ihtodo-done-section" class="hidden mt-4 pt-4 border-t border-brand-border">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="w-1.5 h-5 bg-brand-green rounded-full"></span>
+            <span class="font-bold text-sm">완료된 업무 <span id="ihtodo-done-count" class="text-brand-gray font-normal ml-1">0개</span></span>
+          </div>
+          <button onclick="ihtodoClearDone()" class="text-xs font-bold text-brand-gray hover:text-brand-pink">전체 삭제</button>
+        </div>
+        <div id="ihtodo-done-list" class="flex flex-col gap-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 할 일 추가 모달 -->
+  <div id="ihtodo-modal" class="hidden fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target===this)ihtodoCloseModal()">
+    <div class="bg-white rounded-3xl panel p-6 md:p-7 w-full max-w-md flex flex-col gap-4">
+      <h3 class="text-lg font-bold">업무 추가 📋</h3>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="block text-xs font-bold text-brand-gray mb-1.5">제목</label>
+          <input id="ihtodo-input-title" type="text" placeholder="예: 거래처 정산 메일 발송" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-brand-gray mb-1.5">태그 (선택)</label>
+          <input id="ihtodo-input-tag" type="text" placeholder="예: 클릭나라, 지플랜, CS, 마케팅 ..." class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-brand-gray mb-1.5">마감일</label>
+          <input id="ihtodo-input-due" type="date" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+        </div>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="ihtodoCloseModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm">취소</button>
+        <button onclick="ihtodoSubmitAdd()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm">추가</button>
+      </div>
     </div>
   </div>
 
@@ -2572,7 +2637,7 @@ function toggleDutyGroup(e) {
 
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['dashboard', 'images', 'products', 'pending', 'revise', 'attend', 'addon'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'revise', 'attend', 'addon', 'todo'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
@@ -2584,7 +2649,7 @@ function switchMenu(menuId) {
   const workSub = document.getElementById('work-submenu');
   const dutySub = document.getElementById('duty-submenu');
   const inWork = ['pending', 'revise', 'images'].includes(menuId);
-  const inDuty = ['attend', 'addon'].includes(menuId);
+  const inDuty = ['attend', 'addon', 'todo'].includes(menuId);
   if (workSub) {
     if (inWork) { workSub.classList.remove('hidden'); workSub.classList.add('flex'); }
   }
@@ -2602,6 +2667,7 @@ function switchMenu(menuId) {
   if (menuId === 'products') renderProductsList();
   if (menuId === 'attend')   renderAttendance();
   if (menuId === 'addon')    renderCalendar();
+  if (menuId === 'todo')     ihtodoRender();
   // 좌측 하단 용량 표시는 이미지 저장소 메뉴에서만 보이게
   if (menuId === 'images') {
     if (typeof updateStorageStat === 'function') updateStorageStat();
@@ -3235,6 +3301,183 @@ document.addEventListener('DOMContentLoaded', () => {
   // 페이지 로드 시 자동 행 추가 — 메뉴 안 들어가도 매일 보장
   try { _ensureWeekdayAttendUpToToday(); } catch (e) { console.warn('[attend auto-add]', e); }
 });
+
+// ── 할 일 목록 (지플랜과 독립, 이미지 저장소 전용) ─────────────────────────
+const IHTODO_KEY = 'ih_todo_v1';
+let ihtodoList = [];                        // [{id, title, tag, due(YYYY-MM-DD), createdAt, done, doneAt}]
+let ihtodoCurrentDate = '';                 // YYYY-MM-DD (필터)
+function _ihtodoLoad() {
+  try { ihtodoList = JSON.parse(localStorage.getItem(IHTODO_KEY) || '[]') || []; }
+  catch (_) { ihtodoList = []; }
+}
+function _ihtodoSave() {
+  try { localStorage.setItem(IHTODO_KEY, JSON.stringify(ihtodoList)); } catch (_) {}
+}
+function _ihtodoNewId() { return 't_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function _ihtodoTodayISO() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+function _ihtodoFmtDate(d) {
+  if (!d) return '';
+  const today = _ihtodoTodayISO();
+  if (d === today) return '오늘';
+  const yyyy = d.slice(0, 4), mm = d.slice(5, 7), dd = d.slice(8, 10);
+  return `${mm}/${dd}`;
+}
+function _ihtodoFmtDateLong(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  if (isNaN(dt.getTime())) return d;
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const today = _ihtodoTodayISO();
+  const todayDt = new Date(today + 'T00:00:00');
+  const diffDays = Math.round((dt - todayDt) / 86400000);
+  const w = weekdays[dt.getDay()];
+  const md = `${dt.getMonth()+1}/${dt.getDate()} (${w})`;
+  if (diffDays === 0) return `오늘 (${md})`;
+  if (diffDays === 1) return `내일 (${md})`;
+  if (diffDays === -1) return `어제 (${md})`;
+  return md;
+}
+
+// 날짜 필터 변경
+function ihtodoSetDate(d) {
+  if (d === 'today' || !d) d = _ihtodoTodayISO();
+  ihtodoCurrentDate = d;
+  ihtodoRender();
+}
+function ihtodoShiftDate(delta) {
+  const cur = ihtodoCurrentDate || _ihtodoTodayISO();
+  const dt = new Date(cur + 'T00:00:00');
+  dt.setDate(dt.getDate() + delta);
+  const next = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  ihtodoSetDate(next);
+}
+
+// 추가 모달
+function ihtodoOpenAddModal() {
+  const modal = document.getElementById('ihtodo-modal');
+  if (!modal) return;
+  document.getElementById('ihtodo-input-title').value = '';
+  document.getElementById('ihtodo-input-tag').value = '';
+  document.getElementById('ihtodo-input-due').value = ihtodoCurrentDate || _ihtodoTodayISO();
+  modal.classList.remove('hidden');
+  setTimeout(() => document.getElementById('ihtodo-input-title')?.focus(), 50);
+}
+function ihtodoCloseModal() {
+  document.getElementById('ihtodo-modal')?.classList.add('hidden');
+}
+function ihtodoSubmitAdd() {
+  const title = (document.getElementById('ihtodo-input-title').value || '').trim();
+  const tag   = (document.getElementById('ihtodo-input-tag').value || '').trim();
+  const due   = (document.getElementById('ihtodo-input-due').value || '').trim() || _ihtodoTodayISO();
+  if (!title) { toast && toast('제목을 입력하세요'); return; }
+  ihtodoList.unshift({
+    id: _ihtodoNewId(), title, tag, due,
+    createdAt: new Date().toISOString(),
+    done: false, doneAt: '',
+  });
+  _ihtodoSave();
+  ihtodoCloseModal();
+  ihtodoRender();
+}
+
+// 완료 처리 / 되돌리기 / 삭제
+function ihtodoToggleDone(id) {
+  const r = ihtodoList.find(x => x.id === id);
+  if (!r) return;
+  r.done = !r.done;
+  r.doneAt = r.done ? new Date().toISOString() : '';
+  _ihtodoSave();
+  ihtodoRender();
+}
+function ihtodoDelete(id) {
+  if (!confirm('이 업무를 삭제할까요?')) return;
+  ihtodoList = ihtodoList.filter(x => x.id !== id);
+  _ihtodoSave();
+  ihtodoRender();
+}
+function ihtodoClearDone() {
+  const cur = ihtodoCurrentDate;
+  if (!confirm(`'${_ihtodoFmtDateLong(cur)}' 의 완료된 업무를 모두 삭제할까요?`)) return;
+  ihtodoList = ihtodoList.filter(x => !(x.due === cur && x.done));
+  _ihtodoSave();
+  ihtodoRender();
+}
+
+function ihtodoRender() {
+  _ihtodoLoad();
+  if (!ihtodoCurrentDate) ihtodoCurrentDate = _ihtodoTodayISO();
+  // 날짜 input 동기화
+  const dateInp = document.getElementById('ihtodo-date');
+  if (dateInp) dateInp.value = ihtodoCurrentDate;
+  const lblEl = document.getElementById('ihtodo-date-label');
+  if (lblEl) lblEl.textContent = _ihtodoFmtDateLong(ihtodoCurrentDate);
+
+  const todayItems = ihtodoList.filter(x => x.due === ihtodoCurrentDate);
+  const pending = todayItems.filter(x => !x.done);
+  const done    = todayItems.filter(x =>  x.done);
+
+  const countEl = document.getElementById('ihtodo-count');
+  if (countEl) countEl.textContent = String(pending.length);
+
+  const listEl = document.getElementById('ihtodo-list');
+  const emptyEl = document.getElementById('ihtodo-empty');
+  if (listEl) {
+    if (!pending.length) {
+      listEl.innerHTML = '';
+      if (emptyEl) emptyEl.classList.remove('hidden');
+    } else {
+      if (emptyEl) emptyEl.classList.add('hidden');
+      listEl.innerHTML = pending.map(it => {
+        const tagHtml = it.tag
+          ? `<span class="bg-brand-blue-light text-brand-blue px-2.5 py-1 rounded-lg text-xs font-bold">${_pmEsc(it.tag)}</span>`
+          : '';
+        const dueHtml = `<span class="text-brand-gray text-sm font-medium">${_pmEsc(_ihtodoFmtDateLong(it.due))} 마감</span>`;
+        return `<div class="flex items-center justify-between p-4 border border-brand-border rounded-2xl hover:bg-brand-bg transition-all group">
+          <div class="flex items-center gap-4 min-w-0">
+            <button onclick="ihtodoToggleDone('${it.id}')" class="w-7 h-7 rounded-full border-2 border-brand-border hover:border-brand-green hover:bg-brand-green-light/40 transition-colors shrink-0" title="완료 처리"></button>
+            <div class="min-w-0">
+              <div class="font-bold text-base mb-1">${_pmEsc(it.title)}</div>
+              <div class="flex items-center gap-2 flex-wrap">${tagHtml}${dueHtml}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0 ml-3">
+            <button onclick="ihtodoDelete('${it.id}')" class="px-3 py-2 text-brand-gray hover:text-brand-pink text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">삭제</button>
+            <button onclick="ihtodoToggleDone('${it.id}')" class="px-4 py-2 bg-white border border-brand-border rounded-full text-sm font-bold hover:bg-brand-black hover:text-white transition-all">완료 처리</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // 완료된 업무
+  const doneSec = document.getElementById('ihtodo-done-section');
+  const doneCnt = document.getElementById('ihtodo-done-count');
+  const doneList = document.getElementById('ihtodo-done-list');
+  if (doneSec) doneSec.classList.toggle('hidden', !done.length);
+  if (doneCnt) doneCnt.textContent = done.length + '개';
+  if (doneList) {
+    doneList.innerHTML = done.map(it => {
+      const tm = it.doneAt ? new Date(it.doneAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
+      return `<div class="flex items-center justify-between p-3 bg-brand-bg/60 rounded-xl">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-5 h-5 rounded-full bg-brand-green flex items-center justify-center shrink-0">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-brand-gray line-through truncate">${_pmEsc(it.title)}</div>
+            ${tm ? `<div class="text-[10px] text-brand-gray">${tm}</div>` : ''}
+          </div>
+        </div>
+        <button onclick="ihtodoToggleDone('${it.id}')" class="text-xs font-bold text-brand-gray hover:text-brand-blue px-3 py-1 rounded-full hover:bg-white">되돌리기</button>
+      </div>`;
+    }).join('');
+  }
+}
+// 페이지 로드 시 데이터 로드 (자동)
+document.addEventListener('DOMContentLoaded', _ihtodoLoad);
 
 const PENDING_LS_KEY = 'ih_pending_products_v1';
 let pendingList = [];
