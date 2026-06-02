@@ -1089,7 +1089,7 @@ async function r2Download(imageRow) {
 //   anon public key 는 RLS(Row Level Security)로 보호되어 공개돼도 안전
 //   사용자가 별도 프로젝트를 쓰려면 localStorage 에 값을 넣으면 그게 우선
 const DEFAULT_IH_SUPABASE_URL = 'https://ktqqibjkwpocnxrtsvpd.supabase.co';
-const DEFAULT_IH_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtOcXFpYmprd3BvY254cnRzdnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDI2NjIsImV4cCI6MjA5NDMxODY2Mn0.ix3dhqOhJI_li-GIki8AniUo5ZS2eW_OUbiPZzUqPL8';
+const DEFAULT_IH_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0cXFpYmprd3BvY254cnRzdnBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3NDI2NjIsImV4cCI6MjA5NDMxODY2Mn0.ix3dhqOhJI_ll-G1ki8AniUo5ZS2eW_OUbiPZzUqPL8';
 function getSupabaseConfig() {
   return {
     url: (localStorage.getItem('ih_supabase_url') || DEFAULT_IH_SUPABASE_URL).trim(),
