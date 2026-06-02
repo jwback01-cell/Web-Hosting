@@ -865,7 +865,7 @@
   <!-- 할 일 추가 모달 -->
   <div id="ihtodo-modal" class="hidden fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target===this)ihtodoCloseModal()">
     <div class="bg-white rounded-3xl panel p-6 md:p-7 w-full max-w-md flex flex-col gap-4">
-      <h3 class="text-lg font-bold">업무 추가 📋</h3>
+      <h3 id="ihtodo-modal-title" class="text-lg font-bold">업무 추가 📋</h3>
       <div class="flex flex-col gap-3">
         <div>
           <label class="block text-xs font-bold text-brand-gray mb-1.5">제목</label>
@@ -882,7 +882,8 @@
       </div>
       <div class="flex gap-2 mt-2">
         <button onclick="ihtodoCloseModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm">취소</button>
-        <button onclick="ihtodoSubmitAdd()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm">추가</button>
+        <button id="ihtodo-modal-delete" onclick="ihtodoDeleteFromModal()" class="hidden px-4 py-3 rounded-full bg-white border border-brand-border text-brand-pink hover:bg-brand-pink hover:text-white font-bold text-sm">삭제</button>
+        <button id="ihtodo-modal-submit" onclick="ihtodoSubmitAdd()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm">추가</button>
       </div>
     </div>
   </div>
@@ -3355,29 +3356,71 @@ function ihtodoShiftDate(delta) {
   ihtodoSetDate(next);
 }
 
-// 추가 모달
+// 추가/편집 모달
+let _ihtodoEditId = null;   // null = 추가 모드, id = 편집 모드
+function _ihtodoApplyMode() {
+  const titleEl = document.getElementById('ihtodo-modal-title');
+  const submitEl = document.getElementById('ihtodo-modal-submit');
+  const delEl = document.getElementById('ihtodo-modal-delete');
+  if (_ihtodoEditId) {
+    if (titleEl) titleEl.textContent = '업무 수정 ✏️';
+    if (submitEl) submitEl.textContent = '저장';
+    if (delEl) delEl.classList.remove('hidden');
+  } else {
+    if (titleEl) titleEl.textContent = '업무 추가 📋';
+    if (submitEl) submitEl.textContent = '추가';
+    if (delEl) delEl.classList.add('hidden');
+  }
+}
 function ihtodoOpenAddModal() {
   const modal = document.getElementById('ihtodo-modal');
   if (!modal) return;
+  _ihtodoEditId = null;
   document.getElementById('ihtodo-input-title').value = '';
   document.getElementById('ihtodo-input-tag').value = '';
   document.getElementById('ihtodo-input-due').value = ihtodoCurrentDate || _ihtodoTodayISO();
+  _ihtodoApplyMode();
+  modal.classList.remove('hidden');
+  setTimeout(() => document.getElementById('ihtodo-input-title')?.focus(), 50);
+}
+function ihtodoOpenEditModal(id) {
+  const modal = document.getElementById('ihtodo-modal');
+  if (!modal) return;
+  const it = ihtodoList.find(x => x.id === id);
+  if (!it) return;
+  _ihtodoEditId = id;
+  document.getElementById('ihtodo-input-title').value = it.title || '';
+  document.getElementById('ihtodo-input-tag').value = it.tag || '';
+  document.getElementById('ihtodo-input-due').value = it.due || _ihtodoTodayISO();
+  _ihtodoApplyMode();
   modal.classList.remove('hidden');
   setTimeout(() => document.getElementById('ihtodo-input-title')?.focus(), 50);
 }
 function ihtodoCloseModal() {
   document.getElementById('ihtodo-modal')?.classList.add('hidden');
+  _ihtodoEditId = null;
+}
+function ihtodoDeleteFromModal() {
+  if (!_ihtodoEditId) return;
+  const id = _ihtodoEditId;
+  ihtodoCloseModal();
+  ihtodoDelete(id);
 }
 function ihtodoSubmitAdd() {
   const title = (document.getElementById('ihtodo-input-title').value || '').trim();
   const tag   = (document.getElementById('ihtodo-input-tag').value || '').trim();
   const due   = (document.getElementById('ihtodo-input-due').value || '').trim() || _ihtodoTodayISO();
   if (!title) { toast && toast('제목을 입력하세요'); return; }
-  ihtodoList.unshift({
-    id: _ihtodoNewId(), title, tag, due,
-    createdAt: new Date().toISOString(),
-    done: false, doneAt: '',
-  });
+  if (_ihtodoEditId) {
+    const r = ihtodoList.find(x => x.id === _ihtodoEditId);
+    if (r) { r.title = title; r.tag = tag; r.due = due; r.updatedAt = new Date().toISOString(); }
+  } else {
+    ihtodoList.unshift({
+      id: _ihtodoNewId(), title, tag, due,
+      createdAt: new Date().toISOString(),
+      done: false, doneAt: '',
+    });
+  }
   _ihtodoSave();
   ihtodoCloseModal();
   ihtodoRender();
@@ -3436,17 +3479,17 @@ function ihtodoRender() {
           : '';
         const dueHtml = `<span class="text-brand-gray text-sm font-medium">${_pmEsc(_ihtodoFmtDateLong(it.due))} 마감</span>`;
         return `<div class="flex items-start justify-between p-4 border border-brand-border rounded-2xl hover:bg-brand-bg transition-all group">
-          <div class="flex items-start gap-4 min-w-0">
-            <button onclick="ihtodoToggleDone('${it.id}')" class="w-7 h-7 rounded-full border-2 border-brand-border hover:border-brand-green hover:bg-brand-green-light/40 transition-colors shrink-0 mt-1" title="완료 처리"></button>
-            <div class="min-w-0">
+          <div class="flex items-start gap-4 min-w-0 flex-1">
+            <button onclick="event.stopPropagation();ihtodoToggleDone('${it.id}')" class="w-7 h-7 rounded-full border-2 border-brand-border hover:border-brand-green hover:bg-brand-green-light/40 transition-colors shrink-0 mt-1" title="완료 처리"></button>
+            <div class="min-w-0 flex-1 cursor-pointer" onclick="ihtodoOpenEditModal('${it.id}')" title="클릭하면 수정">
               <div class="font-bold text-base">${_pmEsc(it.title)}</div>
               ${bodyHtml}
               <div class="flex items-center gap-2 flex-wrap">${dueHtml}</div>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0 ml-3">
-            <button onclick="ihtodoDelete('${it.id}')" class="px-3 py-2 text-brand-gray hover:text-brand-pink text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">삭제</button>
-            <button onclick="ihtodoToggleDone('${it.id}')" class="px-4 py-2 bg-white border border-brand-border rounded-full text-sm font-bold hover:bg-brand-black hover:text-white transition-all">완료 처리</button>
+            <button onclick="event.stopPropagation();ihtodoDelete('${it.id}')" class="px-3 py-2 text-brand-gray hover:text-brand-pink text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">삭제</button>
+            <button onclick="event.stopPropagation();ihtodoToggleDone('${it.id}')" class="px-4 py-2 bg-white border border-brand-border rounded-full text-sm font-bold hover:bg-brand-black hover:text-white transition-all">완료 처리</button>
           </div>
         </div>`;
       }).join('');
@@ -3463,7 +3506,7 @@ function ihtodoRender() {
     doneList.innerHTML = done.map(it => {
       const tm = it.doneAt ? new Date(it.doneAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '';
       return `<div class="flex items-center justify-between p-3 bg-brand-bg/60 rounded-xl">
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-3 min-w-0 flex-1 cursor-pointer" onclick="ihtodoOpenEditModal('${it.id}')" title="클릭하면 수정">
           <div class="w-5 h-5 rounded-full bg-brand-green flex items-center justify-center shrink-0">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
@@ -3472,7 +3515,7 @@ function ihtodoRender() {
             ${tm ? `<div class="text-[10px] text-brand-gray">${tm}</div>` : ''}
           </div>
         </div>
-        <button onclick="ihtodoToggleDone('${it.id}')" class="text-xs font-bold text-brand-gray hover:text-brand-blue px-3 py-1 rounded-full hover:bg-white">되돌리기</button>
+        <button onclick="event.stopPropagation();ihtodoToggleDone('${it.id}')" class="text-xs font-bold text-brand-gray hover:text-brand-blue px-3 py-1 rounded-full hover:bg-white">되돌리기</button>
       </div>`;
     }).join('');
   }
