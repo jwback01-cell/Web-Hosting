@@ -2954,7 +2954,7 @@ async function _dashLoadStorage() {
 //   - 기존 'ih_attendance_v1' 데이터는 본인(updated_by 일치) 계정으로 자동 마이그레이션
 const ATTEND_LS_KEY = 'ih_attendance_v1';   // 옛 공통 키 (마이그레이션·게스트 fallback)
 function _attendKey() {
-  const uid = (window.currentUser && window.currentUser.id) || '';
+  const uid = (currentUser && currentUser.id) || '';
   return uid ? `ih_attendance_v1__${uid}` : ATTEND_LS_KEY;
 }
 // 근태 키 판정 (cloud sync 후킹/PULL 필터링용)
@@ -3036,7 +3036,7 @@ function addAttendRow() {
 }
 function deleteAttendRow(id) {
   // 마스터(사장님)만 삭제 가능 — 직원 계정의 기록은 영구
-  const isMaster = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
+  const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
   if (!isMaster) { alert('근태 기록 삭제는 관리자만 가능합니다.'); return; }
   if (!confirm('이 기록을 삭제할까요?')) return;
   attendList = attendList.filter(r => r.id !== id);
@@ -3071,13 +3071,13 @@ function renderAttendance() {
   const empty = document.getElementById('attend-empty');
   if (!tbody) return;
   // 마스터(사장님)만 "기록 추가" 버튼 보이기 — 직원은 자동 생성 행만 사용
-  const _isMasterTop = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
+  const _isMasterTop = !!(currentUser && currentUser.email === 'jwback01@nate.com');
   const addBtn = document.getElementById('attend-add-btn');
   if (addBtn) addBtn.style.display = _isMasterTop ? '' : 'none';
   const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
   // 마스터는 본인 + 모든 직원 attendance 통합 표시, 직원은 본인만
-  const myUid = (window.currentUser && window.currentUser.id) || '';
-  const myEmail = (window.currentUser && window.currentUser.email) || '';
+  const myUid = (currentUser && currentUser.id) || '';
+  const myEmail = (currentUser && currentUser.email) || '';
   let list = attendList.slice().map(r => ({ ...r, _ownerUid: myUid, _ownerEmail: myEmail }));
   if (_isMasterTop && window._attendOthersByUser) {
     Object.entries(window._attendOthersByUser).forEach(([uid, rows]) => {
@@ -3107,7 +3107,7 @@ function renderAttendance() {
   const cell = 'w-full bg-transparent border border-brand-border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-brand-black';
   const LEAVES = ['', '연차'];
   // 마스터 권한 판정 — 사장님 계정만 행 삭제 가능, 직원은 본인 출퇴근 기록은 영구
-  const _isMaster = !!(window.currentUser && window.currentUser.email === 'jwback01@nate.com');
+  const _isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
   // 마스터일 때만 "직원" 컬럼 헤더 표시
   const ownerTh = document.getElementById('attend-th-owner');
   if (ownerTh) ownerTh.classList.toggle('hidden', !_isMaster);
@@ -4202,8 +4202,9 @@ document.addEventListener('DOMContentLoaded', _loadPendingFromStorage);
 // ══════════════════════════════════════════════════════════
 const IH_SYNC_KEYS = [
   'ih_pending_products_v1',   // 등록 예정 리스트
-  'ih_attendance_v1',         // 근태관리
   'ih_products_v1',           // 상품관리
+  // 'ih_attendance_v1' (옛 공통 키) 는 user-specific key 'ih_attendance_v1__<uid>' 로 분리됨
+  //   IH_SYNC_KEYS 에 두면 마이그레이션 완료 후에도 매번 PUSH 시도 → 403 발생하므로 제외
 ];
 let _ihCloudReady = false;
 const _ihPushTimers = {};
