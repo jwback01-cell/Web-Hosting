@@ -2849,7 +2849,7 @@ function renderCalendar() {
       let cls, round, label, titleAttr;
       if (a.kind === 'todo') {
         cls = u.done
-          ? 'bg-brand-green text-white'
+          ? 'bg-pink-100 text-pink-500 line-through'
           : 'bg-pink-500 text-white';
         round = 'rounded-md';
         label = `📋 ${_pendingEsc(u.title || '')}`;
@@ -2912,7 +2912,7 @@ function _renderCalDetail(dayMap) {
     const u = a.unit;
     if (a.kind === 'todo') {
       const badge = u.done
-        ? '<span class="text-[11px] font-bold text-white bg-brand-green rounded-full px-2 py-1 shrink-0">완료</span>'
+        ? '<span class="text-[11px] font-bold text-pink-500 bg-pink-100 rounded-full px-2 py-1 shrink-0">완료</span>'
         : '<span class="text-[11px] font-bold text-white bg-pink-500 rounded-full px-2 py-1 shrink-0">할 일</span>';
       const meta = u.tag ? `<div class="text-xs text-brand-gray whitespace-pre-wrap">${_pendingEsc(u.tag)}</div>` : '';
       return `
