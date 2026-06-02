@@ -802,6 +802,20 @@
           <button onclick="calGoToday()" class="ml-1 px-4 h-10 rounded-full border border-brand-border hover:bg-brand-bg text-sm font-bold text-brand-black">오늘</button>
         </div>
       </div>
+      <!-- 필터 (업무별 보기) -->
+      <div class="flex items-center gap-2 mb-3 flex-wrap">
+        <span class="text-xs font-bold text-brand-gray mr-1">보기:</span>
+        <button id="cal-flt-ongoing"  data-on="1" onclick="calToggleFilter('ongoing', this)" class="cal-flt-btn px-3 py-1.5 rounded-full text-xs font-bold border transition-all">
+          <span class="inline-block w-2 h-2 rounded-full bg-indigo-500 mr-1.5 align-middle"></span>진행 중
+        </button>
+        <button id="cal-flt-done"     data-on="1" onclick="calToggleFilter('done', this)" class="cal-flt-btn px-3 py-1.5 rounded-full text-xs font-bold border transition-all">
+          <span class="inline-block w-2 h-2 rounded-full bg-brand-green mr-1.5 align-middle"></span>완료
+        </button>
+        <button id="cal-flt-todo"     data-on="1" onclick="calToggleFilter('todo', this)" class="cal-flt-btn px-3 py-1.5 rounded-full text-xs font-bold border transition-all">
+          <span class="inline-block w-2 h-2 rounded-full bg-pink-500 mr-1.5 align-middle"></span>할 일
+        </button>
+        <button onclick="calFilterAll()" class="ml-1 px-3 py-1.5 rounded-full text-xs font-bold border border-brand-border text-brand-gray hover:bg-brand-bg">전체 보기</button>
+      </div>
       <div id="cal-summary" class="text-sm text-brand-gray mb-3">—</div>
       <!-- 요일 헤더 -->
       <div class="grid gap-1.5 mb-1.5" style="grid-template-columns: repeat(7, minmax(0,1fr));">
@@ -2681,6 +2695,40 @@ function switchMenu(menuId) {
 // ── 완료 캘린더 (등록 예정 리스트의 완료 항목을 완료일별로 표시) ─────
 let _calYear = null, _calMonth = null;   // _calMonth: 0~11
 let _calSelectedKey = null;
+let _calFilter = { ongoing: true, done: true, todo: true };   // 업무별 보기 필터
+
+function _calFilterAccept(a) {
+  if (!a) return false;
+  if (a.kind === 'todo')           return !!_calFilter.todo;
+  if (a.unit && a.unit.done)       return !!_calFilter.done;
+  return !!_calFilter.ongoing;
+}
+function _calApplyFilterBtnStyle(btn, on) {
+  if (!btn) return;
+  btn.dataset.on = on ? '1' : '0';
+  if (on) {
+    btn.classList.add('bg-brand-black','text-white','border-brand-black');
+    btn.classList.remove('border-brand-border','text-brand-gray','bg-white');
+  } else {
+    btn.classList.remove('bg-brand-black','text-white','border-brand-black');
+    btn.classList.add('border-brand-border','text-brand-gray','bg-white');
+  }
+}
+function _calSyncFilterButtons() {
+  _calApplyFilterBtnStyle(document.getElementById('cal-flt-ongoing'), _calFilter.ongoing);
+  _calApplyFilterBtnStyle(document.getElementById('cal-flt-done'),    _calFilter.done);
+  _calApplyFilterBtnStyle(document.getElementById('cal-flt-todo'),    _calFilter.todo);
+}
+function calToggleFilter(kind, btn) {
+  _calFilter[kind] = !_calFilter[kind];
+  _calApplyFilterBtnStyle(btn, _calFilter[kind]);
+  renderCalendar();
+}
+function calFilterAll() {
+  _calFilter = { ongoing: true, done: true, todo: true };
+  _calSyncFilterButtons();
+  renderCalendar();
+}
 
 // 완료일 문자열 파싱 — "2026. 5. 18" / "2026-5-18" / "2026/05/18" 등 허용
 function _parseCompletedDate(str) {
@@ -2764,6 +2812,7 @@ function _unitDayMap() {
 function renderCalendar() {
   const now = new Date();
   if (_calYear == null) { _calYear = now.getFullYear(); _calMonth = now.getMonth(); }
+  _calSyncFilterButtons();
   const dayMap = _unitDayMap();
   const titleEl = document.getElementById('cal-title');
   if (titleEl) titleEl.textContent = `${_calYear}년 ${_calMonth+1}월`;
@@ -2780,7 +2829,8 @@ function renderCalendar() {
   for (let i = 0; i < startDow; i++) cells.push('<div></div>');   // 1일 앞 빈칸
   for (let d = 1; d <= daysInMonth; d++) {
     const key = _calDateKey(_calYear, _calMonth+1, d);
-    const active = dayMap.get(key) || [];
+    const activeAll = dayMap.get(key) || [];
+    const active = activeAll.filter(_calFilterAccept);
     active.forEach(a => {
       if (a.kind === 'todo') {
         if (!monthTodos.has(a.unit)) { monthTodos.add(a.unit); if (a.unit.done) monthTodosDone++; }
@@ -2852,7 +2902,8 @@ function _renderCalDetail(dayMap) {
   const titleEl = document.getElementById('cal-detail-title');
   const listEl = document.getElementById('cal-detail-list');
   if (!detail || !listEl) return;
-  const active = (_calSelectedKey && dayMap.get(_calSelectedKey)) || [];
+  const activeAll = (_calSelectedKey && dayMap.get(_calSelectedKey)) || [];
+  const active = activeAll.filter(_calFilterAccept);
   if (!active.length) { detail.classList.add('hidden'); return; }
   detail.classList.remove('hidden');
   const [y, m, d] = _calSelectedKey.split('-').map(Number);
