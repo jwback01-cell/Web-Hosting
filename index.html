@@ -3750,7 +3750,7 @@ function _fakebuyOpenImage(id) {
     modal.id = 'fakebuy-img-modal';
     modal.className = 'hidden fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center p-6 cursor-zoom-out';
     modal.onclick = () => modal.classList.add('hidden');
-    modal.innerHTML = '<img id="fakebuy-img-modal-img" alt="" style="width:92vw;height:90vh;object-fit:contain;" class="rounded-xl shadow-2xl">';
+    modal.innerHTML = '<img id="fakebuy-img-modal-img" alt="" style="width:65vw;height:80vh;object-fit:contain;" class="rounded-xl shadow-2xl">';
     document.body.appendChild(modal);
   }
   document.getElementById('fakebuy-img-modal-img').src = r.image;
