@@ -749,10 +749,16 @@
           <h2 class="text-2xl font-bold">근태관리</h2>
           <p class="text-brand-gray text-sm mt-1">출근·퇴근 시간과 연차 사용을 기록합니다. 칸을 수정하면 자동 저장됩니다.</p>
         </div>
-        <button id="attend-add-btn" onclick="addAttendRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          기록 추가
-        </button>
+        <div class="flex items-center gap-2">
+          <!-- 마스터 전용 직원 필터 — 사용자가 사람별로 볼 수 있음 -->
+          <select id="attend-filter-uid" onchange="_attendSetFilter(this.value)" class="hidden px-3 py-2 bg-brand-bg border border-brand-border rounded-full text-xs font-bold cursor-pointer focus:outline-none focus:border-brand-black">
+            <option value="">👥 전체 보기</option>
+          </select>
+          <button id="attend-add-btn" onclick="addAttendRow()" class="px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            기록 추가
+          </button>
+        </div>
       </div>
       <!-- 이번 달 요약 -->
       <div class="grid grid-cols-3 gap-3">
@@ -2953,6 +2959,22 @@ async function _dashLoadStorage() {
 //   - 로그인 후 → 'ih_attendance_v1__<userId>' (개인 키)
 //   - 기존 'ih_attendance_v1' 데이터는 본인(updated_by 일치) 계정으로 자동 마이그레이션
 const ATTEND_LS_KEY = 'ih_attendance_v1';   // 옛 공통 키 (마이그레이션·게스트 fallback)
+// 직원 user_id → 이름 매핑 (마스터 화면에서 표시용)
+// 새 직원 추가 시 이 객체에 한 줄씩 더하면 됨
+const EMPLOYEE_NAMES = {
+  '90b1b7d5-44b8-4eea-a960-c67de4a5b44a': '마스터',     // jwback01@nate.com
+  'd7ca605a-ce44-45e8-875d-0a2e5d2de439': '백지수',     // bjj8536@naver.com
+};
+function _employeeName(uid, fallback) {
+  if (!uid) return fallback || '';
+  return EMPLOYEE_NAMES[uid] || (fallback || String(uid).slice(0, 8));
+}
+// 마스터 화면 필터 — 선택된 직원 uid (''=전체)
+let _attendFilterUid = '';
+function _attendSetFilter(uid) {
+  _attendFilterUid = uid || '';
+  if (typeof renderAttendance === 'function') renderAttendance();
+}
 function _attendKey() {
   const uid = (currentUser && currentUser.id) || '';
   return uid ? `ih_attendance_v1__${uid}` : ATTEND_LS_KEY;
@@ -3085,6 +3107,28 @@ function renderAttendance() {
       rows.forEach(r => list.push({ ...r, _ownerUid: uid, _ownerEmail: '' }));
     });
   }
+  // 마스터 화면 필터 드롭다운 — 등장하는 모든 owner uid 로 옵션 채우기
+  const filterSel = document.getElementById('attend-filter-uid');
+  if (filterSel) {
+    if (_isMasterTop) {
+      const uids = [...new Set(list.map(r => r._ownerUid).filter(Boolean))];
+      // 옵션 재구성 (현재 선택값 유지)
+      const cur = _attendFilterUid || '';
+      filterSel.classList.remove('hidden');
+      filterSel.innerHTML = '<option value="">👥 전체 보기</option>' +
+        uids.map(u => {
+          const isMe = (u === myUid);
+          const name = isMe ? '나 (마스터)' : _employeeName(u);
+          return `<option value="${_pmEsc(u)}" ${u === cur ? 'selected' : ''}>${_pmEsc(name)}</option>`;
+        }).join('');
+    } else {
+      filterSel.classList.add('hidden');
+    }
+  }
+  // 필터 적용 — 선택된 uid 있으면 그 사람의 row만
+  if (_isMasterTop && _attendFilterUid) {
+    list = list.filter(r => r._ownerUid === _attendFilterUid);
+  }
   list.sort((a, b) => (b.date || '').localeCompare(a.date || '') || String(a._ownerUid).localeCompare(String(b._ownerUid)));
 
   // 이번 달 요약
@@ -3118,8 +3162,8 @@ function renderAttendance() {
     // 본인 row 인지 (마스터는 본인 + 다른 직원, 다른 직원 row 는 read-only)
     const isMine = (r._ownerUid === myUid);
     const readonly = !isMine;
-    // 직원 표시 — 본인 user id 짧게(8자), 또는 본인이면 "나"
-    const ownerShort = isMine ? '나' : String(r._ownerUid || '').slice(0, 8);
+    // 직원 표시 — 이름 매핑 우선, 없으면 uid 8자
+    const ownerShort = isMine ? '나' : _employeeName(r._ownerUid);
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시 + ✕ 취소
     const _chkCell = (field, label) => {
       const v = r[field] || '';
