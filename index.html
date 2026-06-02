@@ -3161,32 +3161,43 @@ function renderAttendance() {
     const dim = (r.leave === '연차') ? 'opacity-60' : '';
     // 본인 row 인지 (마스터는 본인 + 다른 직원, 다른 직원 row 는 read-only)
     const isMine = (r._ownerUid === myUid);
-    const readonly = !isMine;
+    // v1+ : 직원은 한 번 입력 후 lock — 수정/취소 모두 불가. 마스터만 본인 row 수정 가능.
+    //   - 빈 셀: 본인 row 면 출근/퇴근 버튼 (직원·마스터 모두 클릭 가능)
+    //   - 채워진 셀: 마스터 본인 row 만 수정 가능. 그 외(직원 본인 row, 마스터의 직원 row) read-only
+    const isOtherEmployee = !isMine;            // 마스터가 다른 직원 row 보는 경우
+    const readonly = isOtherEmployee;            // date/leave/note 수정 가능 여부 (직원 본인 거는 자유)
+    const canEditFilled = _isMaster && isMine;  // 출퇴근 시간 채워진 셀 수정/취소 권한 (마스터 본인만)
     // 직원 표시 — 이름 매핑 우선, 없으면 uid 8자
     const ownerShort = isMine ? '나' : _employeeName(r._ownerUid);
-    // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시 + ✕ 취소
+    // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시
     const _chkCell = (field, label) => {
       const v = r[field] || '';
       if (!v) {
-        if (readonly) {
+        if (isOtherEmployee) {
+          // 마스터가 다른 직원의 빈 셀 보는 경우 — dash
           return `<td class="p-1 align-middle text-center text-brand-gray text-xs">-</td>`;
         }
-        // 빈 셀 — 큰 버튼 (셀 전체)
+        // 본인 row 빈 셀 — 출근/퇴근 버튼 (직원·마스터 모두 한 번 클릭 가능)
         return `<td class="p-1 align-middle">
           <button onclick="_attendToggleCheck('${r.id}','${field}',true)" class="w-full py-2.5 rounded-lg border-2 border-dashed border-brand-border text-brand-gray hover:border-brand-green hover:text-brand-green hover:bg-brand-green-light/30 font-bold text-sm transition-colors">
             ${label}
           </button>
         </td>`;
       }
-      // 채워진 셀 — 시간 표시 (클릭=수정) + 작은 ✕ (취소)
-      //   다른 직원 row 면 시간만 표시 (수정/취소 불가)
-      if (readonly) {
+      // 채워진 셀
+      if (!canEditFilled) {
+        // 직원 본인 row(lock) 또는 마스터의 직원 row(read-only) — 시간만 표시
+        const lockIcon = isMine
+          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-brand-gray ml-1 shrink-0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+          : '';
         return `<td class="p-1 align-middle">
-          <div class="flex items-center justify-center bg-brand-green-light/40 rounded-lg py-1.5 px-2">
+          <div class="flex items-center justify-center bg-brand-green-light/40 rounded-lg py-1.5 px-2" title="${isMine ? '한 번 입력 후 잠김 — 수정은 관리자에게 요청' : ''}">
             <span class="text-brand-black font-bold text-sm">${_pmEsc(v)}</span>
+            ${lockIcon}
           </div>
         </td>`;
       }
+      // 마스터 본인 row — 수정/취소 자유
       return `<td class="p-1 align-middle">
         <div class="flex items-center justify-center gap-1 bg-brand-green-light/40 rounded-lg py-1.5 px-2">
           <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-[130px] text-center cursor-pointer" title="시간 수정">
