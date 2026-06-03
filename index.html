@@ -4920,7 +4920,7 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
     pctEl.textContent = Math.round(_rlbState.scale * 100) + '%';
   };
   const setScale = (s, cx, cy) => {
-    const newScale = Math.max(0.2, Math.min(10, s));
+    const newScale = Math.max(0.2, Math.min(14, s));
     // 마우스 위치 기준으로 줌 (cx, cy 가 주어지면)
     if (typeof cx === 'number') {
       const rect = imgEl.getBoundingClientRect();
@@ -4962,13 +4962,13 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
   wrapEl.onclick = (e) => {
     if (e.target === wrapEl) close();
   };
-  // 클릭 — 1000% 토글 (1배 → 10배, 10배 이상이면 원본으로 복원)
+  // 클릭 — 1400% 토글 (1배 → 14배, 14배 이상이면 원본으로 복원)
   // 단, 드래그 후엔 클릭으로 인식하지 않음 (확대 상태에서 패닝 보호)
   imgEl.onclick = (e) => {
     e.stopPropagation();
     if (_rlbState && _rlbState._suppressNextClick) { _rlbState._suppressNextClick = false; return; }
-    if (_rlbState.scale >= 10) resetView();
-    else setScale(10, e.clientX, e.clientY);
+    if (_rlbState.scale >= 14) resetView();
+    else setScale(14, e.clientX, e.clientY);
   };
 
   // 휠 줌 (ctrl 없이도 동작)
