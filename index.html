@@ -4963,8 +4963,10 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
     if (e.target === wrapEl) close();
   };
   // 클릭 — 1000% 토글 (1배 → 10배, 10배 이상이면 원본으로 복원)
+  // 단, 드래그 후엔 클릭으로 인식하지 않음 (확대 상태에서 패닝 보호)
   imgEl.onclick = (e) => {
     e.stopPropagation();
+    if (_rlbState && _rlbState._suppressNextClick) { _rlbState._suppressNextClick = false; return; }
     if (_rlbState.scale >= 10) resetView();
     else setScale(10, e.clientX, e.clientY);
   };
@@ -4981,6 +4983,9 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
     if (_rlbState.scale <= 1) return;
     e.preventDefault(); e.stopPropagation();
     _rlbState.dragging = true;
+    _rlbState._downX = e.clientX;
+    _rlbState._downY = e.clientY;
+    _rlbState._moved = 0;
     _rlbState.sx = e.clientX - _rlbState.tx;
     _rlbState.sy = e.clientY - _rlbState.ty;
     imgEl.style.cursor = 'grabbing';
@@ -4988,12 +4993,18 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
   });
   document.addEventListener('mousemove', (e) => {
     if (!_rlbState || !_rlbState.dragging) return;
+    _rlbState._moved = Math.max(_rlbState._moved || 0,
+      Math.abs(e.clientX - _rlbState._downX) + Math.abs(e.clientY - _rlbState._downY));
     _rlbState.tx = e.clientX - _rlbState.sx;
     _rlbState.ty = e.clientY - _rlbState.sy;
     imgEl.style.transform = `translate(${_rlbState.tx}px, ${_rlbState.ty}px) scale(${_rlbState.scale})`;
   });
   document.addEventListener('mouseup', () => {
     if (!_rlbState) return;
+    if (_rlbState.dragging && (_rlbState._moved || 0) > 4) {
+      // 드래그였음 → 직후 발생할 click 이벤트의 줌 토글 무시
+      _rlbState._suppressNextClick = true;
+    }
     _rlbState.dragging = false;
     imgEl.style.transition = 'transform .15s ease';
     apply();
