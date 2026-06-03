@@ -4962,14 +4962,9 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
   wrapEl.onclick = (e) => {
     if (e.target === wrapEl) close();
   };
+  // 클릭 — 1000% 토글 (1배 → 10배, 10배 이상이면 원본으로 복원)
   imgEl.onclick = (e) => {
     e.stopPropagation();
-    if (_rlbState.scale === 1) setScale(2, e.clientX, e.clientY);
-    else resetView();
-  };
-  // 더블클릭 — 1000% 까지 확대 (이미 1000% 이상이면 원본으로 복원)
-  imgEl.ondblclick = (e) => {
-    e.stopPropagation(); e.preventDefault();
     if (_rlbState.scale >= 10) resetView();
     else setScale(10, e.clientX, e.clientY);
   };
