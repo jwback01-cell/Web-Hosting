@@ -778,6 +778,7 @@
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[220px]">제품 (폴더 내)</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[180px]">이미지</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[240px]">링크</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border min-w-[180px]">수정 내용</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
@@ -4622,10 +4623,31 @@ function renderReviseList() {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         ${cnt ? cnt + '개 항목' : '작성하기'}
       </button>`;
-    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${g.done ? 'opacity-60' : ''}">
+    // 이미지 셀 — 모든 항목의 이미지를 평탄화해서 썸네일 노출 + 빠른 업로드/Ctrl+V/드래그
+    const allImgs = (g.reviseItems || []).reduce((acc, it) => acc.concat(it.images || []), []);
+    const thumbs = allImgs.slice(0, 3).map((url, k) =>
+      `<img src="${_pendingEsc(url)}" data-url="${_pendingEsc(url)}" data-text="${_pendingEsc((g.reviseItems[0]?.text) || '')}"
+            onclick="event.stopPropagation();_reviseLightbox(this.dataset.url, this.dataset.text)"
+            class="w-10 h-10 rounded-md border border-brand-border object-cover cursor-zoom-in" title="클릭하면 크게 보기">`
+    ).join('');
+    const moreBadge = allImgs.length > 3
+      ? `<span class="text-[10px] font-bold text-brand-gray">+${allImgs.length - 3}</span>` : '';
+    const imageCell = `
+      <div class="flex items-center justify-center gap-1 flex-wrap"
+           ondragover="event.preventDefault();this.classList.add('ring-2','ring-brand-black','rounded-md');"
+           ondragleave="this.classList.remove('ring-2','ring-brand-black','rounded-md');"
+           ondrop="event.preventDefault();this.classList.remove('ring-2','ring-brand-black','rounded-md');_reviseQuickAddImages('${g.key}', event.dataTransfer.files);">
+        ${thumbs}${moreBadge}
+        <label class="w-10 h-10 rounded-md border-2 border-dashed border-brand-border flex flex-col items-center justify-center cursor-pointer hover:border-brand-black text-brand-gray gap-0" title="사진 추가 (Ctrl+V 또는 드래그도 가능)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <input type="file" accept="image/*" multiple class="hidden" onchange="_reviseQuickAddImages('${g.key}', this.files); this.value='';">
+        </label>
+      </div>`;
+    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${g.done ? 'opacity-60' : ''}" data-revise-key="${g.key}">
       <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">${_pendingEsc(g.date || '-')}</td>
       <td class="px-3 py-2.5 text-center align-middle font-bold">${_pendingEsc(g.folder || '-')}</td>
       <td class="px-3 py-2.5 align-middle"><div class="font-semibold truncate">${_pendingEsc(firstName)}${extra}</div>${codesLine}</td>
+      <td class="px-3 py-2.5 align-middle">${imageCell}</td>
       <td class="px-3 py-2.5 align-middle">${linkCell}</td>
       <td class="px-3 py-2.5 text-center align-middle">${editBtn}</td>
       <td class="px-3 py-2.5 text-center align-middle">${g.done ? '<span class="text-[11px] font-bold text-brand-green bg-brand-green-light rounded-full px-2 py-1">완료</span>' : '<span class="text-[11px] text-brand-gray">-</span>'}</td>
@@ -4635,6 +4657,59 @@ function renderReviseList() {
     </tr>`;
   }).join('');
 }
+
+// 목록의 "이미지" 셀에서 바로 사진 추가 — 첫 항목(없으면 자동 생성)에 cascade 저장
+async function _reviseQuickAddImages(groupKey, fileList) {
+  const groups = _reviseGroups();
+  const g = groups.find(x => x.key === groupKey);
+  if (!g) return;
+  const files = [...(fileList || [])].filter(f => f && f.type && f.type.startsWith('image/'));
+  if (!files.length) return;
+  toast(`사진 ${files.length}장 처리 중...`);
+  const dataUrls = [];
+  for (const f of files) {
+    try { dataUrls.push(await _reviseFileToDataUrl(f)); }
+    catch (e) { toast('사진 처리 실패: ' + (e.message || e), 'error'); }
+  }
+  if (!dataUrls.length) return;
+  // 같은 폴더(그룹)의 모든 행에 동일하게 누적 저장
+  g.rows.forEach(r => {
+    if (!Array.isArray(r.reviseItems) || !r.reviseItems.length) {
+      r.reviseItems = [{ text: '', images: [] }];
+    }
+    const it = r.reviseItems[0];
+    it.images = (it.images || []).concat(dataUrls);
+  });
+  _savePendingToStorage();
+  renderReviseList();
+  toast('사진 추가 완료', 'success');
+}
+
+// 수정요청 페이지에서 Ctrl+V — 행이 활성/호버되어 있으면 그 행에 추가, 아니면 첫 번째 행
+function _reviseListHandlePaste(e) {
+  const activePanel = document.getElementById('menu-revise');
+  if (!activePanel || activePanel.classList.contains('hidden')) return;
+  // 모달이 열려있으면 모달 핸들러가 처리하므로 skip
+  const modalOpen = document.getElementById('modal-bd')?.classList.contains('open');
+  if (modalOpen) return;
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  const files = [];
+  for (const it of items) {
+    if (it.type && it.type.startsWith('image/')) {
+      const f = it.getAsFile();
+      if (f) files.push(f);
+    }
+  }
+  if (!files.length) return;
+  // 첫 번째 그룹에 추가 (호버 행이 없을 때 fallback)
+  const firstRow = document.querySelector('#revise-tbody tr[data-revise-key]');
+  const key = firstRow?.dataset.reviseKey;
+  if (!key) return;
+  e.preventDefault();
+  _reviseQuickAddImages(key, files);
+}
+document.addEventListener('paste', _reviseListHandlePaste);
 
 // ── 수정 내용 팝업 (폴더별, 항목마다 글 + 사진) ───────────────────
 let _reviseModal = null;   // { key, folder, items: [{text, images:[url]}] }
