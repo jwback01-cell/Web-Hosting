@@ -5334,6 +5334,12 @@ async function ihCloudPullAll() {
     try { _loadPendingFromStorage(); renderPendingList(); } catch (_) {}
     try { _loadPmFromStorage();      renderProductsList(); } catch (_) {}
     try { _loadAttend();             if (typeof renderAttendance === 'function') renderAttendance(); } catch (_) {}
+    try { _loadFakebuy();            if (typeof renderFakebuyList === 'function') renderFakebuyList(); } catch (_) {}
+    try { if (typeof renderReviseList === 'function') renderReviseList(); } catch (_) {}
+    try { if (typeof ihtodoRender === 'function') ihtodoRender(); } catch (_) {}
+    try { if (typeof renderCalendar === 'function') renderCalendar(); } catch (_) {}
+    // 대시보드 — 풀 직후 다시 렌더 (새로고침 직후 0건으로 보이는 문제 해결)
+    try { if (typeof renderDashboard === 'function') renderDashboard(); } catch (_) {}
     // 클라우드에 없는데 로컬에 있는 키 → 첫 PUSH (사고 방지: 빈 배열은 건너뜀)
     const localOnlyCandidates = [...IH_SYNC_KEYS, myAttendKey];
     for (const key of localOnlyCandidates) {
