@@ -37,6 +37,19 @@
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background:#F9F9FB; color:#1A1A1A; -webkit-font-smoothing: antialiased; }
   .panel { box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 24px rgba(0,0,0,0.04); }
   .glass-nav { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px); border: 1px solid #F2F2F7; }
+  /* 표 컬럼 너비 드래그 핸들 (resizable-table) */
+  .resizable-table th.rcol { position: relative; overflow: hidden; }
+  .resizable-table th.rcol .col-resizer {
+    position: absolute; top: 0; right: 0; bottom: 0; width: 6px;
+    cursor: col-resize; user-select: none; z-index: 5;
+  }
+  .resizable-table th.rcol .col-resizer::after {
+    content: ''; position: absolute; right: 2px; top: 25%; bottom: 25%;
+    width: 2px; background: transparent; border-radius: 1px; transition: background .15s;
+  }
+  .resizable-table th.rcol:hover .col-resizer::after,
+  .resizable-table th.rcol .col-resizer:hover::after,
+  .resizable-table th.rcol .col-resizer.dragging::after { background: #2196F3; }
   /* 상단 메뉴 탭 (모바일 헤더 전용) — 사이드바 nav-item 에는 영향 안 가도록 .glass-nav 안으로 한정 */
   .glass-nav .menu-tab.active { background:#1A1A1A; color:white; }
   /* ─── 지파고 스타일 사이드바 (아래 .nav-item 정의가 우선) ─── */
@@ -276,7 +289,7 @@
   <!-- ─ 사이드바 + 메인 영역 ─ -->
   <div class="flex flex-1 min-h-0">
   <!-- ─ 좌측 사이드바 (데스크톱) — 지파고 스타일 nav-item ─ -->
-  <aside id="ih-sidebar" class="hidden md:flex shrink-0 bg-white rounded-4xl panel p-6 flex-col gap-2 sticky top-0 self-start ml-6 my-5 max-h-[calc(100vh-40px)] overflow-y-auto" style="width:260px;">
+  <aside class="hidden md:flex w-[260px] shrink-0 bg-white rounded-4xl panel p-6 flex-col gap-2 sticky top-0 self-start ml-6 my-5 max-h-[calc(100vh-40px)] overflow-y-auto">
     <div class="text-xs font-bold text-brand-gray tracking-wider mb-2 px-2">MENU</div>
     <nav class="flex flex-col gap-2">
       <!-- 대시보드 (단독) -->
@@ -320,8 +333,6 @@
       <a href="mailto:jwback01@nate.com" class="block w-full px-3 py-2 rounded-full border border-brand-border text-center text-xs font-bold text-brand-black hover:bg-brand-bg transition-colors">고객센터 문의</a>
     </div>
   </aside>
-  <!-- 사이드바 너비 드래그 핸들 (데스크톱 전용) -->
-  <div id="ih-sidebar-resizer" class="hidden md:block sticky top-0 self-start my-5 mx-1 w-1.5 rounded-full bg-transparent hover:bg-brand-blue/40 cursor-col-resize transition-colors" style="height:calc(100vh - 40px);" title="드래그해서 사이드바 폭 조절"></div>
 
   <!-- ─ 메인 영역 (사이드바 옆) ─ -->
   <div class="flex-1 flex flex-col min-w-0 md:pt-5">
@@ -774,17 +785,17 @@
         <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 <b>폴더코드별로 1개씩</b> 모입니다. '수정 내용'을 클릭하면 팝업에서 항목별로 글과 사진을 추가할 수 있어요.</p>
       </div>
       <div class="overflow-x-auto -mx-1 px-1">
-        <table class="w-full text-sm border-collapse">
+        <table id="revise-table" class="text-sm border-collapse resizable-table" data-resizable="revise-v1" style="table-layout:fixed;width:100%;">
           <thead>
             <tr class="bg-brand-bg">
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[110px]">날짜</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[220px]">제품 (폴더 내)</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[180px]">이미지</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[240px]">링크</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border min-w-[180px]">수정 내용</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">해제</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">날짜</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">폴더코드</th>
+              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:240px;">제품 (폴더 내)</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:200px;">이미지</th>
+              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:280px;">링크</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:200px;">수정 내용</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:80px;">완료</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">해제</th>
             </tr>
           </thead>
           <tbody id="revise-tbody"></tbody>
@@ -3669,61 +3680,80 @@ function ihtodoRender() {
 // 페이지 로드 시 데이터 로드 (자동)
 document.addEventListener('DOMContentLoaded', _ihtodoLoad);
 
-// ── 사이드바 너비 드래그 조절 (데스크톱) ─────────────────────────
-const IH_SIDEBAR_WIDTH_KEY = 'ih_sidebar_width_v1';
-const IH_SIDEBAR_MIN = 180;
-const IH_SIDEBAR_MAX = 480;
-function _ihRestoreSidebarWidth() {
-  const sb = document.getElementById('ih-sidebar');
-  if (!sb) return;
-  let w = Number(localStorage.getItem(IH_SIDEBAR_WIDTH_KEY) || 0) || 0;
-  if (w < IH_SIDEBAR_MIN) w = IH_SIDEBAR_MIN;
-  if (w > IH_SIDEBAR_MAX) w = IH_SIDEBAR_MAX;
-  if (w) sb.style.width = w + 'px';
-}
-function _ihAttachSidebarResizer() {
-  const handle = document.getElementById('ih-sidebar-resizer');
-  const sb = document.getElementById('ih-sidebar');
-  if (!handle || !sb) return;
-  let dragging = false;
-  let startX = 0, startW = 0;
-  const onMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startX;
-    let w = startW + dx;
-    if (w < IH_SIDEBAR_MIN) w = IH_SIDEBAR_MIN;
-    if (w > IH_SIDEBAR_MAX) w = IH_SIDEBAR_MAX;
-    sb.style.width = w + 'px';
-  };
-  const onUp = () => {
-    if (!dragging) return;
-    dragging = false;
-    document.body.style.userSelect = '';
-    document.body.style.cursor = '';
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    try { localStorage.setItem(IH_SIDEBAR_WIDTH_KEY, parseInt(sb.style.width, 10)); } catch (_) {}
-  };
-  handle.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    dragging = true;
-    startX = e.clientX;
-    startW = sb.getBoundingClientRect().width;
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'col-resize';
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-  // 더블클릭 → 기본 폭으로 복원
-  handle.addEventListener('dblclick', () => {
-    sb.style.width = '260px';
-    try { localStorage.removeItem(IH_SIDEBAR_WIDTH_KEY); } catch (_) {}
+// ── 표 컬럼 너비 드래그 조절 (resizable-table) ──────────────────────
+// 사용법: <table class="resizable-table" data-resizable="<유니크-키>"> + <th class="rcol" style="width:...">
+const COL_W_MIN = 50;
+const COL_W_MAX = 900;
+function _ihRestoreColWidths(table) {
+  const key = 'ih_colw_' + (table.dataset.resizable || '');
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { saved = null; }
+  if (!Array.isArray(saved)) return;
+  const ths = table.querySelectorAll('thead th.rcol');
+  ths.forEach((th, i) => {
+    const w = Number(saved[i] || 0);
+    if (w >= COL_W_MIN && w <= COL_W_MAX) th.style.width = w + 'px';
   });
 }
-document.addEventListener('DOMContentLoaded', () => {
-  _ihRestoreSidebarWidth();
-  _ihAttachSidebarResizer();
-});
+function _ihSaveColWidths(table) {
+  const key = 'ih_colw_' + (table.dataset.resizable || '');
+  const ths = table.querySelectorAll('thead th.rcol');
+  const arr = [...ths].map(th => Math.round(th.getBoundingClientRect().width));
+  try { localStorage.setItem(key, JSON.stringify(arr)); } catch (_) {}
+}
+function _ihAttachColResizers(table) {
+  const ths = table.querySelectorAll('thead th.rcol');
+  ths.forEach((th, idx) => {
+    if (th.querySelector('.col-resizer')) return;        // 이미 부착됨
+    if (idx === ths.length - 1) return;                  // 마지막 컬럼은 우측 드래그 불필요
+    const h = document.createElement('div');
+    h.className = 'col-resizer';
+    h.title = '드래그해서 너비 조절 (더블클릭=기본 복원)';
+    th.appendChild(h);
+    let dragging = false, startX = 0, startW = 0;
+    const onMove = (e) => {
+      if (!dragging) return;
+      let w = startW + (e.clientX - startX);
+      if (w < COL_W_MIN) w = COL_W_MIN;
+      if (w > COL_W_MAX) w = COL_W_MAX;
+      th.style.width = w + 'px';
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      h.classList.remove('dragging');
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      _ihSaveColWidths(table);
+    };
+    h.addEventListener('mousedown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      dragging = true;
+      startX = e.clientX;
+      startW = th.getBoundingClientRect().width;
+      h.classList.add('dragging');
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+    h.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      th.style.width = '';   // 기본 너비로 복원
+      _ihSaveColWidths(table);
+    });
+  });
+}
+function _ihInitResizableTables() {
+  document.querySelectorAll('table.resizable-table[data-resizable]').forEach(t => {
+    _ihRestoreColWidths(t);
+    _ihAttachColResizers(t);
+  });
+}
+document.addEventListener('DOMContentLoaded', _ihInitResizableTables);
+
 
 // ── 가구매 (등록예정과 별개 — 간단한 메모형 리스트) ─────────────────
 const FAKEBUY_LS_KEY = 'ih_fakebuy_v1';
