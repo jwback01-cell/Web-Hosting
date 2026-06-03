@@ -4971,11 +4971,19 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
     else setScale(14, e.clientX, e.clientY);
   };
 
-  // 휠 줌 (ctrl 없이도 동작)
+  // 휠 — 기본: 사진 위/아래 이동 (스크롤). Ctrl+휠 = 줌. Shift+휠 = 좌/우 이동
   wrapEl.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const dir = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    setScale(_rlbState.scale * dir, e.clientX, e.clientY);
+    if (e.ctrlKey || e.metaKey) {
+      const dir = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      setScale(_rlbState.scale * dir, e.clientX, e.clientY);
+      return;
+    }
+    const step = e.deltaY;       // 양수=아래로, 음수=위로
+    if (e.shiftKey) _rlbState.tx -= step;   // shift → 가로 이동
+    else            _rlbState.ty -= step;   // 기본 → 세로 이동
+    imgEl.style.transition = 'none';
+    imgEl.style.transform = `translate(${_rlbState.tx}px, ${_rlbState.ty}px) scale(${_rlbState.scale})`;
   }, { passive: false });
 
   // 드래그 패닝 (확대된 상태에서)
