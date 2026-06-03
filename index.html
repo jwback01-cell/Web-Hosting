@@ -785,16 +785,14 @@
         <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 <b>폴더코드별로 1개씩</b> 모입니다. '수정 내용'을 클릭하면 팝업에서 항목별로 글과 사진을 추가할 수 있어요.</p>
       </div>
       <div class="overflow-x-auto -mx-1 px-1">
-        <table id="revise-table" class="text-sm border-collapse resizable-table" data-resizable="revise-v1" style="table-layout:fixed;width:100%;">
+        <table id="revise-table" class="text-sm border-collapse resizable-table" data-resizable="revise-v2" style="table-layout:fixed;width:100%;">
           <thead>
             <tr class="bg-brand-bg">
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">날짜</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">폴더코드</th>
-              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:240px;">제품 (폴더 내)</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:200px;">이미지</th>
-              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:280px;">링크</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:120px;">날짜</th>
+              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:260px;">제품 (폴더 내)</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:220px;">이미지</th>
+              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:300px;">링크</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:200px;">수정 내용</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:80px;">완료</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">해제</th>
             </tr>
           </thead>
@@ -4721,10 +4719,11 @@ function renderReviseList() {
       </button>`;
     // 이미지 셀 — 모든 항목의 이미지를 평탄화해서 썸네일 노출 + 빠른 업로드/Ctrl+V/드래그
     const allImgs = (g.reviseItems || []).reduce((acc, it) => acc.concat(it.images || []), []);
+    const captionText = (g.reviseItems[0]?.text) || '';
     const thumbs = allImgs.slice(0, 3).map((url, k) =>
-      `<img src="${_pendingEsc(url)}" data-url="${_pendingEsc(url)}" data-text="${_pendingEsc((g.reviseItems[0]?.text) || '')}"
-            onclick="event.stopPropagation();_reviseLightbox(this.dataset.url, this.dataset.text)"
-            class="w-10 h-10 rounded-md border border-brand-border object-cover cursor-zoom-in" title="클릭하면 크게 보기">`
+      `<img src="${_pendingEsc(url)}"
+            onclick="event.stopPropagation();_reviseLightboxOpen('${g.key}', ${k})"
+            class="w-10 h-10 rounded-md border border-brand-border object-cover cursor-zoom-in" title="클릭하면 크게 보기 (좌우 화살표로 이동)">`
     ).join('');
     const moreBadge = allImgs.length > 3
       ? `<span class="text-[10px] font-bold text-brand-gray">+${allImgs.length - 3}</span>` : '';
@@ -4741,12 +4740,10 @@ function renderReviseList() {
       </div>`;
     return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${g.done ? 'opacity-60' : ''}" data-revise-key="${g.key}">
       <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">${_pendingEsc(g.date || '-')}</td>
-      <td class="px-3 py-2.5 text-center align-middle font-bold">${_pendingEsc(g.folder || '-')}</td>
       <td class="px-3 py-2.5 align-middle"><div class="font-semibold truncate">${_pendingEsc(firstName)}${extra}</div>${codesLine}</td>
       <td class="px-3 py-2.5 align-middle">${imageCell}</td>
       <td class="px-3 py-2.5 align-middle">${linkCell}</td>
       <td class="px-3 py-2.5 text-center align-middle">${editBtn}</td>
-      <td class="px-3 py-2.5 text-center align-middle">${g.done ? '<span class="text-[11px] font-bold text-brand-green bg-brand-green-light rounded-full px-2 py-1">완료</span>' : '<span class="text-[11px] text-brand-gray">-</span>'}</td>
       <td class="px-3 py-2.5 text-center align-middle">
         <button onclick="togglePendingRevise('${g.rep.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
       </td>
@@ -4854,7 +4851,7 @@ function _renderReviseModalBody() {
           <div class="flex flex-wrap gap-2 mt-2">
             ${(it.images || []).map((url, k) => `
               <div class="relative w-20 h-20 rounded-lg overflow-hidden border border-brand-border group">
-                <img src="${_pendingEsc(url)}" data-url="${_pendingEsc(url)}" data-text="${_pendingEsc(it.text || '')}" class="w-full h-full object-cover cursor-zoom-in" onclick="_reviseLightbox(this.dataset.url, this.dataset.text)" title="클릭하면 크게 보기">
+                <img src="${_pendingEsc(url)}" class="w-full h-full object-cover cursor-zoom-in" onclick="_reviseLightboxFromModal(${i}, ${k})" title="클릭하면 크게 보기 (좌우 화살표로 이동)">
                 <button onclick="_reviseRemoveImage(${i}, ${k})" class="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-xs leading-5 text-center">×</button>
               </div>`).join('')}
             <label class="w-20 h-20 rounded-lg border-2 border-dashed border-brand-border flex flex-col items-center justify-center cursor-pointer hover:border-brand-black text-brand-gray text-[10px] gap-0.5">
@@ -4868,29 +4865,172 @@ function _renderReviseModalBody() {
     </div>`;
 }
 // 수정요청 이미지 라이트박스 — URL + 요청 텍스트 받아 큰 이미지 + 하단 캡션 팝업
-function _reviseLightbox(url, text) {
-  if (!url) return;
+// ── 수정요청 이미지 라이트박스 (갤러리 + 확대/축소 + 좌/우 이동) ─────
+let _rlbState = null;   // { images, idx, captionText, scale, tx, ty, dragging, sx, sy }
+function _reviseLightboxGallery(images, startIdx, captionText) {
+  if (!Array.isArray(images) || !images.length) return;
   const old = document.getElementById('revise-lightbox');
   if (old) old.remove();
+  _rlbState = {
+    images: images.slice(),
+    idx: Math.max(0, Math.min(startIdx | 0, images.length - 1)),
+    captionText: captionText || '',
+    scale: 1, tx: 0, ty: 0, dragging: false, sx: 0, sy: 0,
+  };
   const div = document.createElement('div');
   div.id = 'revise-lightbox';
-  div.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn .15s ease;padding:24px;gap:16px;';
-  div.onclick = () => { div.remove(); document.removeEventListener('keydown', onKey); };
-  const safeUrl  = String(url || '').replace(/"/g, '&quot;');
-  const safeText = String(text || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  div.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;animation:fadeIn .15s ease;';
+  const safeText = String(_rlbState.captionText || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const captionHtml = safeText
-    ? `<div style="max-width:min(800px,90vw);background:rgba(255,255,255,.08);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 20px;color:white;font-size:15px;line-height:1.6;text-align:center;white-space:pre-wrap;word-break:break-word;cursor:default;" onclick="event.stopPropagation()">
+    ? `<div id="rlb-caption" style="max-width:min(800px,90vw);background:rgba(255,255,255,.08);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 20px;color:white;font-size:15px;line-height:1.6;text-align:center;white-space:pre-wrap;word-break:break-word;margin-top:14px;cursor:default;" onclick="event.stopPropagation()">
         <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.55);letter-spacing:.08em;margin-bottom:6px;">📝 요청 내용</div>
         ${safeText}
-      </div>`
-    : '';
+      </div>` : '';
+  const navStyle = 'position:absolute;top:50%;transform:translateY(-50%);width:54px;height:54px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:white;font-size:28px;font-weight:bold;cursor:pointer;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;line-height:1;user-select:none;';
+  const btnStyle = 'width:42px;height:42px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:white;font-size:18px;font-weight:bold;cursor:pointer;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;line-height:1;';
   div.innerHTML = `
-    <img src="${safeUrl}" style="max-width:92vw;max-height:${safeText ? '70vh' : '88vh'};object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.4);border-radius:8px;" onclick="event.stopPropagation()">
+    <div id="rlb-imgwrap" style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;overflow:hidden;cursor:zoom-out;">
+      <img id="rlb-img" src="${String(_rlbState.images[_rlbState.idx]).replace(/"/g,'&quot;')}"
+           style="max-width:92vw;max-height:${safeText ? '72vh' : '88vh'};object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,.4);border-radius:8px;transform:translate(0,0) scale(1);transform-origin:center center;transition:transform .15s ease;cursor:grab;user-select:none;" draggable="false">
+    </div>
     ${captionHtml}
-    <button style="position:absolute;top:20px;right:24px;width:40px;height:40px;border-radius:9999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.3);color:white;font-size:20px;cursor:pointer;backdrop-filter:blur(8px);">×</button>`;
-  const onKey = (e) => { if (e.key === 'Escape') { div.remove(); document.removeEventListener('keydown', onKey); } };
-  document.addEventListener('keydown', onKey);
+    <!-- 좌우 이동 -->
+    <button id="rlb-prev" style="${navStyle}left:24px;" title="이전 (←)">‹</button>
+    <button id="rlb-next" style="${navStyle}right:24px;" title="다음 (→)">›</button>
+    <!-- 상단 툴바 -->
+    <div style="position:absolute;top:18px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.18);border-radius:9999px;padding:6px 10px;backdrop-filter:blur(8px);">
+      <button id="rlb-zoom-out" style="${btnStyle}" title="축소 (−)">−</button>
+      <span id="rlb-zoom-pct" style="color:white;font-size:13px;font-weight:700;min-width:54px;text-align:center;">100%</span>
+      <button id="rlb-zoom-in" style="${btnStyle}" title="확대 (+)">+</button>
+      <button id="rlb-zoom-reset" style="${btnStyle}padding:0 14px;width:auto;font-size:13px;" title="원본 크기 (0)">1:1</button>
+      <span id="rlb-counter" style="color:rgba(255,255,255,.75);font-size:13px;font-weight:600;margin-left:6px;padding-left:10px;border-left:1px solid rgba(255,255,255,.18);">${_rlbState.idx + 1} / ${_rlbState.images.length}</span>
+    </div>
+    <!-- 닫기 -->
+    <button id="rlb-close" style="position:absolute;top:18px;right:24px;${btnStyle}" title="닫기 (Esc)">×</button>
+  `;
   document.body.appendChild(div);
+
+  const imgEl = div.querySelector('#rlb-img');
+  const wrapEl = div.querySelector('#rlb-imgwrap');
+  const pctEl = div.querySelector('#rlb-zoom-pct');
+  const counterEl = div.querySelector('#rlb-counter');
+  const apply = () => {
+    imgEl.style.transform = `translate(${_rlbState.tx}px, ${_rlbState.ty}px) scale(${_rlbState.scale})`;
+    imgEl.style.cursor = _rlbState.scale > 1 ? (_rlbState.dragging ? 'grabbing' : 'grab') : 'zoom-in';
+    pctEl.textContent = Math.round(_rlbState.scale * 100) + '%';
+  };
+  const setScale = (s, cx, cy) => {
+    const newScale = Math.max(0.2, Math.min(8, s));
+    // 마우스 위치 기준으로 줌 (cx, cy 가 주어지면)
+    if (typeof cx === 'number') {
+      const rect = imgEl.getBoundingClientRect();
+      const dx = cx - (rect.left + rect.width / 2);
+      const dy = cy - (rect.top + rect.height / 2);
+      const ratio = newScale / _rlbState.scale;
+      _rlbState.tx = (_rlbState.tx - dx) * ratio + dx;
+      _rlbState.ty = (_rlbState.ty - dy) * ratio + dy;
+    }
+    _rlbState.scale = newScale;
+    if (_rlbState.scale === 1) { _rlbState.tx = 0; _rlbState.ty = 0; }
+    apply();
+  };
+  const resetView = () => { _rlbState.scale = 1; _rlbState.tx = 0; _rlbState.ty = 0; apply(); };
+  const show = (i) => {
+    if (i < 0 || i >= _rlbState.images.length) return;
+    _rlbState.idx = i;
+    imgEl.src = _rlbState.images[i];
+    counterEl.textContent = `${i + 1} / ${_rlbState.images.length}`;
+    resetView();
+  };
+  const next = () => show((_rlbState.idx + 1) % _rlbState.images.length);
+  const prev = () => show((_rlbState.idx - 1 + _rlbState.images.length) % _rlbState.images.length);
+  const close = () => {
+    div.remove();
+    document.removeEventListener('keydown', onKey);
+    _rlbState = null;
+  };
+
+  // 버튼
+  div.querySelector('#rlb-prev').onclick = (e) => { e.stopPropagation(); prev(); };
+  div.querySelector('#rlb-next').onclick = (e) => { e.stopPropagation(); next(); };
+  div.querySelector('#rlb-zoom-in').onclick = (e) => { e.stopPropagation(); setScale(_rlbState.scale * 1.25); };
+  div.querySelector('#rlb-zoom-out').onclick = (e) => { e.stopPropagation(); setScale(_rlbState.scale / 1.25); };
+  div.querySelector('#rlb-zoom-reset').onclick = (e) => { e.stopPropagation(); resetView(); };
+  div.querySelector('#rlb-close').onclick = (e) => { e.stopPropagation(); close(); };
+
+  // 배경 클릭 시 닫기 (이미지 클릭은 줌 토글)
+  wrapEl.onclick = (e) => {
+    if (e.target === wrapEl) close();
+  };
+  imgEl.onclick = (e) => {
+    e.stopPropagation();
+    if (_rlbState.scale === 1) setScale(2, e.clientX, e.clientY);
+    else resetView();
+  };
+
+  // 휠 줌 (ctrl 없이도 동작)
+  wrapEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const dir = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    setScale(_rlbState.scale * dir, e.clientX, e.clientY);
+  }, { passive: false });
+
+  // 드래그 패닝 (확대된 상태에서)
+  imgEl.addEventListener('mousedown', (e) => {
+    if (_rlbState.scale <= 1) return;
+    e.preventDefault(); e.stopPropagation();
+    _rlbState.dragging = true;
+    _rlbState.sx = e.clientX - _rlbState.tx;
+    _rlbState.sy = e.clientY - _rlbState.ty;
+    imgEl.style.cursor = 'grabbing';
+    imgEl.style.transition = 'none';
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!_rlbState || !_rlbState.dragging) return;
+    _rlbState.tx = e.clientX - _rlbState.sx;
+    _rlbState.ty = e.clientY - _rlbState.sy;
+    imgEl.style.transform = `translate(${_rlbState.tx}px, ${_rlbState.ty}px) scale(${_rlbState.scale})`;
+  });
+  document.addEventListener('mouseup', () => {
+    if (!_rlbState) return;
+    _rlbState.dragging = false;
+    imgEl.style.transition = 'transform .15s ease';
+    apply();
+  });
+
+  // 키보드: ← → +- 0 Esc
+  const onKey = (e) => {
+    if (e.key === 'Escape') { close(); }
+    else if (e.key === 'ArrowLeft')  { prev(); }
+    else if (e.key === 'ArrowRight') { next(); }
+    else if (e.key === '+' || e.key === '=') { setScale(_rlbState.scale * 1.25); }
+    else if (e.key === '-' || e.key === '_') { setScale(_rlbState.scale / 1.25); }
+    else if (e.key === '0') { resetView(); }
+  };
+  document.addEventListener('keydown', onKey);
+  apply();
+}
+
+// 목록 행에서 갤러리 열기 — 그룹의 모든 이미지를 합쳐서 표시
+function _reviseLightboxOpen(groupKey, startIdx) {
+  const g = _reviseGroups().find(x => x.key === groupKey);
+  if (!g) return;
+  const imgs = (g.reviseItems || []).reduce((acc, it) => acc.concat(it.images || []), []);
+  const text = (g.reviseItems[0] && g.reviseItems[0].text) || '';
+  _reviseLightboxGallery(imgs, startIdx | 0, text);
+}
+
+// 모달에서 갤러리 열기 — 해당 항목의 이미지 + 캡션
+function _reviseLightboxFromModal(itemIdx, imgIdx) {
+  if (!_reviseModal || !_reviseModal.items[itemIdx]) return;
+  const it = _reviseModal.items[itemIdx];
+  _reviseLightboxGallery(it.images || [], imgIdx | 0, it.text || '');
+}
+
+// 구버전 호환 — 단일 이미지 열기 (혹시 어디서 부르고 있을 때 대비)
+function _reviseLightbox(url, text) {
+  if (!url) return;
+  _reviseLightboxGallery([url], 0, text || '');
 }
 function _reviseSetText(i, val) { if (_reviseModal && _reviseModal.items[i]) _reviseModal.items[i].text = val; }
 function _reviseAddItem() { if (!_reviseModal) return; _reviseModal.items.push({ text: '', images: [] }); _renderReviseModalBody(); }
