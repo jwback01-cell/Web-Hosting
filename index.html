@@ -4641,10 +4641,15 @@ function togglePendingStart(pid, start) {
 function togglePendingRevise(pid, revise) {
   const item = pendingList.find(p => p.id === pid);
   if (!item) return;
+  const stamp = revise ? _todayStr() : '';   // 체크한 날짜 기록 (해제하면 비움)
   if (item.folder) {
-    pendingList.filter(p => p.folder === item.folder).forEach(p => { p.revise = revise; });
+    pendingList.filter(p => p.folder === item.folder).forEach(p => {
+      p.revise = revise;
+      p.reviseCheckedAt = stamp;
+    });
   } else {
     item.revise = revise;
+    item.reviseCheckedAt = stamp;
   }
   _savePendingToStorage();
   renderPendingList();
@@ -4669,12 +4674,14 @@ function _reviseGroups() {
     // reviseItems 는 폴더 내 어느 행이든 동일 (cascade 저장). 비어있으면 []
     const reviseItems = (rows.find(r => Array.isArray(r.reviseItems) && r.reviseItems.length) || {}).reviseItems
                         || (Array.isArray(rep.reviseItems) ? rep.reviseItems : []);
+    // 수정요청 체크 날짜 — 그룹 내 어느 행이든 reviseCheckedAt 가 있으면 그것, 없으면 빈 값
+    const reviseDate = (rows.find(r => r.reviseCheckedAt) || {}).reviseCheckedAt || '';
     return {
       key: g.key,
       folder: g.folder,
       rows,
       rep,
-      date: rep.date || '',
+      date: reviseDate,
       link: rep.link || '',
       done: rows.every(r => r.done),
       names: rows.map(r => r.name).filter(Boolean),
@@ -4693,9 +4700,10 @@ function renderReviseList() {
   if (cntEl) cntEl.textContent = groups.length;
   if (!groups.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
   if (empty) empty.classList.add('hidden');
-  // 날짜 최근순 → 같은 날짜는 폴더코드로 정렬
+  // 수정요청 체크 날짜 최근순 → 같은 날짜는 폴더코드로 정렬
+  const _gDateNum = (g) => { const d = _parseCompletedDate(g.date); return d ? (d.y * 10000 + d.m * 100 + d.d) : 0; };
   groups.sort((a, b) => {
-    const dv = _dashPendDateNum(b.rep) - _dashPendDateNum(a.rep);
+    const dv = _gDateNum(b) - _gDateNum(a);
     if (dv) return dv;
     return (a.folder || '￿').localeCompare(b.folder || '￿');
   });
