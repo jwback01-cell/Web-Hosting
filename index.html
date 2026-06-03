@@ -4920,7 +4920,7 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
     pctEl.textContent = Math.round(_rlbState.scale * 100) + '%';
   };
   const setScale = (s, cx, cy) => {
-    const newScale = Math.max(0.2, Math.min(8, s));
+    const newScale = Math.max(0.2, Math.min(10, s));
     // 마우스 위치 기준으로 줌 (cx, cy 가 주어지면)
     if (typeof cx === 'number') {
       const rect = imgEl.getBoundingClientRect();
@@ -4966,6 +4966,12 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
     e.stopPropagation();
     if (_rlbState.scale === 1) setScale(2, e.clientX, e.clientY);
     else resetView();
+  };
+  // 더블클릭 — 1000% 까지 확대 (이미 1000% 이상이면 원본으로 복원)
+  imgEl.ondblclick = (e) => {
+    e.stopPropagation(); e.preventDefault();
+    if (_rlbState.scale >= 10) resetView();
+    else setScale(10, e.clientX, e.clientY);
   };
 
   // 휠 줌 (ctrl 없이도 동작)
