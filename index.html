@@ -5297,6 +5297,9 @@ const IH_SYNC_KEYS = [
 ];
 let _ihCloudReady = false;
 const _ihPushTimers = {};
+const _ihDirtyKeys = {};      // 아직 클라우드에 확정 반영 안 된 키 — 새로고침/종료 직전 flush 대상
+let _ihSessionToken = null;   // 페이지 종료 시 keepalive PUSH 용 토큰 캐시
+let _ihUserId = null;
 
 // 마스터 전용 — 다른 직원의 attendance 데이터 (read-only 조회용)
 //   key: userId, value: { rows: [...], email: '...' }
@@ -5308,6 +5311,7 @@ async function ihCloudPullAll() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return 0;
     const myUid = session.user.id;
+    _ihUserId = myUid; _ihSessionToken = session.access_token || _ihSessionToken;
     const myAttendKey = `ih_attendance_v1__${myUid}`;
     const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
     const { data, error } = await sb.from('ih_kv').select('key, data, updated_by');
@@ -5405,12 +5409,14 @@ function _ihCloudPushKey(key) {
   // IH_SYNC_KEYS 에 있는 키 또는 user-specific attendance 키만 push
   const isUserAttend = (typeof key === 'string') && key.startsWith('ih_attendance_v1__');
   if (!IH_SYNC_KEYS.includes(key) && !isUserAttend) return;
+  _ihDirtyKeys[key] = true;   // 종료 직전 flush 대상
   clearTimeout(_ihPushTimers[key]);
   _ihPushTimers[key] = setTimeout(async () => {
     try {
       if (!sb) return;
       const { data: { session } } = await sb.auth.getSession();
       if (!session) return;
+      _ihUserId = session.user.id; _ihSessionToken = session.access_token || _ihSessionToken;
       const raw = localStorage.getItem(key);
       let parsed = null;
       if (raw != null) { try { parsed = JSON.parse(raw); } catch (_) { parsed = raw; } }
@@ -5419,8 +5425,9 @@ function _ihCloudPushKey(key) {
         { onConflict: 'key' }
       );
       if (error) console.warn('[ih-push] error', key, error);
+      else delete _ihDirtyKeys[key];   // 클라우드 확정 반영됨
     } catch (e) { console.warn('[ih-push] failed', key, e); }
-  }, 1500);
+  }, 500);
 }
 
 // localStorage.setItem 후킹 — IH_SYNC_KEYS + user-specific attendance 만 자동 PUSH
@@ -5433,6 +5440,39 @@ function _ihCloudPushKey(key) {
     if (this === localStorage) _ihCloudPushKey(k);
   };
 })();
+
+// 새로고침/탭 종료 직전 — 아직 클라우드에 반영 안 된 변경(_ihDirtyKeys)을 keepalive 로 즉시 PUSH
+//   (완료 체크 후 바로 새로고침하면 디바운스 PUSH 가 못 끝나 PULL 이 옛 값으로 덮어쓰던 문제 방지)
+function _ihFlushPendingPushes() {
+  try {
+    const dirty = Object.keys(_ihDirtyKeys);
+    if (!dirty.length) return;
+    const cfg = (typeof getSupabaseConfig === 'function') ? getSupabaseConfig() : null;
+    if (!cfg || !cfg.url || !cfg.key || !_ihSessionToken) return;
+    const base = cfg.url.replace(/\/+$/, '');
+    for (const key of dirty) {
+      const raw = localStorage.getItem(key);
+      let parsed = null;
+      if (raw != null) { try { parsed = JSON.parse(raw); } catch (_) { parsed = raw; } }
+      try {
+        fetch(base + '/rest/v1/ih_kv?on_conflict=key', {
+          method: 'POST',
+          keepalive: true,   // 페이지가 닫혀도 요청 유지
+          headers: {
+            'apikey': cfg.key,
+            'Authorization': 'Bearer ' + _ihSessionToken,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal',
+          },
+          body: JSON.stringify({ key, data: parsed, updated_by: _ihUserId, updated_at: new Date().toISOString() }),
+        });
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+window.addEventListener('pagehide', _ihFlushPendingPushes);
+window.addEventListener('beforeunload', _ihFlushPendingPushes);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _ihFlushPendingPushes(); });
 
 // 인라인 셀(input) 바깥 영역 클릭 시 자동 blur — 깜빡이는 커서·테두리 제거
 document.addEventListener('mousedown', (e) => {
