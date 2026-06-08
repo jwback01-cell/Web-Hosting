@@ -3613,8 +3613,14 @@ function ihtodoRender() {
   const lblEl = document.getElementById('ihtodo-date-label');
   if (lblEl) lblEl.textContent = _ihtodoFmtDateLong(ihtodoCurrentDate);
 
+  const _todayISO = _ihtodoTodayISO();
+  const _viewingToday = (ihtodoCurrentDate === _todayISO);
   const todayItems = ihtodoList.filter(x => x.due === ihtodoCurrentDate);
-  const pending = todayItems.filter(x => !x.done);
+  // 오늘 화면에선 '지난 마감인데 아직 미완료'(overdue) 항목도 이월해서 함께 표시 — 완료 전까지 계속 보이게
+  const overdue = _viewingToday
+    ? ihtodoList.filter(x => !x.done && x.due && x.due < _todayISO).sort((a, b) => (a.due < b.due ? -1 : 1))
+    : [];
+  const pending = overdue.concat(todayItems.filter(x => !x.done));
   const done    = todayItems.filter(x =>  x.done);
 
   const countEl = document.getElementById('ihtodo-count');
@@ -3632,7 +3638,10 @@ function ihtodoRender() {
         const bodyHtml = it.tag
           ? `<div class="text-sm text-brand-black/80 whitespace-pre-wrap mt-1 mb-1">${_pmEsc(it.tag)}</div>`
           : '';
-        const dueHtml = `<span class="text-brand-gray text-sm font-medium">${_pmEsc(_ihtodoFmtDateLong(it.due))} 마감</span>`;
+        const _isOverdue = it.due && it.due < _todayISO;
+        const dueHtml = _isOverdue
+          ? `<span class="text-brand-pink text-sm font-bold">⚠ ${_pmEsc(_ihtodoFmtDateLong(it.due))} 마감 지남</span>`
+          : `<span class="text-brand-gray text-sm font-medium">${_pmEsc(_ihtodoFmtDateLong(it.due))} 마감</span>`;
         return `<div class="flex items-start justify-between p-4 border border-brand-border rounded-2xl hover:bg-brand-bg transition-all group">
           <div class="flex items-start gap-4 min-w-0 flex-1">
             <button onclick="event.stopPropagation();ihtodoToggleDone('${it.id}')" class="w-7 h-7 rounded-full border-2 border-brand-border hover:border-brand-green hover:bg-brand-green-light/40 transition-colors shrink-0 mt-1" title="완료 처리"></button>
