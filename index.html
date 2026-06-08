@@ -4442,7 +4442,12 @@ function _renderPfBody() {
   const inpCls = 'w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-1.5 py-1 focus:outline-none';
   box.innerHTML = `
     <div class="text-brand-black">
-      <div class="text-xs text-brand-gray mb-2">제품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
+      <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+        <div class="text-xs text-brand-gray">제품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
+        <button onclick="_pfDownloadExcel()" class="px-3 py-1.5 rounded-full border border-brand-border text-xs font-bold hover:bg-brand-bg flex items-center gap-1.5 shrink-0" title="이 폴더 제품 목록을 엑셀로 다운로드">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>엑셀 다운로드
+        </button>
+      </div>
       <div style="overflow-x:auto;">
       <table class="w-full text-sm border-collapse" style="min-width:880px;">
         <thead>
@@ -4483,6 +4488,26 @@ function _pfEdit(pid, field, val) {
   }
   clearTimeout(_pendingSaveTimer);
   _pendingSaveTimer = setTimeout(_savePendingToStorage, 400);
+}
+// 폴더 제품 목록 → 엑셀(.xlsx) 다운로드
+function _pfDownloadExcel() {
+  if (_pfFolder == null) return;
+  const rows = pendingList.filter(p => p.folder === _pfFolder);
+  if (!rows.length) { alert('내보낼 제품이 없습니다.'); return; }
+  const headers = ['#', '제품명', '상품코드', '키워드', '비고', '추가'];
+  const data = [headers, ...rows.map((p, i) => [
+    i + 1,
+    p.name || '',
+    p.code || '',
+    p.keyword || '',
+    p.note || '',
+    p.addon ? 'O' : '',
+  ])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{ wch: 5 }, { wch: 40 }, { wch: 12 }, { wch: 18 }, { wch: 24 }, { wch: 6 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '제품목록');
+  XLSX.writeFile(wb, `폴더_${_pfFolder}_제품목록.xlsx`);
 }
 function _pfAddProduct() {
   if (_pfFolder == null) return;
