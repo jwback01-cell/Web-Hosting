@@ -5344,6 +5344,11 @@ const _ihPushTimers = {};
 const _ihDirtyKeys = {};      // 아직 클라우드에 확정 반영 안 된 키 — 새로고침/종료 직전 flush 대상
 let _ihSessionToken = null;   // 페이지 종료 시 keepalive PUSH 용 토큰 캐시
 let _ihUserId = null;
+// 로컬 수정시각(epoch ms) — PULL 시 클라우드 updated_at 과 비교해 더 최신 로컬은 덮어쓰지 않음 (새로고침 시 변경 유실 방지)
+function _ihLoadMtime(){ try{ return JSON.parse(localStorage.getItem('ih_kv_mtime')||'{}')||{}; }catch(_){ return {}; } }
+function _ihSaveMtime(m){ try{ const v=JSON.stringify(m); if(Storage.prototype._ihOrigSetItem) Storage.prototype._ihOrigSetItem.call(localStorage,'ih_kv_mtime',v); else localStorage.setItem('ih_kv_mtime',v); }catch(_){} }
+function _ihMarkMtime(key){ const m=_ihLoadMtime(); m[key]=Date.now(); _ihSaveMtime(m); }
+function _ihClearMtime(key){ const m=_ihLoadMtime(); if(m[key]!=null){ delete m[key]; _ihSaveMtime(m); } }
 
 // 마스터 전용 — 다른 직원의 attendance 데이터 (read-only 조회용)
 //   key: userId, value: { rows: [...], email: '...' }
@@ -5358,7 +5363,9 @@ async function ihCloudPullAll() {
     _ihUserId = myUid; _ihSessionToken = session.access_token || _ihSessionToken;
     const myAttendKey = `ih_attendance_v1__${myUid}`;
     const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
-    const { data, error } = await sb.from('ih_kv').select('key, data, updated_by');
+    const { data, error } = await sb.from('ih_kv').select('key, data, updated_by, updated_at');
+    const _mtimes = _ihLoadMtime();
+    const _keepLocalKeys = [];
     if (error) {
       if (String(error.message||'').toLowerCase().includes('does not exist') || error.code === '42P01') {
         console.warn('[ih-sync] ih_kv 테이블이 없습니다. SQL 을 먼저 실행하세요.');
@@ -5394,9 +5401,17 @@ async function ihCloudPullAll() {
       }
       if (row.data == null) continue;
       pulledKeys.add(row.key);
+      // 로컬이 더 최신(아직 클라우드 미반영)이면 덮어쓰지 않고 재푸시 — 새로고침 시 변경 유실 방지
+      const localMt = _mtimes[row.key];
+      const cloudMt = row.updated_at ? Date.parse(row.updated_at) : 0;
+      if (localMt && localMt > (cloudMt + 2000)) {
+        _keepLocalKeys.push(row.key);
+        continue;
+      }
       try {
         const s = (typeof row.data === 'string') ? row.data : JSON.stringify(row.data);
         Storage.prototype._ihOrigSetItem.call(localStorage, row.key, s);
+        _ihClearMtime(row.key);   // 클라우드와 동기화됨
         pulled++;
       } catch (_) {}
     }
@@ -5409,6 +5424,8 @@ async function ihCloudPullAll() {
       }
     }
     _ihCloudReady = true;
+    // 로컬이 더 최신이라 덮어쓰지 않은 키 → 클라우드로 재푸시 (이전 세션에서 푸시 못 끝낸 변경 복구)
+    _keepLocalKeys.forEach(k => { try { _ihCloudPushKey(k); } catch (_) {} });
     // 마이그레이션 — 옛 공통 row가 내가 만든 거(updated_by 일치)이고 내 개인 key가 아직 없으면 복사
     if (legacyAttendRow && !pulledKeys.has(myAttendKey) && legacyAttendRow.updated_by === myUid) {
       try {
@@ -5453,7 +5470,9 @@ function _ihCloudPushKey(key) {
   // IH_SYNC_KEYS 에 있는 키 또는 user-specific attendance 키만 push
   const isUserAttend = (typeof key === 'string') && key.startsWith('ih_attendance_v1__');
   if (!IH_SYNC_KEYS.includes(key) && !isUserAttend) return;
+  if (key === 'ih_kv_mtime') return;   // mtime 자체는 동기화 대상 아님
   _ihDirtyKeys[key] = true;   // 종료 직전 flush 대상
+  _ihMarkMtime(key);          // 로컬 수정시각 기록 (PULL 덮어쓰기 방지용)
   clearTimeout(_ihPushTimers[key]);
   _ihPushTimers[key] = setTimeout(async () => {
     try {
@@ -5469,7 +5488,7 @@ function _ihCloudPushKey(key) {
         { onConflict: 'key' }
       );
       if (error) console.warn('[ih-push] error', key, error);
-      else delete _ihDirtyKeys[key];   // 클라우드 확정 반영됨
+      else { delete _ihDirtyKeys[key]; _ihClearMtime(key); }   // 클라우드 확정 반영됨
     } catch (e) { console.warn('[ih-push] failed', key, e); }
   }, 500);
 }
