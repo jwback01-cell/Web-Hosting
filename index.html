@@ -5465,6 +5465,19 @@ async function ihCloudPullAll() {
   } catch (e) { console.warn('[ih-pull] failed', e); return 0; }
 }
 
+// 클라우드 저장(PUSH) 실패를 사용자에게 알림 — 다른 PC/계정 동기화 안 되는 원인 진단용 (10초 throttle)
+let _ihPushErrAt = 0;
+function _ihNotifyPushError(error) {
+  try {
+    if (Date.now() - _ihPushErrAt < 10000) return;
+    _ihPushErrAt = Date.now();
+    const msg = String((error && (error.message || error.hint || error.code)) || '').toLowerCase();
+    const isRls = /row-level|rls|policy|permission|denied|42501|not authorized|violates/.test(msg);
+    if (typeof toast === 'function') {
+      toast(isRls ? '⚠ 클라우드 저장 권한 없음 — 다른 PC와 동기화 안 됨 (ih_kv RLS 확인 필요)' : '⚠ 클라우드 저장 실패 — 동기화 안 됨', 'error');
+    }
+  } catch (_) {}
+}
 function _ihCloudPushKey(key) {
   if (!_ihCloudReady) return;
   // IH_SYNC_KEYS 에 있는 키 또는 user-specific attendance 키만 push
@@ -5487,7 +5500,7 @@ function _ihCloudPushKey(key) {
         { key, data: parsed, updated_by: session.user.id, updated_at: new Date().toISOString() },
         { onConflict: 'key' }
       );
-      if (error) console.warn('[ih-push] error', key, error);
+      if (error) { console.warn('[ih-push] error', key, error); _ihNotifyPushError(error); }
       else { delete _ihDirtyKeys[key]; _ihClearMtime(key); }   // 클라우드 확정 반영됨
     } catch (e) { console.warn('[ih-push] failed', key, e); }
   }, 500);
