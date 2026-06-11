@@ -5537,6 +5537,24 @@ window.addEventListener('pagehide', _ihFlushPendingPushes);
 window.addEventListener('beforeunload', _ihFlushPendingPushes);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _ihFlushPendingPushes(); });
 
+// 다른 PC/계정의 변경을 반영 — 탭 복귀/포커스/주기적으로 클라우드에서 다시 PULL
+//   (기존엔 로그인 시 1회만 PULL → 다른 컴퓨터에서 누른 '시작' 등이 내 화면에 안 보이던 문제)
+let _ihLastRefresh = 0;
+async function ihCloudRefreshIfIdle() {
+  try {
+    if (!_ihCloudReady) return;                         // 최초 PULL 이 끝난 뒤에만
+    if (Date.now() - _ihLastRefresh < 5000) return;     // 5초 내 중복 호출 방지
+    // 입력 중이면 건너뜀 — PULL 재렌더로 커서/포커스 끊김 방지 (내 미저장 변경은 mtime 으로 보호됨)
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return;
+    _ihLastRefresh = Date.now();
+    await ihCloudPullAll();
+  } catch (_) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') ihCloudRefreshIfIdle(); });
+window.addEventListener('focus', ihCloudRefreshIfIdle);
+setInterval(() => { if (document.visibilityState === 'visible') ihCloudRefreshIfIdle(); }, 30000); // 30초마다
+
 // 인라인 셀(input) 바깥 영역 클릭 시 자동 blur — 깜빡이는 커서·테두리 제거
 document.addEventListener('mousedown', (e) => {
   const active = document.activeElement;
