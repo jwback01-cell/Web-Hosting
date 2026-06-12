@@ -5568,6 +5568,31 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('focus', ihCloudRefreshIfIdle);
 setInterval(() => { if (document.visibilityState === 'visible') ihCloudRefreshIfIdle(); }, 30000); // 30초마다
 
+// ── 자동 새로고침: 배포로 index.html 이 바뀌면 감지해 자동 reload (강력 새로고침 불필요) ──
+(function autoReloadOnDeploy() {
+  let baseTag = null;
+  const url = location.pathname + (location.search || '');
+  async function getTag() {
+    try {
+      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      return res.headers.get('etag') || res.headers.get('last-modified') || null;
+    } catch (_) { return null; }
+  }
+  async function check() {
+    const tag = await getTag();
+    if (!tag) return;
+    if (baseTag == null) { baseTag = tag; return; }
+    if (tag === baseTag) return;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable)) return; // 입력 중이면 미룸
+    location.reload();
+  }
+  getTag().then(t => { baseTag = t; });
+  setInterval(check, 20000); // 20초마다
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+  window.addEventListener('focus', check);
+})();
+
 // 인라인 셀(input) 바깥 영역 클릭 시 자동 blur — 깜빡이는 커서·테두리 제거
 document.addEventListener('mousedown', (e) => {
   const active = document.activeElement;
