@@ -4216,7 +4216,10 @@ function renderPendingList() {
         <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(item.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="완료일" class="pending-input text-center"></td>
         ${folderCell}
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
+        <td class="px-3 py-2 align-middle">
+          <input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center">
+          <button type="button" onclick="pendingAddOption('${_pendingEsc(item.folder)}')" class="mt-1 w-full text-[10px] font-bold text-brand-blue hover:underline" title="이 폴더에 상품코드·옵션을 추가합니다">+ 옵션·상품 추가</button>
+        </td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
         ${linkCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
@@ -4604,6 +4607,26 @@ function _pfDownloadExcel() {
   XLSX.utils.book_append_sheet(wb, ws, '제품목록');
   XLSX.writeFile(wb, `폴더_${_pfFolder}_제품목록.xlsx`);
 }
+// 리스트 행에서 같은 폴더에 상품코드·옵션 추가 → 폴더 편집 팝업 열기
+window.pendingAddOption = function(folder){
+  folder = String(folder || '').trim();
+  if (!folder) { alert('먼저 폴더코드를 입력한 뒤 추가하세요.'); return; }
+  const rows = pendingList.filter(p => p.folder === folder);
+  const rep = rows[0] || {};
+  const np = {
+    id: _pendingNewId(),
+    date: rep.date || '', startDate: rep.startDate || '',
+    folder: folder, code: _nextPendingCode(), name: '', link: rep.link || '',
+    note: '', keyword: '', addon: false, grade: rep.grade || '',
+    done: rep.done || false, revise: rep.revise || false, linkedPmId: '',
+  };
+  _ensureLinkedPmForPending(np);
+  let lastIdx = -1; pendingList.forEach((p, idx) => { if (p.folder === folder) lastIdx = idx; });
+  if (lastIdx >= 0) pendingList.splice(lastIdx + 1, 0, np); else pendingList.push(np);
+  _savePendingToStorage();
+  renderPendingList();
+  if (typeof openPendingFolderModal === 'function') openPendingFolderModal(folder); // 팝업에서 상품코드·옵션명 입력
+};
 function _pfAddProduct() {
   if (_pfFolder == null) return;
   const rows = pendingList.filter(p => p.folder === _pfFolder);
