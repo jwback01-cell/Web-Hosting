@@ -4184,7 +4184,8 @@ function renderPendingList() {
   const empty = document.getElementById('pending-empty');
   if (!tbody) return;
   const showCompleted = document.getElementById('pending-show-completed')?.checked || false;
-  const visible = pendingList.filter(p => showCompleted || !p.done);
+  // 수정요청(revise) 켜진 항목은 '수정요청' 메뉴로 이동했으므로 등록 예정 리스트에서는 숨김
+  const visible = pendingList.filter(p => (showCompleted || !p.done) && !p.revise);
   if (!visible.length) {
     tbody.innerHTML = '';
     if (empty) empty.classList.remove('hidden');
@@ -4284,7 +4285,7 @@ function renderPendingList() {
         linkCell = `<td rowspan="${linkSpan}" class="px-3 py-2 align-middle">${linkHtml}</td>`;
       }
       rowsHtml.push(`<tr data-pid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.done ? 'opacity-50' : ''} ${groupBg}">
-        <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
+        <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer align-middle block mx-auto" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
         <td class="px-2 py-2 text-center align-middle">
           <button type="button" onclick="togglePendingStart('${item.id}', ${item.startDate ? 'false' : 'true'})" title="시작 — 누르면 같은 폴더 전체가 오늘 날짜로 시작 표시됩니다" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.startDate ? 'bg-indigo-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-indigo-100 hover:text-indigo-500'}">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
@@ -4596,7 +4597,7 @@ function _pendingCollapsedRow(rows, groupBg) {
     ? `<a href="${_pendingEsc(rep.link)}" target="_blank" rel="noopener" ondblclick="_pendingEditLinkCell(event, '${rep.id}')" class="text-brand-black hover:underline text-xs break-all cursor-pointer block" title="더블클릭=수정(폴더 전체) · 클릭=새 탭">${_pendingEsc(rep.link.length > 80 ? rep.link.slice(0,80)+'…' : rep.link)}</a>`
     : `<span class="text-brand-gray text-xs">-</span>`;
   return `<tr data-pid="${rep.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${allDone ? 'opacity-50' : ''} ${groupBg}">
-    <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${rep.id}" data-folder="${fEsc}" onchange="_updatePendingSelectLabel()"></td>
+    <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer align-middle block mx-auto" data-pid="${rep.id}" data-folder="${fEsc}" onchange="_updatePendingSelectLabel()"></td>
     <td class="px-2 py-2 text-center align-middle"><button type="button" onclick="togglePendingStart('${rep.id}', ${rep.startDate ? 'false' : 'true'})" title="시작 (폴더 전체)" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${rep.startDate ? 'bg-indigo-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-indigo-100 hover:text-indigo-500'}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg></button></td>
     <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(rep.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
     <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(rep.date)}" placeholder="완료일" class="pending-input text-center"></td>
