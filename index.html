@@ -4629,7 +4629,7 @@ window.pendingAddOption = function(folder){
   const np = {
     id: _pendingNewId(),
     date: rep.date || '', startDate: rep.startDate || '',
-    folder: folder, code: _nextPendingCode(), name: '', option: '', link: rep.link || '',
+    folder: folder, code: _nextPendingCode(), name: rep.name || '', option: '', link: rep.link || '',
     note: '', keyword: '', addon: false, grade: rep.grade || '',
     done: rep.done || false, revise: rep.revise || false, linkedPmId: '',
   };
@@ -4647,7 +4647,7 @@ function _pfAddProduct() {
   const np = {
     id: _pendingNewId(),
     date: rep.date || '', startDate: rep.startDate || '',
-    folder: _pfFolder, code: _nextPendingCode(), name: '', option: '', link: rep.link || '',
+    folder: _pfFolder, code: _nextPendingCode(), name: rep.name || '', option: '', link: rep.link || '',
     note: '', keyword: '', addon: false, grade: rep.grade || '',
     done: rep.done || false, revise: rep.revise || false, linkedPmId: '',
   };
