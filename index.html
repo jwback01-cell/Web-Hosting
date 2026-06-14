@@ -4565,7 +4565,7 @@ function _renderPfBody() {
             <tr class="border-b border-brand-border hover:bg-brand-bg/60">
               <td class="px-1 py-0.5 text-center text-xs text-brand-gray font-bold">${i + 1}</td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold"></td>
-              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.option)}" oninput="_pfEdit('${p.id}','option',this.value)" placeholder="옵션명" class="${inpCls} text-xs"></td>
+              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.option)}" oninput="_pfEdit('${p.id}','option',this.value)" onkeydown="_pfOptionKey(event)" placeholder="옵션명" class="${inpCls} text-xs pf-option-input"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" placeholder="GB0000" class="${inpCls} text-xs font-mono"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.note)}" oninput="_pfEdit('${p.id}','note',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
@@ -4578,6 +4578,16 @@ function _renderPfBody() {
       <button onclick="_pfAddProduct()" class="mt-3 text-sm font-bold text-brand-blue hover:underline">+ 제품 추가</button>
     </div>`;
 }
+// 옵션명 칸에서 Tab → 다음 행 옵션명으로 세로 이동 (마지막 행이면 제품 추가)
+window._pfOptionKey = function(e){
+  if (e.key !== 'Tab') return;
+  e.preventDefault();
+  const list = [...document.querySelectorAll('.pf-option-input')];
+  const i = list.indexOf(e.target);
+  if (e.shiftKey) { if (list[i-1]) { list[i-1].focus(); list[i-1].select && list[i-1].select(); } return; }
+  if (list[i+1]) { list[i+1].focus(); list[i+1].select && list[i+1].select(); return; }
+  if (typeof _pfAddProduct === 'function') { _pfAddProduct(); setTimeout(() => { const l2 = [...document.querySelectorAll('.pf-option-input')]; const last = l2[l2.length-1]; if (last) last.focus(); }, 30); }
+};
 function _pfEdit(pid, field, val) {
   const it = pendingList.find(p => p.id === pid);
   if (!it) return;
