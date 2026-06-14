@@ -785,12 +785,12 @@
         <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 <b>폴더코드별로 1개씩</b> 모입니다. '수정 내용'을 클릭하면 팝업에서 항목별로 글과 사진을 추가할 수 있어요.</p>
       </div>
       <div class="overflow-x-auto -mx-1 px-1">
-        <table id="revise-table" class="text-sm border-collapse resizable-table" data-resizable="revise-v2" style="table-layout:fixed;width:100%;">
+        <table id="revise-table" class="text-sm border-collapse" style="table-layout:fixed;width:100%;">
           <thead>
             <tr class="bg-brand-bg">
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">날짜</th>
-              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:230px;">제품 (폴더 내)</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:190px;">이미지</th>
+              <th class="rcol px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:185px;">제품 (폴더 내)</th>
+              <th class="rcol px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:160px;">이미지</th>
               <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border">링크</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:170px;">수정 내용</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:120px;">수정완료</th>
@@ -5088,7 +5088,7 @@ function renderReviseList() {
     const moreBadge = allImgs.length > 3
       ? `<span class="text-[10px] font-bold text-brand-gray">+${allImgs.length - 3}</span>` : '';
     const imageCell = `
-      <div class="flex items-center justify-center gap-1 flex-wrap"
+      <div class="flex items-center justify-start gap-1 flex-wrap"
            ondragover="event.preventDefault();this.classList.add('ring-2','ring-brand-black','rounded-md');"
            ondragleave="this.classList.remove('ring-2','ring-brand-black','rounded-md');"
            ondrop="event.preventDefault();this.classList.remove('ring-2','ring-brand-black','rounded-md');_reviseQuickAddImages('${g.key}', event.dataTransfer.files);">
