@@ -3322,8 +3322,10 @@ function _employeeName(uid, fallback) {
 }
 // 마스터 화면 필터 — 선택된 직원 uid (''=전체)
 let _attendFilterUid = '';
+let _attendFilterTouched = false;   // 사용자가 드롭다운을 직접 바꾼 적 있는지 (있으면 기본값 강제 안 함)
 function _attendSetFilter(uid) {
   _attendFilterUid = uid || '';
+  _attendFilterTouched = true;
   if (typeof renderAttendance === 'function') renderAttendance();
 }
 function _attendKey() {
@@ -3451,6 +3453,10 @@ function renderAttendance() {
   // 마스터는 본인 + 모든 직원 attendance 통합 표시, 직원은 본인만
   const myUid = (currentUser && currentUser.id) || '';
   const myEmail = (currentUser && currentUser.email) || '';
+  // jwback01@nate.com(마스터) 기본 설정 — 직접 바꾸기 전까지는 '나(마스터)'만 보이도록
+  if (_isMasterTop && !_attendFilterTouched && !_attendFilterUid && myUid) {
+    _attendFilterUid = myUid;
+  }
   let list = attendList.slice().map(r => ({ ...r, _ownerUid: myUid, _ownerEmail: myEmail }));
   if (_isMasterTop && window._attendOthersByUser) {
     Object.entries(window._attendOthersByUser).forEach(([uid, rows]) => {
