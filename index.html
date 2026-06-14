@@ -703,16 +703,16 @@
             <tr class="bg-brand-bg">
               <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
               <th class="px-2 py-2.5 text-center font-bold border-b-2 border-brand-border w-[44px]">시작</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[130px]">시작날짜</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[130px]">완료날짜</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
-              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px]">제품명</th>
+              <th onclick="pendingSort('startDate')" class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[130px] cursor-pointer select-none hover:text-brand-blue">시작날짜<span id="psort-startDate"></span></th>
+              <th onclick="pendingSort('date')" class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[130px] cursor-pointer select-none hover:text-brand-blue">완료날짜<span id="psort-date"></span></th>
+              <th onclick="pendingSort('folder')" class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px] cursor-pointer select-none hover:text-brand-blue">폴더코드<span id="psort-folder"></span></th>
+              <th onclick="pendingSort('code')" class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px] cursor-pointer select-none hover:text-brand-blue">상품코드<span id="psort-code"></span></th>
+              <th onclick="pendingSort('name')" class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[200px] cursor-pointer select-none hover:text-brand-blue">제품명<span id="psort-name"></span></th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border min-w-[180px]">링크</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[140px]">키워드</th>
+              <th onclick="pendingSort('keyword')" class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[140px] cursor-pointer select-none hover:text-brand-blue">키워드<span id="psort-keyword"></span></th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px]">추가상품</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px]">등급</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[140px]">비고</th>
+              <th onclick="pendingSort('grade')" class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px] cursor-pointer select-none hover:text-brand-blue">등급<span id="psort-grade"></span></th>
+              <th onclick="pendingSort('note')" class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[140px] cursor-pointer select-none hover:text-brand-blue">비고<span id="psort-note"></span></th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">수정</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
               <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
@@ -4086,6 +4086,13 @@ function addPendingRow() {
   }, 50);
 }
 
+// 헤더 클릭 정렬 상태 (col=null 이면 기본 날짜 정렬)
+let _pendingSort = { col: null, dir: 'asc' };
+window.pendingSort = function(col){
+  if (_pendingSort.col === col) { _pendingSort.dir = (_pendingSort.dir === 'asc') ? 'desc' : 'asc'; }
+  else { _pendingSort.col = col; _pendingSort.dir = 'asc'; }
+  renderPendingList();
+};
 function renderPendingList() {
   const tbody = document.getElementById('pending-tbody');
   const empty = document.getElementById('pending-empty');
@@ -4098,28 +4105,52 @@ function renderPendingList() {
     return;
   }
   if (empty) empty.classList.add('hidden');
-  // 날짜 최근순 정렬 (내림차순). 폴더 그룹(rowspan 병합)은 유지하기 위해
-  // 폴더는 그 폴더 안에서 가장 최근 날짜를 기준으로 묶어서 이동시킴.
+  // 정렬 — 폴더 그룹(rowspan 병합)을 유지하려고 폴더 단위 대표값으로 묶어서 이동.
   const _dateVal = (p) => { const d = _parseCompletedDate(p.date) || _parseCompletedDate(p.startDate); return d ? (d.y * 10000 + d.m * 100 + d.d) : 0; };
-  const _folderDate = new Map();
+  const _sc = _pendingSort.col, _dir = _pendingSort.dir; // 헤더 클릭 정렬
+  const _isNum = (_sc === 'startDate' || _sc === 'date');
+  const _colVal = (p) => {
+    if (!_sc) return _dateVal(p);
+    if (_sc === 'startDate') { const d = _parseCompletedDate(p.startDate); return d ? (d.y*10000+d.m*100+d.d) : 0; }
+    if (_sc === 'date') return _dateVal(p);
+    return String(p[_sc] || '');
+  };
+  // 폴더 대표값 (방향에 맞춰 그룹이 올바르게 정렬되도록 극단값)
+  const _grp = new Map();
   visible.forEach(p => {
     if (!p.folder) return;
-    const v = _dateVal(p);
-    if (!_folderDate.has(p.folder) || v > _folderDate.get(p.folder)) _folderDate.set(p.folder, v);
+    const v = _sc ? _colVal(p) : _dateVal(p);
+    if (!_grp.has(p.folder)) { _grp.set(p.folder, v); return; }
+    const cur = _grp.get(p.folder);
+    let better;
+    if (!_sc) better = v > cur;                                  // 기본: 최근 날짜
+    else if (_isNum) better = (_dir === 'desc') ? v > cur : v < cur;
+    else better = (_dir === 'desc') ? String(v) > String(cur) : String(v) < String(cur);
+    if (better) _grp.set(p.folder, v);
   });
-  const _repDate = (p) => p.folder ? (_folderDate.get(p.folder) || 0) : _dateVal(p);
+  const _rep = (p) => p.folder ? (_grp.get(p.folder)) : (_sc ? _colVal(p) : _dateVal(p));
+  const _cmp = (x, y) => _isNum ? (Number(x) - Number(y)) : String(x).localeCompare(String(y));
   visible.sort((a, b) => {
-    const da = _repDate(a), db = _repDate(b);
-    if (da !== db) return db - da;                     // 최근 날짜 먼저
-    // 같은 날짜 — 폴더로 묶고(빈 폴더는 맨 뒤), 같은 폴더 안에서는 링크별로 묶기
-    const fa = a.folder || '￿';
-    const fb = b.folder || '￿';
+    if (_sc) {
+      let c = _cmp(_rep(a), _rep(b)); if (_dir === 'desc') c = -c;
+      if (c !== 0) return c;
+      const fa = a.folder || '￿', fb = b.folder || '￿'; if (fa !== fb) return fa.localeCompare(fb);
+      const la = a.link || '', lb = b.link || ''; if (la !== lb) return la.localeCompare(lb);
+      let c2 = _cmp(_colVal(a), _colVal(b)); if (_dir === 'desc') c2 = -c2; return c2;
+    }
+    // 기본 정렬: 최근 날짜 먼저, 폴더/링크로 묶기
+    const da = _rep(a), db = _rep(b);
+    if (da !== db) return db - da;
+    const fa = a.folder || '￿', fb = b.folder || '￿';
     if (fa !== fb) return fa.localeCompare(fb);
-    const la = a.link || '';
-    const lb = b.link || '';
+    const la = a.link || '', lb = b.link || '';
     if (la !== lb) return la.localeCompare(lb);
     return 0;
   });
+  // 헤더 정렬 화살표 표시
+  try {
+    ['startDate','date','folder','code','name','keyword','grade','note'].forEach(c => { const el = document.getElementById('psort-'+c); if (el) el.textContent = (_sc===c) ? (_dir==='asc'?' ▲':' ▼') : ''; });
+  } catch (_) {}
   // 폴더코드 + 링크 2단계 rowspan 병합 + 그룹별 배경색 번갈아
   const rowsHtml = [];
   let i = 0, groupIdx = 0;
