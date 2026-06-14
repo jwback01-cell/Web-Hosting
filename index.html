@@ -793,6 +793,7 @@
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:220px;">이미지</th>
               <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:300px;">링크</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:200px;">수정 내용</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">수정완료</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">해제</th>
             </tr>
           </thead>
@@ -4943,6 +4944,17 @@ function togglePendingRevise(pid, revise) {
   if (typeof renderReviseList === 'function') renderReviseList();
 }
 
+// 수정요청 목록 — '수정완료' 토글 (폴더 전체 cascade)
+function toggleReviseDone(pid, done) {
+  const item = pendingList.find(p => p.id === pid);
+  if (!item) return;
+  const stamp = done ? _todayStr() : '';
+  const rows = item.folder ? pendingList.filter(p => p.folder === item.folder) : [item];
+  rows.forEach(p => { p.reviseDone = done; p.reviseDoneAt = stamp; });
+  _savePendingToStorage();
+  renderReviseList();
+}
+
 // 수정요청 메뉴 — '수정' 체크된 항목 모아보기
 // 수정요청 항목을 폴더코드 단위로 묶음 (폴더 없으면 행 1개가 그룹). 같은 폴더는 1개로.
 function _reviseGroups() {
@@ -4978,6 +4990,7 @@ function _reviseGroups() {
       codes: rows.map(r => r.code).filter(Boolean),
       reviseItems,
       reviseImages,
+      reviseDone: rows.length > 0 && rows.every(r => r.reviseDone),
       itemCount: (reviseItems || []).length,
     };
   });
@@ -5031,12 +5044,18 @@ function renderReviseList() {
           <input type="file" accept="image/*" multiple class="hidden" onchange="_reviseQuickAddImages('${g.key}', this.files); this.value='';">
         </label>
       </div>`;
-    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${g.done ? 'opacity-60' : ''}" data-revise-key="${g.key}">
+    return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${(g.done || g.reviseDone) ? 'opacity-60' : ''}" data-revise-key="${g.key}">
       <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">${_pendingEsc(g.date || '-')}</td>
       <td class="px-3 py-2.5 align-middle"><div class="font-semibold truncate">${_pendingEsc(firstName)}${extra}</div>${codesLine}</td>
       <td class="px-3 py-2.5 align-middle">${imageCell}</td>
       <td class="px-3 py-2.5 align-middle">${linkCell}</td>
       <td class="px-3 py-2.5 text-center align-middle">${editBtn}</td>
+      <td class="px-3 py-2.5 text-center align-middle">
+        <button onclick="toggleReviseDone('${g.rep.id}', ${g.reviseDone ? 'false' : 'true'})" title="수정완료 — 누르면 토글됩니다 (폴더 전체)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${g.reviseDone ? 'bg-brand-green text-white hover:bg-green-600' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-brand-green'}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          ${g.reviseDone ? '완료' : '수정완료'}
+        </button>
+      </td>
       <td class="px-3 py-2.5 text-center align-middle">
         <button onclick="togglePendingRevise('${g.rep.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
       </td>
