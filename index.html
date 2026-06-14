@@ -4232,7 +4232,9 @@ function renderPendingList() {
             <option value="C" ${item.grade === 'C' ? 'selected' : ''}>C</option>
           </select>
         </td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input"></td>
+        <td class="px-3 py-2 align-middle">${_isUrl(item.note)
+          ? `<a href="${_pendingEsc(item.note)}" target="_blank" rel="noopener" ondblclick="_pendingEditNoteCell(event,'${item.id}')" class="text-brand-blue hover:underline text-xs break-all cursor-pointer block" title="클릭하면 열림 · 더블클릭하면 수정">${_pendingEsc(item.note.length > 50 ? item.note.slice(0,50)+'…' : item.note)}</a>`
+          : `<input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input">`}</td>
         <td class="px-3 py-2 text-center align-middle">
           <input type="checkbox" ${item.revise ? 'checked' : ''} onchange="togglePendingRevise('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 — 체크하면 '수정요청' 메뉴에 모입니다">
         </td>
@@ -4411,6 +4413,28 @@ function _pendingEditLinkCell(event, pid) {
   input.select();
 }
 
+// 비고가 URL 이면 클릭 시 새 탭 열기 / 더블클릭하면 수정 (링크 셀과 동일 UX)
+function _isUrl(s) { return /^https?:\/\//i.test(String(s || '').trim()); }
+function _pendingEditNoteCell(event, pid) {
+  event.preventDefault(); event.stopPropagation();
+  const td = event.currentTarget.closest('td'); if (!td) return;
+  const item = pendingList.find(p => p.id === pid); if (!item) return;
+  td.innerHTML = `<input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input">`;
+  const input = td.querySelector('input'); if (!input) return;
+  input.addEventListener('input', () => _onPendingCellEdit(input));
+  input.addEventListener('blur',  () => _onPendingCellEdit(input, true));
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); input.blur(); } });
+  input.focus(); input.select();
+}
+function _pendingEditFolderNote(event, folder) {
+  event.preventDefault(); event.stopPropagation();
+  const td = event.currentTarget.closest('td'); if (!td) return;
+  const rows = pendingList.filter(p => p.folder === folder);
+  const val = rows.length ? _pfFolderCommon(rows, 'note') : '';
+  td.innerHTML = `<input type="text" value="${_pendingEsc(val)}" oninput="_pfSetFolderField('${folder}','note',this.value)" onblur="renderPendingList()" placeholder="비고" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none">`;
+  const input = td.querySelector('input'); if (input) { input.focus(); input.select(); }
+}
+
 function togglePendingSelectAll(checked) {
   document.querySelectorAll('#pending-tbody .pending-row-cb').forEach(cb => { cb.checked = checked; });
   _updatePendingSelectLabel();
@@ -4508,7 +4532,9 @@ function _pendingCollapsedRow(rows, groupBg) {
         <option value="C" ${rep.grade === 'C' ? 'selected' : ''}>C</option>
       </select>
     </td>
-    <td class="px-3 py-2 align-middle"><input type="text" value="${_pendingEsc(_pfFolderCommon(rows, 'note'))}" oninput="_pfSetFolderField('${fEsc}', 'note', this.value)" placeholder="${_pfFolderHasMixed(rows, 'note') ? '여러 값' : '비고'}" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none"></td>
+    <td class="px-3 py-2 align-middle">${_isUrl(_pfFolderCommon(rows, 'note'))
+      ? `<a href="${_pendingEsc(_pfFolderCommon(rows, 'note'))}" target="_blank" rel="noopener" ondblclick="_pendingEditFolderNote(event,'${fEsc}')" class="text-brand-blue hover:underline text-xs break-all cursor-pointer block" title="클릭하면 열림 · 더블클릭하면 수정">${_pendingEsc((s=>s.length>50?s.slice(0,50)+'…':s)(_pfFolderCommon(rows,'note')))}</a>`
+      : `<input type="text" value="${_pendingEsc(_pfFolderCommon(rows, 'note'))}" oninput="_pfSetFolderField('${fEsc}', 'note', this.value)" placeholder="${_pfFolderHasMixed(rows, 'note') ? '여러 값' : '비고'}" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none">`}</td>
     <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${rep.revise ? 'checked' : ''} onchange="togglePendingRevise('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 (폴더 전체)"></td>
     <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${allDone ? 'checked' : ''} onchange="togglePendingDone('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green" title="완료 (폴더 전체)"></td>
     <td class="px-2 py-2 text-center align-middle">
