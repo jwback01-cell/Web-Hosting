@@ -4563,6 +4563,12 @@ function _renderPfBody() {
   const box = document.getElementById('pf-modal-body');
   if (!box || _pfFolder == null) return;
   const rows = pendingList.filter(p => p.folder === _pfFolder);
+  // 제품명은 1번 행 기준으로 통일 (2,3,4번 자동 동일) — 데이터까지 반영
+  if (rows.length && (rows[0].name || '')) {
+    let _ch = false;
+    rows.forEach((r, i) => { if (i > 0 && (r.name || '') !== rows[0].name) { r.name = rows[0].name; _ch = true; } });
+    if (_ch) { try { _savePendingToStorage(); } catch (_) {} }
+  }
   const inpCls = 'w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-1.5 py-1 focus:outline-none';
   box.innerHTML = `
     <div class="text-brand-black">
@@ -4590,7 +4596,9 @@ function _renderPfBody() {
           ${rows.map((p, i) => `
             <tr class="border-b border-brand-border hover:bg-brand-bg/60">
               <td class="px-1 py-0.5 text-center text-xs text-brand-gray font-bold">${i + 1}</td>
-              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold"></td>
+              <td class="px-1 py-0.5">${i === 0
+                ? `<input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold">`
+                : `<span class="pf-name-mirror text-sm text-brand-gray" title="제품명은 1번과 동일하게 자동 적용됩니다">${_pendingEsc(rows[0] ? (rows[0].name || '') : '')}</span>`}</td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.option)}" oninput="_pfEdit('${p.id}','option',this.value)" onkeydown="_pfOptionKey(event)" placeholder="옵션명" class="${inpCls} text-xs pf-option-input"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" placeholder="GB0000" class="${inpCls} text-xs font-mono"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
@@ -4618,6 +4626,11 @@ function _pfEdit(pid, field, val) {
   const it = pendingList.find(p => p.id === pid);
   if (!it) return;
   it[field] = val;
+  // 제품명은 폴더 전체 공유(1번 행이 마스터) → 2,3,4번 자동 동일 적용
+  if (field === 'name' && it.folder) {
+    pendingList.forEach(p => { if (p.folder === it.folder && p.id !== it.id) { p.name = val; if (!p.linkedPmId) _ensureLinkedPmForPending(p); _syncPmFromPending(p, 'name'); } });
+    try { document.querySelectorAll('.pf-name-mirror').forEach(el => el.textContent = val); } catch (_) {}
+  }
   if (field === 'code' || field === 'name' || field === 'note') {
     if (!it.linkedPmId) _ensureLinkedPmForPending(it);
     _syncPmFromPending(it, field);
