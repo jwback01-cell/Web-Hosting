@@ -4961,6 +4961,9 @@ function _reviseGroups() {
     // reviseItems 는 폴더 내 어느 행이든 동일 (cascade 저장). 비어있으면 []
     const reviseItems = (rows.find(r => Array.isArray(r.reviseItems) && r.reviseItems.length) || {}).reviseItems
                         || (Array.isArray(rep.reviseItems) ? rep.reviseItems : []);
+    // 목록 '이미지' 컬럼 전용 갤러리 — 수정 내용(reviseItems)과 완전히 별개
+    const reviseImages = (rows.find(r => Array.isArray(r.reviseImages) && r.reviseImages.length) || {}).reviseImages
+                        || (Array.isArray(rep.reviseImages) ? rep.reviseImages : []);
     // 수정요청 체크 날짜 — 그룹 내 어느 행이든 reviseCheckedAt 가 있으면 그것, 없으면 빈 값
     const reviseDate = (rows.find(r => r.reviseCheckedAt) || {}).reviseCheckedAt || '';
     return {
@@ -4974,6 +4977,7 @@ function _reviseGroups() {
       names: rows.map(r => r.name).filter(Boolean),
       codes: rows.map(r => r.code).filter(Boolean),
       reviseItems,
+      reviseImages,
       itemCount: (reviseItems || []).length,
     };
   });
@@ -5006,9 +5010,8 @@ function renderReviseList() {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         ${cnt ? cnt + '개 항목' : '작성하기'}
       </button>`;
-    // 이미지 셀 — 모든 항목의 이미지를 평탄화해서 썸네일 노출 + 빠른 업로드/Ctrl+V/드래그
-    const allImgs = (g.reviseItems || []).reduce((acc, it) => acc.concat(it.images || []), []);
-    const captionText = (g.reviseItems[0]?.text) || '';
+    // 이미지 셀 — 목록 전용 갤러리(reviseImages). 수정 내용(reviseItems)과는 별개.
+    const allImgs = g.reviseImages || [];
     const thumbs = allImgs.slice(0, 3).map((url, k) =>
       `<img src="${_pendingEsc(url)}"
             onclick="event.stopPropagation();_reviseLightboxOpen('${g.key}', ${k})"
@@ -5041,7 +5044,7 @@ function renderReviseList() {
   }).join('');
 }
 
-// 목록의 "이미지" 셀에서 바로 사진 추가 — 첫 항목(없으면 자동 생성)에 cascade 저장
+// 목록의 "이미지" 셀에서 바로 사진 추가 — 목록 전용 갤러리(reviseImages)에 cascade 저장 (수정 내용과 별개)
 async function _reviseQuickAddImages(groupKey, fileList) {
   const groups = _reviseGroups();
   const g = groups.find(x => x.key === groupKey);
@@ -5057,12 +5060,13 @@ async function _reviseQuickAddImages(groupKey, fileList) {
   if (!urls.length) return;
   console.log('[revise] 업로드 URL:', urls);
   // 같은 폴더(그룹)의 모든 행(pendingList 원본)에 누적 저장 (URL 만 저장 → 용량 문제 없음)
+  // 수정 내용(reviseItems)이 아닌 목록 전용 갤러리(reviseImages)에 저장 → 둘이 섞이지 않음
   const targetRows = pendingList.filter(p => (p.folder ? ('F:' + p.folder) : ('R:' + p.id)) === groupKey);
   targetRows.forEach(r => {
-    if (!Array.isArray(r.reviseItems) || !r.reviseItems.length) r.reviseItems = [{ text: '', images: [] }];
-    r.reviseItems[0].images = (r.reviseItems[0].images || []).concat(urls);
+    if (!Array.isArray(r.reviseImages)) r.reviseImages = [];
+    r.reviseImages = r.reviseImages.concat(urls);
   });
-  console.log('[revise] 저장 후 reviseItems:', targetRows[0] && targetRows[0].reviseItems);
+  console.log('[revise] 저장 후 reviseImages:', targetRows[0] && targetRows[0].reviseImages);
   try { _savePendingToStorage(); } catch (e) { toast('저장 경고: ' + (e.message || e), 'error'); }
   renderReviseList();
   toast('사진 추가 완료', 'success');
@@ -5321,13 +5325,12 @@ function _reviseLightboxGallery(images, startIdx, captionText) {
   apply();
 }
 
-// 목록 행에서 갤러리 열기 — 그룹의 모든 이미지를 합쳐서 표시
+// 목록 행 '이미지' 컬럼에서 갤러리 열기 — 목록 전용 갤러리(reviseImages)만 표시 (수정 내용과 별개)
 function _reviseLightboxOpen(groupKey, startIdx) {
   const g = _reviseGroups().find(x => x.key === groupKey);
   if (!g) return;
-  const imgs = (g.reviseItems || []).reduce((acc, it) => acc.concat(it.images || []), []);
-  const text = (g.reviseItems[0] && g.reviseItems[0].text) || '';
-  _reviseLightboxGallery(imgs, startIdx | 0, text);
+  const imgs = g.reviseImages || [];
+  _reviseLightboxGallery(imgs, startIdx | 0, '');
 }
 
 // 모달에서 갤러리 열기 — 해당 항목의 이미지 + 캡션
