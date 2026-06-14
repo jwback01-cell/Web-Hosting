@@ -3431,6 +3431,51 @@ function _attendToggleCheck(id, field, checked) {
   _saveAttend();
   renderAttendance();
 }
+// 자유 입력 시간 파싱 — "09:00", "9시", "오후 6시", "오후 6:30", "18:30", "1830" 등 → "HH:MM"(24시간)
+function _attendParseTime(raw) {
+  if (raw == null) return '';
+  let s = String(raw).trim();
+  if (!s) return '';
+  const isPm = /오후|p\.?m\.?|pm/i.test(s);
+  const isAm = /오전|a\.?m\.?|am/i.test(s);
+  // 숫자만 4자리 (예: 1830, 0900)
+  let h, mm;
+  const only = s.replace(/[^0-9]/g, '');
+  const seg = s.match(/(\d{1,2})\s*[:시]\s*(\d{1,2})?/);
+  if (seg) {
+    h = parseInt(seg[1], 10);
+    mm = seg[2] != null && seg[2] !== '' ? parseInt(seg[2], 10) : 0;
+  } else if (only.length === 4) {
+    h = parseInt(only.slice(0, 2), 10); mm = parseInt(only.slice(2), 10);
+  } else if (only.length === 3) {
+    h = parseInt(only.slice(0, 1), 10); mm = parseInt(only.slice(1), 10);
+  } else if (only.length === 1 || only.length === 2) {
+    h = parseInt(only, 10); mm = 0;
+  } else {
+    return '';
+  }
+  if (isNaN(h) || isNaN(mm)) return '';
+  if (isPm && h < 12) h += 12;
+  if (isAm && h === 12) h = 0;
+  if (h > 23) h = 23;
+  if (mm > 59) mm = 59;
+  return String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+// 출근/퇴근 시간 직접 타이핑 입력 (마스터 본인)
+function _onAttendTimeInput(id, field, raw) {
+  const r = attendList.find(x => x.id === id);
+  if (!r) return;
+  r[field] = _attendParseTime(raw);   // 빈값/해석불가 → '' (지움)
+  _saveAttend();
+  renderAttendance();
+}
+function _attendClearTime(id, field) {
+  const r = attendList.find(x => x.id === id);
+  if (!r) return;
+  r[field] = '';
+  _saveAttend();
+  renderAttendance();
+}
 function _onAttendEdit(id, field, val) {
   const r = attendList.find(x => x.id === id);
   if (!r) return;
@@ -3529,6 +3574,18 @@ function renderAttendance() {
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시
     const _chkCell = (field, label) => {
       const v = r[field] || '';
+      // 마스터 본인 row — 빈칸/채움 모두 자유 타이핑 입력
+      if (canEditFilled) {
+        return `<td class="p-1 align-middle">
+          <div class="flex items-center justify-center gap-1 ${v ? 'bg-brand-green-light/40' : 'border border-dashed border-brand-border'} rounded-lg py-1 px-1.5">
+            <input type="text" value="${_pmEsc(v)}" onchange="_onAttendTimeInput('${r.id}','${field}',this.value)"
+                   placeholder="${label} (예:09:00)"
+                   class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-full text-center placeholder:font-normal placeholder:text-brand-gray"
+                   title="시간을 직접 입력하세요 (예: 09:00 · 오후 6시 · 18:30 · 1830)">
+            ${v ? `<button onclick="_attendClearTime('${r.id}','${field}')" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 지우기">✕</button>` : ''}
+          </div>
+        </td>`;
+      }
       if (!v) {
         if (isOtherEmployee) {
           // 마스터가 다른 직원의 빈 셀 보는 경우 — dash
