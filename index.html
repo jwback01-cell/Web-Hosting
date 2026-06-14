@@ -4216,10 +4216,7 @@ function renderPendingList() {
         <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(item.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="완료일" class="pending-input text-center"></td>
         ${folderCell}
-        <td class="px-3 py-2 align-middle">
-          <input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center">
-          <button type="button" onclick="pendingAddOption('${_pendingEsc(item.folder)}')" class="mt-1 w-full text-[10px] font-bold text-brand-blue hover:underline" title="이 폴더에 상품코드·옵션을 추가합니다">+ 옵션·상품 추가</button>
-        </td>
+        <td class="px-3 py-2 align-middle"><input type="text" data-field="code" value="${_pendingEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pendingEsc(item.name)}" placeholder="제품명 입력" class="pending-input font-semibold"></td>
         ${linkCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
@@ -4242,8 +4239,11 @@ function renderPendingList() {
         <td class="px-3 py-2 text-center align-middle">
           <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePendingDone('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
         </td>
-        <td class="px-2 py-2 text-center align-middle">
-          <button onclick="deletePendingRow('${item.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제">
+        <td class="px-2 py-2 text-center align-middle whitespace-nowrap">
+          <button onclick="pendingAddOption('${_pendingEsc(item.folder)}')" class="text-brand-blue hover:text-brand-blue p-1 rounded hover:bg-brand-blue-light/40 transition-colors align-middle" title="이 폴더에 상품코드·옵션 추가">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button onclick="deletePendingRow('${item.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors align-middle" title="삭제">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </td>
