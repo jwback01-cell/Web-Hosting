@@ -4211,7 +4211,9 @@ function renderPendingList() {
       rowsHtml.push(`<tr data-pid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.done ? 'opacity-50' : ''} ${groupBg}">
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${item.id}" onchange="_updatePendingSelectLabel()"></td>
         <td class="px-2 py-2 text-center align-middle">
-          <input type="checkbox" ${item.startDate ? 'checked' : ''} onchange="togglePendingStart('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-indigo-500" title="시작 — 체크하면 같은 폴더 전체가 오늘 날짜로 시작 표시됩니다">
+          <button type="button" onclick="togglePendingStart('${item.id}', ${item.startDate ? 'false' : 'true'})" title="시작 — 누르면 같은 폴더 전체가 오늘 날짜로 시작 표시됩니다" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.startDate ? 'bg-indigo-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-indigo-100 hover:text-indigo-500'}">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          </button>
         </td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(item.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(item.date)}" placeholder="완료일" class="pending-input text-center"></td>
@@ -4514,7 +4516,7 @@ function _pendingCollapsedRow(rows, groupBg) {
     : `<span class="text-brand-gray text-xs">-</span>`;
   return `<tr data-pid="${rep.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${allDone ? 'opacity-50' : ''} ${groupBg}">
     <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer" data-pid="${rep.id}" data-folder="${fEsc}" onchange="_updatePendingSelectLabel()"></td>
-    <td class="px-2 py-2 text-center align-middle"><input type="checkbox" ${rep.startDate ? 'checked' : ''} onchange="togglePendingStart('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-indigo-500" title="시작 (폴더 전체)"></td>
+    <td class="px-2 py-2 text-center align-middle"><button type="button" onclick="togglePendingStart('${rep.id}', ${rep.startDate ? 'false' : 'true'})" title="시작 (폴더 전체)" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${rep.startDate ? 'bg-indigo-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-indigo-100 hover:text-indigo-500'}"><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg></button></td>
     <td class="px-3 py-2 align-middle"><input type="text" data-field="startDate" value="${_pendingEsc(rep.startDate)}" placeholder="시작일" class="pending-input text-center"></td>
     <td class="px-3 py-2 align-middle"><input type="text" data-field="date" value="${_pendingEsc(rep.date)}" placeholder="완료일" class="pending-input text-center"></td>
     <td class="px-3 py-2 align-middle text-center font-bold ${groupBg}"><input type="text" data-field="folder" value="${fEsc}" placeholder="0000" class="pending-input font-mono text-xs text-center"></td>
@@ -4603,7 +4605,7 @@ function _renderPfBody() {
               <td class="px-1 py-0.5 text-center text-xs text-brand-gray font-bold">${i + 1}</td>
               <td class="px-1 py-0.5">${i === 0
                 ? `<input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold">`
-                : `<span class="pf-name-mirror text-sm text-brand-black font-semibold" title="제품명은 1번과 동일하게 자동 적용됩니다">${_pendingEsc(rows[0] ? (rows[0].name || '') : '')}</span>`}</td>
+                : `<span class="pf-name-mirror inline-block w-full px-1.5 py-1 border border-transparent text-sm text-brand-black font-semibold" title="제품명은 1번과 동일하게 자동 적용됩니다">${_pendingEsc(rows[0] ? (rows[0].name || '') : '')}</span>`}</td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.option)}" oninput="_pfEdit('${p.id}','option',this.value)" onkeydown="_pfOptionKey(event)" placeholder="옵션명" class="${inpCls} text-xs pf-option-input"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" placeholder="GB0000" class="${inpCls} text-xs font-mono"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
