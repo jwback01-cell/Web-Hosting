@@ -4298,7 +4298,9 @@ function renderPendingList() {
         ${linkCell}
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pendingEsc(item.keyword)}" placeholder="" class="pending-input"></td>
         <td class="px-2 py-2 text-center align-middle">
-          <input type="checkbox" ${item.addon ? 'checked' : ''} onchange="togglePendingAddon('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-blue">
+          <button type="button" onclick="togglePendingAddon('${item.id}', ${item.addon ? 'false' : 'true'})" title="추가상품" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.addon ? 'bg-blue-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-blue-100 hover:text-blue-500'}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
         </td>
         <td class="px-2 py-2 text-center align-middle">
           <select onchange="setPendingGrade('${item.id}', this.value)" class="pending-input text-center font-bold text-xs cursor-pointer" style="background-position:right 4px center;">
@@ -4313,10 +4315,14 @@ function renderPendingList() {
           ? `<a href="${_pendingEsc(item.note)}" target="_blank" rel="noopener" ondblclick="_pendingEditNoteCell(event,'${item.id}')" class="text-brand-blue hover:underline text-xs break-all cursor-pointer block" title="클릭하면 열림 · 더블클릭하면 수정">${_pendingEsc(item.note.length > 50 ? item.note.slice(0,50)+'…' : item.note)}</a>`
           : `<input type="text" data-field="note" value="${_pendingEsc(item.note)}" placeholder="" class="pending-input">`}</td>
         <td class="px-3 py-2 text-center align-middle">
-          <input type="checkbox" ${item.revise ? 'checked' : ''} onchange="togglePendingRevise('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 — 체크하면 '수정요청' 메뉴에 모입니다">
+          <button type="button" onclick="togglePendingRevise('${item.id}', ${item.revise ? 'false' : 'true'})" title="수정요청 — 켜면 '수정요청' 메뉴에 모입니다" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.revise ? 'bg-orange-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-orange-100 hover:text-orange-500'}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
         </td>
         <td class="px-3 py-2 text-center align-middle">
-          <input type="checkbox" ${item.done ? 'checked' : ''} onchange="togglePendingDone('${item.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green">
+          <button type="button" onclick="togglePendingDone('${item.id}', ${item.done ? 'false' : 'true'})" title="완료" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.done ? 'bg-brand-green text-white' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-brand-green'}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </button>
         </td>
         <td class="px-2 py-2 text-center align-middle whitespace-nowrap">
           <button onclick="pendingAddOption('${_pendingEsc(item.folder)}')" class="text-brand-blue hover:text-brand-blue p-1 rounded hover:bg-brand-blue-light/40 transition-colors align-middle" title="이 폴더에 상품코드·옵션 추가">
@@ -4599,7 +4605,7 @@ function _pendingCollapsedRow(rows, groupBg) {
     <td class="px-3 py-2 align-middle min-w-0"><button onclick="openPendingFolderModal('${fEsc}')" class="text-left font-semibold hover:text-brand-blue hover:underline w-full truncate" title="클릭하면 폴더 안 제품 ${n}개를 펼쳐 편집">${_pendingEsc(firstName)} <span class="text-brand-gray font-normal">외 ${n-1}개</span></button></td>
     <td class="px-3 py-2 align-middle">${linkHtml}</td>
     <td class="px-3 py-2 align-middle"><input type="text" value="${_pendingEsc(_pfFolderCommon(rows, 'keyword'))}" oninput="_pfSetFolderField('${fEsc}', 'keyword', this.value)" placeholder="${_pfFolderHasMixed(rows, 'keyword') ? '여러 값' : '키워드'}" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none"></td>
-    <td class="px-2 py-2 text-center align-middle"><input type="checkbox" ${addonCnt ? 'checked' : ''} onchange="togglePendingAddon('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-blue" title="추가상품 (폴더 전체 켜기/끄기)"></td>
+    <td class="px-2 py-2 text-center align-middle"><button type="button" onclick="togglePendingAddon('${rep.id}', ${addonCnt ? 'false' : 'true'})" title="추가상품 (폴더 전체 켜기/끄기)" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${addonCnt ? 'bg-blue-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-blue-100 hover:text-blue-500'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></td>
     <td class="px-2 py-2 text-center align-middle">
       <select onchange="setPendingGrade('${rep.id}', this.value)" class="pending-input text-center font-bold text-xs cursor-pointer" style="background-position:right 4px center;">
         <option value=""  ${!rep.grade ? 'selected' : ''}>-</option>
@@ -4612,8 +4618,8 @@ function _pendingCollapsedRow(rows, groupBg) {
     <td class="px-3 py-2 align-middle">${_isUrl(_pfFolderCommon(rows, 'note'))
       ? `<a href="${_pendingEsc(_pfFolderCommon(rows, 'note'))}" target="_blank" rel="noopener" ondblclick="_pendingEditFolderNote(event,'${fEsc}')" class="text-brand-blue hover:underline text-xs break-all cursor-pointer block" title="클릭하면 열림 · 더블클릭하면 수정">${_pendingEsc((s=>s.length>50?s.slice(0,50)+'…':s)(_pfFolderCommon(rows,'note')))}</a>`
       : `<input type="text" value="${_pendingEsc(_pfFolderCommon(rows, 'note'))}" oninput="_pfSetFolderField('${fEsc}', 'note', this.value)" placeholder="${_pfFolderHasMixed(rows, 'note') ? '여러 값' : '비고'}" class="w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-2 py-1 text-xs focus:outline-none">`}</td>
-    <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${rep.revise ? 'checked' : ''} onchange="togglePendingRevise('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-orange-500" title="수정요청 (폴더 전체)"></td>
-    <td class="px-3 py-2 text-center align-middle"><input type="checkbox" ${allDone ? 'checked' : ''} onchange="togglePendingDone('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green" title="완료 (폴더 전체)"></td>
+    <td class="px-3 py-2 text-center align-middle"><button type="button" onclick="togglePendingRevise('${rep.id}', ${rep.revise ? 'false' : 'true'})" title="수정요청 (폴더 전체)" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${rep.revise ? 'bg-orange-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-orange-100 hover:text-orange-500'}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>
+    <td class="px-3 py-2 text-center align-middle"><button type="button" onclick="togglePendingDone('${rep.id}', ${allDone ? 'false' : 'true'})" title="완료 (폴더 전체)" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${allDone ? 'bg-brand-green text-white' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-brand-green'}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button></td>
     <td class="px-2 py-2 text-center align-middle">
       <button onclick="deletePendingFolder('${fEsc}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="폴더 전체 삭제">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
