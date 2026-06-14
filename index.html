@@ -4953,22 +4953,22 @@ async function _reviseQuickAddImages(groupKey, fileList) {
   if (!g) return;
   const files = [...(fileList || [])].filter(f => f && f.type && f.type.startsWith('image/'));
   if (!files.length) return;
-  toast(`사진 ${files.length}장 처리 중...`);
-  const dataUrls = [];
+  toast(`사진 ${files.length}장 업로드 중...`);
+  const urls = [];
   for (const f of files) {
-    try { dataUrls.push(await _reviseFileToDataUrl(f)); }
-    catch (e) { toast('사진 처리 실패: ' + (e.message || e), 'error'); }
+    try { urls.push(await _reviseUploadImage(f, g.folder)); }
+    catch (e) { toast('사진 업로드 실패: ' + (e.message || e), 'error'); }
   }
-  if (!dataUrls.length) return;
-  // 같은 폴더(그룹)의 모든 행에 동일하게 누적 저장
+  if (!urls.length) return;
+  // 같은 폴더(그룹)의 모든 행에 동일하게 누적 저장 (URL 만 저장 → 용량 문제 없음)
   g.rows.forEach(r => {
     if (!Array.isArray(r.reviseItems) || !r.reviseItems.length) {
       r.reviseItems = [{ text: '', images: [] }];
     }
     const it = r.reviseItems[0];
-    it.images = (it.images || []).concat(dataUrls);
+    it.images = (it.images || []).concat(urls);
   });
-  _savePendingToStorage();
+  try { _savePendingToStorage(); } catch (e) { toast('저장 경고: ' + (e.message || e), 'error'); }
   renderReviseList();
   toast('사진 추가 완료', 'success');
 }
@@ -5258,6 +5258,35 @@ function _reviseRemoveItem(i) {
 function _reviseRemoveImage(i, k) { if (_reviseModal && _reviseModal.items[i]) { _reviseModal.items[i].images.splice(k, 1); _renderReviseModalBody(); } }
 
 // 파일/blob → 1600px 이하 JPEG base64 (다른 PC 동기화 가능)
+// 수정요청 이미지 — 리사이즈 후 Blob 으로 R2 업로드, public URL 반환 (base64 를 localStorage 에 넣지 않음 → 용량초과/표시안됨 방지)
+function _reviseFileToBlob(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('이미지 디코드 실패'));
+      img.onload = () => {
+        const maxW = 1600; let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        c.toBlob(b => { b ? resolve(b) : reject(new Error('이미지 변환 실패')); }, 'image/jpeg', 0.85);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function _reviseUploadImage(file, folder) {
+  const blob = await _reviseFileToBlob(file);
+  const safe = String(folder || 'misc').replace(/[^0-9A-Za-z_-]/g, '') || 'misc';
+  const key = 'revise/' + safe + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.jpg';
+  const f = new File([blob], key.split('/').pop(), { type: 'image/jpeg' });
+  const res = await r2Upload(key, f);
+  if (!res || !res.publicUrl) throw new Error('업로드 URL 없음');
+  return res.publicUrl;
+}
 function _reviseFileToDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -5285,14 +5314,15 @@ async function _reviseAddImages(i, fileList) {
   if (!_reviseModal || !_reviseModal.items[i]) return;
   const files = [...fileList].filter(f => f.type.startsWith('image/'));
   if (!files.length) return;
-  toast(`사진 ${files.length}장 처리 중...`);
+  toast(`사진 ${files.length}장 업로드 중...`);
+  const folder = (_reviseModal && _reviseModal.folder) || '';
   for (let n = 0; n < files.length; n++) {
     try {
-      const dataUrl = await _reviseFileToDataUrl(files[n]);
-      _reviseModal.items[i].images.push(dataUrl);
+      const url = await _reviseUploadImage(files[n], folder);
+      _reviseModal.items[i].images.push(url);
       _renderReviseModalBody();
     } catch (e) {
-      toast('사진 처리 실패: ' + (e.message || e), 'error');
+      toast('사진 업로드 실패: ' + (e.message || e), 'error');
     }
   }
   toast('사진 추가 완료', 'success');
