@@ -1001,7 +1001,7 @@
 </div>
 
 <!-- ── 이미지 크게 보기 (라이트박스) ── -->
-<div id="image-preview" class="hidden fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center" onclick="if(event.target===event.currentTarget) closeImagePreview()">
+<div id="image-preview" class="hidden fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex items-center justify-center overflow-hidden" onclick="if(event.target===event.currentTarget) closeImagePreview()">
   <div class="absolute top-5 left-5 right-20 text-white pointer-events-none">
     <div id="ip-name" class="font-bold text-sm truncate"></div>
     <div id="ip-counter" class="text-xs text-white/60 mt-1"></div>
@@ -1015,8 +1015,15 @@
   <button onclick="navImagePreview(1)" id="ip-next" class="absolute right-5 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors" title="다음 (→)">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
   </button>
-  <img id="ip-img" src="" alt="" onclick="_ipToggleZoom(event)" class="max-w-[92vw] max-h-[88vh] object-contain shadow-2xl" style="cursor: zoom-in;">
-  <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+  <!-- 상단 줌 툴바 (수정요청 라이트박스와 동일) -->
+  <div id="ip-toolbar" class="absolute top-5 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/45 border border-white/20 rounded-full px-3 py-1.5 backdrop-blur z-10">
+    <button onclick="event.stopPropagation(); _ipSetScale(_ipState.scale/1.25)" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white text-lg font-bold flex items-center justify-center transition-colors" title="축소 (−)">−</button>
+    <span id="ip-zoom-pct" class="text-white text-xs font-bold min-w-[48px] text-center select-none">100%</span>
+    <button onclick="event.stopPropagation(); _ipSetScale(_ipState.scale*1.25)" class="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white text-lg font-bold flex items-center justify-center transition-colors" title="확대 (+)">+</button>
+    <button onclick="event.stopPropagation(); _ipResetZoom()" class="px-3 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center justify-center transition-colors" title="원본 크기 (1:1)">1:1</button>
+  </div>
+  <img id="ip-img" src="" alt="" draggable="false" class="max-w-[92vw] max-h-[88vh] object-contain shadow-2xl select-none" style="cursor: zoom-in; transform: translate(0,0) scale(1); transform-origin: center center; transition: transform .15s ease;">
+  <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">
     <button onclick="event.stopPropagation(); _ipCopyUrl()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">URL 복사</button>
     <button onclick="event.stopPropagation(); _ipCopyHtml()" class="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors">HTML 복사</button>
   </div>
@@ -2255,6 +2262,7 @@ function openImagePreview(imgId) {
   _renderImagePreview();
   document.getElementById('image-preview').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
+  _ipBindZoom();
 }
 function _renderImagePreview() {
   const ordered = _ipPreviewOrdered();
@@ -2269,40 +2277,104 @@ function _renderImagePreview() {
   document.getElementById('ip-next').style.display = ordered.length > 1 ? '' : 'none';
   _ipResetZoom();  // 다른 이미지로 넘어가면 확대 풀기
 }
-// 이미지 확대 ↔ 축소 토글 — 긴 이미지(상세페이지 등) 자세히 보기용
-let _ipZoomed = false;
-function _ipToggleZoom(e) {
-  if (e) e.stopPropagation();
-  if (_ipZoomed) _ipResetZoom();
-  else _ipZoomIn();
+// ── 이미지 확대/이동 (수정요청 라이트박스 _rlb* 와 동일한 줌·패닝) ──
+//   휠=세로 스크롤, Ctrl+휠=줌, Shift+휠=가로 이동, 클릭=1400% 토글, 드래그=패닝
+let _ipState = { scale: 1, tx: 0, ty: 0, dragging: false, sx: 0, sy: 0 };
+let _ipBound = false;
+function _ipApply() {
+  const img = document.getElementById('ip-img');
+  if (!img) return;
+  img.style.transform = `translate(${_ipState.tx}px, ${_ipState.ty}px) scale(${_ipState.scale})`;
+  img.style.cursor = _ipState.scale > 1 ? (_ipState.dragging ? 'grabbing' : 'grab') : 'zoom-in';
+  const pct = document.getElementById('ip-zoom-pct');
+  if (pct) pct.textContent = Math.round(_ipState.scale * 100) + '%';
 }
-function _ipZoomIn() {
-  if (_ipZoomed) return;
-  _ipZoomed = true;
-  const img  = document.getElementById('ip-img');
-  const wrap = document.getElementById('image-preview');
-  // 화면 너비에 맞춰 확대 (세로로 스크롤) — 긴 상세페이지 이미지에 적합
-  img.style.maxWidth  = '100vw';
-  img.style.maxHeight = 'none';
-  img.style.cursor    = 'zoom-out';
-  wrap.style.overflow    = 'auto';
-  wrap.style.alignItems  = 'flex-start';
+function _ipSetScale(s, cx, cy) {
+  const img = document.getElementById('ip-img');
+  if (!img) return;
+  const newScale = Math.max(0.2, Math.min(14, s));
+  // 마우스 위치 기준 줌 (cx, cy 주어지면)
+  if (typeof cx === 'number') {
+    const rect = img.getBoundingClientRect();
+    const dx = cx - (rect.left + rect.width / 2);
+    const dy = cy - (rect.top + rect.height / 2);
+    const ratio = newScale / _ipState.scale;
+    _ipState.tx = (_ipState.tx - dx) * ratio + dx;
+    _ipState.ty = (_ipState.ty - dy) * ratio + dy;
+  }
+  _ipState.scale = newScale;
+  if (_ipState.scale === 1) { _ipState.tx = 0; _ipState.ty = 0; }
+  img.style.transition = 'transform .15s ease';
+  _ipApply();
 }
 function _ipResetZoom() {
-  if (!_ipZoomed) return;
-  _ipZoomed = false;
-  const img  = document.getElementById('ip-img');
+  _ipState.scale = 1; _ipState.tx = 0; _ipState.ty = 0; _ipState.dragging = false;
+  const img = document.getElementById('ip-img');
+  if (img) img.style.transition = 'transform .15s ease';
+  _ipApply();
+}
+// 구버전 호출 호환 (혹시 남아있는 onclick 대비)
+function _ipToggleZoom(e) {
+  if (e) e.stopPropagation();
+  if (_ipState.scale >= 14) _ipResetZoom();
+  else _ipSetScale(14, e ? e.clientX : undefined, e ? e.clientY : undefined);
+}
+// 라이트박스가 처음 열릴 때 한 번만 휠/드래그/클릭 핸들러 바인딩
+function _ipBindZoom() {
+  if (_ipBound) return;
   const wrap = document.getElementById('image-preview');
-  if (img) {
-    img.style.maxWidth  = '';
-    img.style.maxHeight = '';
-    img.style.cursor    = 'zoom-in';
-  }
-  if (wrap) {
-    wrap.style.overflow   = '';
-    wrap.style.alignItems = '';
-    wrap.scrollTop = 0;
-  }
+  const img  = document.getElementById('ip-img');
+  if (!wrap || !img) return;
+  _ipBound = true;
+
+  // 클릭 — 1400% 토글 (드래그 직후 클릭은 무시)
+  img.onclick = (e) => {
+    e.stopPropagation();
+    if (_ipState._suppressNextClick) { _ipState._suppressNextClick = false; return; }
+    if (_ipState.scale >= 14) _ipResetZoom();
+    else _ipSetScale(14, e.clientX, e.clientY);
+  };
+
+  // 휠 — 기본: 세로 스크롤. Ctrl+휠=줌. Shift+휠=가로 이동
+  wrap.addEventListener('wheel', (e) => {
+    if (wrap.classList.contains('hidden')) return;
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      const dir = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      _ipSetScale(_ipState.scale * dir, e.clientX, e.clientY);
+      return;
+    }
+    const step = e.deltaY;
+    if (e.shiftKey) _ipState.tx -= step; else _ipState.ty -= step;
+    img.style.transition = 'none';
+    img.style.transform = `translate(${_ipState.tx}px, ${_ipState.ty}px) scale(${_ipState.scale})`;
+  }, { passive: false });
+
+  // 드래그 패닝 (확대 상태에서)
+  img.addEventListener('mousedown', (e) => {
+    if (_ipState.scale <= 1) return;
+    e.preventDefault(); e.stopPropagation();
+    _ipState.dragging = true;
+    _ipState._downX = e.clientX; _ipState._downY = e.clientY; _ipState._moved = 0;
+    _ipState.sx = e.clientX - _ipState.tx;
+    _ipState.sy = e.clientY - _ipState.ty;
+    img.style.cursor = 'grabbing';
+    img.style.transition = 'none';
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!_ipState.dragging) return;
+    _ipState._moved = Math.max(_ipState._moved || 0, Math.abs(e.clientX - _ipState._downX) + Math.abs(e.clientY - _ipState._downY));
+    _ipState.tx = e.clientX - _ipState.sx;
+    _ipState.ty = e.clientY - _ipState.sy;
+    img.style.transform = `translate(${_ipState.tx}px, ${_ipState.ty}px) scale(${_ipState.scale})`;
+  });
+  document.addEventListener('mouseup', () => {
+    if (!_ipState.dragging) return;
+    if ((_ipState._moved || 0) > 4) _ipState._suppressNextClick = true;  // 드래그 직후 줌 토글 방지
+    _ipState.dragging = false;
+    img.style.transition = 'transform .15s ease';
+    _ipApply();
+  });
 }
 function navImagePreview(dir) {
   const ordered = _ipPreviewOrdered();
@@ -2334,6 +2406,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape')      closeImagePreview();
   else if (e.key === 'ArrowLeft')  { e.preventDefault(); navImagePreview(-1); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); navImagePreview(1); }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); _ipSetScale(_ipState.scale * 1.25); }
+  else if (e.key === '-' || e.key === '_') { e.preventDefault(); _ipSetScale(_ipState.scale / 1.25); }
+  else if (e.key === '0')          { e.preventDefault(); _ipResetZoom(); }
 });
 
 // ════════════════════════════════════════════════════════
