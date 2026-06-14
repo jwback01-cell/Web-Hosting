@@ -4098,7 +4098,7 @@ function addPendingRow() {
 }
 
 // 헤더 클릭 정렬 상태 (col=null 이면 기본 날짜 정렬)
-let _pendingSort = { col: null, dir: 'asc' };
+let _pendingSort = { col: 'folder', dir: 'desc' };
 window.pendingSort = function(col){
   if (_pendingSort.col === col) { _pendingSort.dir = (_pendingSort.dir === 'asc') ? 'desc' : 'asc'; }
   else { _pendingSort.col = col; _pendingSort.dir = 'asc'; }
@@ -4563,10 +4563,15 @@ function _renderPfBody() {
   const box = document.getElementById('pf-modal-body');
   if (!box || _pfFolder == null) return;
   const rows = pendingList.filter(p => p.folder === _pfFolder);
-  // 제품명은 1번 행 기준으로 통일 (2,3,4번 자동 동일) — 데이터까지 반영
-  if (rows.length && (rows[0].name || '')) {
-    let _ch = false;
-    rows.forEach((r, i) => { if (i > 0 && (r.name || '') !== rows[0].name) { r.name = rows[0].name; _ch = true; } });
+  // 1번 행 기준으로 제품명은 통일, 키워드·비고는 비어있으면 채움 (2,3,4번 자동 동일) — 데이터까지 반영
+  if (rows.length) {
+    let _ch = false; const r0 = rows[0];
+    rows.forEach((r, i) => {
+      if (i === 0) return;
+      if ((r0.name || '') && (r.name || '') !== r0.name) { r.name = r0.name; _ch = true; }
+      if ((r0.keyword || '') && !(r.keyword || '')) { r.keyword = r0.keyword; _ch = true; }
+      if ((r0.note || '') && !(r.note || '')) { r.note = r0.note; _ch = true; }
+    });
     if (_ch) { try { _savePendingToStorage(); } catch (_) {} }
   }
   const inpCls = 'w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-1.5 py-1 focus:outline-none';
@@ -4598,7 +4603,7 @@ function _renderPfBody() {
               <td class="px-1 py-0.5 text-center text-xs text-brand-gray font-bold">${i + 1}</td>
               <td class="px-1 py-0.5">${i === 0
                 ? `<input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold">`
-                : `<span class="pf-name-mirror text-sm text-brand-gray" title="제품명은 1번과 동일하게 자동 적용됩니다">${_pendingEsc(rows[0] ? (rows[0].name || '') : '')}</span>`}</td>
+                : `<span class="pf-name-mirror text-sm text-brand-black font-semibold" title="제품명은 1번과 동일하게 자동 적용됩니다">${_pendingEsc(rows[0] ? (rows[0].name || '') : '')}</span>`}</td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.option)}" oninput="_pfEdit('${p.id}','option',this.value)" onkeydown="_pfOptionKey(event)" placeholder="옵션명" class="${inpCls} text-xs pf-option-input"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" placeholder="GB0000" class="${inpCls} text-xs font-mono"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
@@ -4630,6 +4635,11 @@ function _pfEdit(pid, field, val) {
   if (field === 'name' && it.folder) {
     pendingList.forEach(p => { if (p.folder === it.folder && p.id !== it.id) { p.name = val; if (!p.linkedPmId) _ensureLinkedPmForPending(p); _syncPmFromPending(p, 'name'); } });
     try { document.querySelectorAll('.pf-name-mirror').forEach(el => el.textContent = val); } catch (_) {}
+  }
+  // 1번 행에서 키워드/비고 수정 시 폴더 전체에 반영
+  if ((field === 'keyword' || field === 'note') && it.folder) {
+    const frows = pendingList.filter(p => p.folder === it.folder);
+    if (frows[0] && frows[0].id === pid) { frows.forEach(p => { if (p.id !== pid) p[field] = val; }); }
   }
   if (field === 'code' || field === 'name' || field === 'note') {
     if (!it.linkedPmId) _ensureLinkedPmForPending(it);
