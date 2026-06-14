@@ -5004,6 +5004,29 @@ function _reviseDoneLightbox(groupKey, startIdx) {
   if (!g) return;
   _reviseLightboxGallery(g.reviseDoneImages || [], startIdx | 0, '');
 }
+// 목록 '이미지' 컬럼 이미지 삭제 (폴더 전체 cascade)
+function _reviseDeleteImage(groupKey, idx) {
+  const rows = pendingList.filter(p => (p.folder ? ('F:' + p.folder) : ('R:' + p.id)) === groupKey);
+  if (!rows.length) return;
+  if (!confirm('이 이미지를 삭제할까요?')) return;
+  rows.forEach(r => { if (Array.isArray(r.reviseImages)) r.reviseImages.splice(idx, 1); });
+  _savePendingToStorage();
+  renderReviseList();
+  toast('이미지 삭제됨');
+}
+// '수정완료' 결과 이미지 삭제 (폴더 전체 cascade) — 모두 지우면 완료 상태도 해제
+function _reviseDeleteDoneImage(groupKey, idx) {
+  const rows = pendingList.filter(p => (p.folder ? ('F:' + p.folder) : ('R:' + p.id)) === groupKey);
+  if (!rows.length) return;
+  if (!confirm('이 완료 이미지를 삭제할까요?')) return;
+  rows.forEach(r => { if (Array.isArray(r.reviseDoneImages)) r.reviseDoneImages.splice(idx, 1); });
+  // 완료 이미지가 모두 없어지면 완료 해제 (완료엔 이미지 1장 이상 필요)
+  const hasImg = rows.some(r => Array.isArray(r.reviseDoneImages) && r.reviseDoneImages.length);
+  if (!hasImg) rows.forEach(r => { r.reviseDone = false; r.reviseDoneAt = ''; });
+  _savePendingToStorage();
+  renderReviseList();
+  toast(hasImg ? '완료 이미지 삭제됨' : '완료 이미지가 모두 삭제되어 완료가 해제됐습니다');
+}
 
 // 수정요청 메뉴 — '수정' 체크된 항목 모아보기
 // 수정요청 항목을 폴더코드 단위로 묶음 (폴더 없으면 행 1개가 그룹). 같은 폴더는 1개로.
@@ -5080,10 +5103,13 @@ function renderReviseList() {
     // 이미지 셀 — 목록 전용 갤러리(reviseImages). 수정 내용(reviseItems)과는 별개.
     const allImgs = g.reviseImages || [];
     const thumbs = allImgs.slice(0, 3).map((url, k) =>
-      `<img src="${_pendingEsc(url)}"
+      `<span class="relative inline-block">
+        <img src="${_pendingEsc(url)}"
             onclick="event.stopPropagation();_reviseLightboxOpen('${g.key}', ${k})"
             onerror="this.outerHTML='<span class=&quot;w-10 h-10 rounded-md border border-brand-pink flex items-center justify-center text-brand-pink text-[9px]&quot; title=&quot;이미지 로드 실패&quot;>✖</span>'"
-            class="w-10 h-10 rounded-md border border-brand-border object-cover cursor-zoom-in" title="클릭하면 크게 보기 (좌우 화살표로 이동)">`
+            class="w-10 h-10 rounded-md border border-brand-border object-cover cursor-zoom-in" title="클릭하면 크게 보기 (좌우 화살표로 이동)">
+        <button onclick="event.stopPropagation();_reviseDeleteImage('${g.key}', ${k})" class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black/70 text-white text-[10px] leading-none flex items-center justify-center hover:bg-brand-pink shadow" title="이 이미지 삭제">×</button>
+      </span>`
     ).join('');
     const moreBadge = allImgs.length > 3
       ? `<span class="text-[10px] font-bold text-brand-gray">+${allImgs.length - 3}</span>` : '';
@@ -5107,9 +5133,12 @@ function renderReviseList() {
       <td class="px-3 py-2.5 text-center align-middle">${(() => {
         const dimgs = g.reviseDoneImages || [];
         const dthumbs = dimgs.slice(0, 2).map((url, k) =>
-          `<img src="${_pendingEsc(url)}" onclick="event.stopPropagation();_reviseDoneLightbox('${g.key}', ${k})"
+          `<span class="relative inline-block">
+            <img src="${_pendingEsc(url)}" onclick="event.stopPropagation();_reviseDoneLightbox('${g.key}', ${k})"
                 onerror="this.outerHTML='<span class=&quot;w-8 h-8 rounded border border-brand-pink flex items-center justify-center text-brand-pink text-[9px]&quot;>✖</span>'"
-                class="w-8 h-8 rounded border border-brand-border object-cover cursor-zoom-in" title="완료 이미지 — 클릭하면 크게 보기">`).join('');
+                class="w-8 h-8 rounded border border-brand-border object-cover cursor-zoom-in" title="완료 이미지 — 클릭하면 크게 보기">
+            <button onclick="event.stopPropagation();_reviseDeleteDoneImage('${g.key}', ${k})" class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-black/70 text-white text-[10px] leading-none flex items-center justify-center hover:bg-brand-pink shadow" title="이 완료 이미지 삭제">×</button>
+          </span>`).join('');
         const more = dimgs.length > 2 ? `<span class="text-[10px] font-bold text-brand-gray">+${dimgs.length - 2}</span>` : '';
         const btn = `<button onclick="reviseDoneClick('${g.rep.id}')" title="${g.reviseDone ? '수정완료 해제' : '완료하려면 이미지를 업로드하세요'}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${g.reviseDone ? 'bg-brand-green text-white hover:bg-green-600' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-brand-green'}">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${g.reviseDone ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'}</svg>
