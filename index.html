@@ -788,12 +788,12 @@
         <table id="revise-table" class="text-sm border-collapse resizable-table" data-resizable="revise-v2" style="table-layout:fixed;width:100%;">
           <thead>
             <tr class="bg-brand-bg">
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:120px;">날짜</th>
-              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:260px;">제품 (폴더 내)</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:220px;">이미지</th>
-              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:300px;">링크</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:200px;">수정 내용</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">수정완료</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">날짜</th>
+              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="width:230px;">제품 (폴더 내)</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:190px;">이미지</th>
+              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border">링크</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:170px;">수정 내용</th>
+              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:120px;">수정완료</th>
               <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">해제</th>
             </tr>
           </thead>
@@ -5013,7 +5013,7 @@ function renderReviseList() {
   });
   tbody.innerHTML = groups.map(g => {
     const linkCell = g.link
-      ? `<a href="${_pendingEsc(g.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline truncate inline-block max-w-[300px] align-bottom" title="${_pendingEsc(g.link)}">${_pendingEsc(g.link)}</a>`
+      ? `<a href="${_pendingEsc(g.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline truncate block max-w-full align-bottom" title="${_pendingEsc(g.link)}">${_pendingEsc(g.link)}</a>`
       : '<span class="text-brand-gray">-</span>';
     const firstName = g.names[0] || '(이름없음)';
     const extra = g.rows.length > 1 ? ` <span class="text-brand-gray font-normal">외 ${g.rows.length - 1}개</span>` : '';
