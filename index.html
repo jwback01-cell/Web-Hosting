@@ -4060,12 +4060,23 @@ function _deleteLinkedPm(pending) {
   _savePmToStorage();
 }
 
+// 기존 값들 중 최댓값 다음 코드 계산
+function _nextPendingFolder() {
+  let max = -1, width = 4;
+  pendingList.forEach(p => { const m = String(p.folder || '').match(/^(\d+)$/); if (m) { const n = parseInt(m[1], 10); if (!isNaN(n)) { if (n > max) max = n; width = Math.max(width, m[1].length); } } });
+  return max < 0 ? '' : String(max + 1).padStart(width, '0');
+}
+function _nextPendingCode() {
+  let max = -1, prefix = 'GB', width = 4;
+  pendingList.forEach(p => { const m = String(p.code || '').match(/^([A-Za-z]+)\s*(\d+)$/); if (m) { const n = parseInt(m[2], 10); if (!isNaN(n)) { if (n > max) { max = n; prefix = m[1]; } width = Math.max(width, m[2].length); } } });
+  return max < 0 ? '' : (prefix + String(max + 1).padStart(width, '0'));
+}
 function addPendingRow() {
   const pending = {
     id: _pendingNewId(),
     date: '',
-    folder: '',
-    code: '',
+    folder: _nextPendingFolder(),
+    code: _nextPendingCode(),
     name: '',
     link: '',
     note: '',
