@@ -4928,6 +4928,7 @@ function renderReviseList() {
     const thumbs = allImgs.slice(0, 3).map((url, k) =>
       `<img src="${_pendingEsc(url)}"
             onclick="event.stopPropagation();_reviseLightboxOpen('${g.key}', ${k})"
+            onerror="this.outerHTML='<span class=&quot;w-10 h-10 rounded-md border border-brand-pink flex items-center justify-center text-brand-pink text-[9px]&quot; title=&quot;이미지 로드 실패&quot;>✖</span>'"
             class="w-10 h-10 rounded-md border border-brand-border object-cover cursor-zoom-in" title="클릭하면 크게 보기 (좌우 화살표로 이동)">`
     ).join('');
     const moreBadge = allImgs.length > 3
@@ -4970,14 +4971,14 @@ async function _reviseQuickAddImages(groupKey, fileList) {
     catch (e) { toast('사진 업로드 실패: ' + (e.message || e), 'error'); }
   }
   if (!urls.length) return;
-  // 같은 폴더(그룹)의 모든 행에 동일하게 누적 저장 (URL 만 저장 → 용량 문제 없음)
-  g.rows.forEach(r => {
-    if (!Array.isArray(r.reviseItems) || !r.reviseItems.length) {
-      r.reviseItems = [{ text: '', images: [] }];
-    }
-    const it = r.reviseItems[0];
-    it.images = (it.images || []).concat(urls);
+  console.log('[revise] 업로드 URL:', urls);
+  // 같은 폴더(그룹)의 모든 행(pendingList 원본)에 누적 저장 (URL 만 저장 → 용량 문제 없음)
+  const targetRows = pendingList.filter(p => (p.folder ? ('F:' + p.folder) : ('R:' + p.id)) === groupKey);
+  targetRows.forEach(r => {
+    if (!Array.isArray(r.reviseItems) || !r.reviseItems.length) r.reviseItems = [{ text: '', images: [] }];
+    r.reviseItems[0].images = (r.reviseItems[0].images || []).concat(urls);
   });
+  console.log('[revise] 저장 후 reviseItems:', targetRows[0] && targetRows[0].reviseItems);
   try { _savePendingToStorage(); } catch (e) { toast('저장 경고: ' + (e.message || e), 'error'); }
   renderReviseList();
   toast('사진 추가 완료', 'success');
