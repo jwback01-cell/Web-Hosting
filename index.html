@@ -3567,55 +3567,35 @@ function renderAttendance() {
     //   - 빈 셀: 본인 row 면 출근/퇴근 버튼 (직원·마스터 모두 클릭 가능)
     //   - 채워진 셀: 마스터 본인 row 만 수정 가능. 그 외(직원 본인 row, 마스터의 직원 row) read-only
     const isOtherEmployee = !isMine;            // 마스터가 다른 직원 row 보는 경우
-    const readonly = isOtherEmployee;            // date/leave/note 수정 가능 여부 (직원 본인 거는 자유)
-    const canEditFilled = _isMaster && isMine;  // 출퇴근 시간 채워진 셀 수정/취소 권한 (마스터 본인만)
+    // jwback01@nate.com(마스터) 본인 row 만 수정 가능 — 그 외 모든 계정/행은 읽기 전용
+    const canEditFilled = _isMaster && isMine;  // 수정 권한 (마스터 본인만)
+    const readonly = !canEditFilled;            // date/leave/note 도 마스터 본인만 수정
     // 직원 표시 — 이름 매핑 우선, 없으면 uid 8자
     const ownerShort = isMine ? '나' : _employeeName(r._ownerUid);
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시
     const _chkCell = (field, label) => {
       const v = r[field] || '';
-      // 마스터 본인 row — 빈칸/채움 모두 자유 타이핑 입력
-      if (canEditFilled) {
-        return `<td class="p-1 align-middle">
-          <div class="flex items-center justify-center gap-1 ${v ? 'bg-brand-green-light/40' : 'border border-dashed border-brand-border'} rounded-lg py-1 px-1.5">
-            <input type="text" value="${_pmEsc(v)}" onchange="_onAttendTimeInput('${r.id}','${field}',this.value)"
-                   placeholder="${label} (예:09:00)"
-                   class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-full text-center placeholder:font-normal placeholder:text-brand-gray"
-                   title="시간을 직접 입력하세요 (예: 09:00 · 오후 6시 · 18:30 · 1830)">
-            ${v ? `<button onclick="_attendClearTime('${r.id}','${field}')" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 지우기">✕</button>` : ''}
-          </div>
-        </td>`;
-      }
-      if (!v) {
-        if (isOtherEmployee) {
-          // 마스터가 다른 직원의 빈 셀 보는 경우 — dash
-          return `<td class="p-1 align-middle text-center text-brand-gray text-xs">-</td>`;
-        }
-        // 본인 row 빈 셀 — 출근/퇴근 버튼 (직원·마스터 모두 한 번 클릭 가능)
-        return `<td class="p-1 align-middle">
-          <button onclick="_attendToggleCheck('${r.id}','${field}',true)" class="w-full py-2.5 rounded-lg border-2 border-dashed border-brand-border text-brand-gray hover:border-brand-green hover:text-brand-green hover:bg-brand-green-light/30 font-bold text-sm transition-colors">
-            ${label}
-          </button>
-        </td>`;
-      }
-      // 채워진 셀
+      // 읽기 전용 (마스터 본인 외 모든 계정/행)
       if (!canEditFilled) {
-        // 직원 본인 row(lock) 또는 마스터의 직원 row(read-only) — 시간만 표시
-        const lockIcon = isMine
-          ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="text-brand-gray ml-1 shrink-0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
-          : '';
+        if (!v) return `<td class="p-1 align-middle text-center text-brand-gray text-xs">-</td>`;
         return `<td class="p-1 align-middle">
-          <div class="flex items-center justify-center bg-brand-green-light/40 rounded-lg py-1.5 px-2" title="${isMine ? '한 번 입력 후 잠김 — 수정은 관리자에게 요청' : ''}">
+          <div class="flex items-center justify-center bg-brand-green-light/40 rounded-lg py-1.5 px-2">
             <span class="text-brand-black font-bold text-sm">${_pmEsc(v)}</span>
-            ${lockIcon}
           </div>
         </td>`;
       }
-      // 마스터 본인 row — 수정/취소 자유
+      // 마스터 본인 row — 자유 타이핑 + 🕐 현재시각 입력 + ✕ 지우기
+      const clockBtn = `<button onclick="_attendToggleCheck('${r.id}','${field}',true)" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-green flex items-center justify-center shrink-0" title="현재 시각 입력">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+        </button>`;
+      const clearBtn = v ? `<button onclick="_attendClearTime('${r.id}','${field}')" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 지우기">✕</button>` : '';
       return `<td class="p-1 align-middle">
-        <div class="flex items-center justify-center gap-1 bg-brand-green-light/40 rounded-lg py-1.5 px-2">
-          <input type="time" value="${_pmEsc(v)}" onchange="_onAttendEdit('${r.id}','${field}',this.value)" class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-[130px] text-center cursor-pointer" title="시간 수정">
-          <button onclick="_attendToggleCheck('${r.id}','${field}',false)" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 취소">✕</button>
+        <div class="flex items-center justify-center gap-1 ${v ? 'bg-brand-green-light/40' : 'border border-dashed border-brand-border'} rounded-lg py-1 px-1.5">
+          <input type="text" value="${_pmEsc(v)}" onchange="_onAttendTimeInput('${r.id}','${field}',this.value)"
+                 placeholder="${label}(예:09:00)"
+                 class="bg-transparent border-0 text-brand-black font-bold text-sm focus:outline-none w-full min-w-0 text-center placeholder:font-normal placeholder:text-brand-gray"
+                 title="시간을 직접 입력하거나 🕐 로 현재 시각 입력 (예: 09:00 · 오후 6시 · 18:30 · 1830)">
+          ${clockBtn}${clearBtn}
         </div>
       </td>`;
     };
