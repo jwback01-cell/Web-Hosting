@@ -4551,7 +4551,8 @@ function _renderPfBody() {
         <thead>
           <tr class="bg-brand-bg">
             <th class="px-1.5 py-1.5 text-center font-bold border-b border-brand-border w-[26px]">#</th>
-            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border min-w-[300px]">제품명</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border min-w-[260px]">제품명</th>
+            <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[160px]">옵션명</th>
             <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[100px]">상품코드</th>
             <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[140px]">키워드</th>
             <th class="px-1.5 py-1.5 text-left font-bold border-b border-brand-border w-[180px]">비고</th>
@@ -4564,6 +4565,7 @@ function _renderPfBody() {
             <tr class="border-b border-brand-border hover:bg-brand-bg/60">
               <td class="px-1 py-0.5 text-center text-xs text-brand-gray font-bold">${i + 1}</td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.name)}" oninput="_pfEdit('${p.id}','name',this.value)" placeholder="제품명" class="${inpCls} text-sm font-semibold"></td>
+              <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.option)}" oninput="_pfEdit('${p.id}','option',this.value)" placeholder="옵션명" class="${inpCls} text-xs"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.code)}" oninput="_pfEdit('${p.id}','code',this.value)" placeholder="GB0000" class="${inpCls} text-xs font-mono"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.keyword)}" oninput="_pfEdit('${p.id}','keyword',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
               <td class="px-1 py-0.5"><input type="text" value="${_pendingEsc(p.note)}" oninput="_pfEdit('${p.id}','note',this.value)" placeholder="-" class="${inpCls} text-xs"></td>
@@ -4592,10 +4594,11 @@ function _pfDownloadExcel() {
   if (_pfFolder == null) return;
   const rows = pendingList.filter(p => p.folder === _pfFolder);
   if (!rows.length) { alert('내보낼 제품이 없습니다.'); return; }
-  const headers = ['#', '제품명', '상품코드', '키워드', '비고', '추가'];
+  const headers = ['#', '제품명', '옵션명', '상품코드', '키워드', '비고', '추가'];
   const data = [headers, ...rows.map((p, i) => [
     i + 1,
     p.name || '',
+    p.option || '',
     p.code || '',
     p.keyword || '',
     p.note || '',
@@ -4616,7 +4619,7 @@ window.pendingAddOption = function(folder){
   const np = {
     id: _pendingNewId(),
     date: rep.date || '', startDate: rep.startDate || '',
-    folder: folder, code: _nextPendingCode(), name: '', link: rep.link || '',
+    folder: folder, code: _nextPendingCode(), name: '', option: '', link: rep.link || '',
     note: '', keyword: '', addon: false, grade: rep.grade || '',
     done: rep.done || false, revise: rep.revise || false, linkedPmId: '',
   };
@@ -4634,7 +4637,7 @@ function _pfAddProduct() {
   const np = {
     id: _pendingNewId(),
     date: rep.date || '', startDate: rep.startDate || '',
-    folder: _pfFolder, code: '', name: '', link: rep.link || '',
+    folder: _pfFolder, code: _nextPendingCode(), name: '', option: '', link: rep.link || '',
     note: '', keyword: '', addon: false, grade: rep.grade || '',
     done: rep.done || false, revise: rep.revise || false, linkedPmId: '',
   };
