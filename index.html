@@ -788,13 +788,14 @@
         <table id="revise-table" class="text-sm border-collapse" style="table-layout:fixed;width:100%;">
           <thead>
             <tr class="bg-brand-bg">
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:110px;">날짜</th>
-              <th class="rcol px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:185px;">제품 (폴더 내)</th>
-              <th class="rcol px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:160px;">이미지</th>
-              <th class="rcol px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border">링크</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:170px;">수정 내용</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:120px;">수정완료</th>
-              <th class="rcol px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:90px;">해제</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:100px;">날짜</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:200px;">제품 (폴더 내)</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:230px;">이미지</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:200px;">링크</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:130px;">수정 내용</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:160px;">수정완료</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:80px;">해제</th>
+              <th class="px-0 py-2.5 border-b-2 border-brand-border"></th>
             </tr>
           </thead>
           <tbody id="revise-tbody"></tbody>
@@ -5120,6 +5121,7 @@ function renderReviseList() {
       <td class="px-3 py-2.5 text-center align-middle">
         <button onclick="togglePendingRevise('${g.rep.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
       </td>
+      <td class="px-0 py-2.5"></td>
     </tr>`;
   }).join('');
 }
