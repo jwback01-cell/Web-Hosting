@@ -122,6 +122,8 @@
   .pending-input:placeholder-shown:hover { background: transparent; }
   .pending-input:placeholder-shown:focus { background: #fff; box-shadow: inset 0 0 0 1px #E5E7EB; }
   .pending-input:placeholder-shown:not(:focus) { caret-color: transparent; }
+  /* 상품관리 숫자칸 — 좁은 컬럼에서 잘리지 않게 12px·여백 축소 (접힌 행 텍스트와 동일 크기) */
+  .pm-num-input { padding-left: 4px !important; padding-right: 4px !important; font-size: 12px !important; }
   /* 상품관리 — 폴더 그룹 격자 배경 (홀수 그룹) */
   tr.pm-row-alt, td.pm-row-alt { background: #ECEEF2; }
   tr.pm-row-alt:hover { background: #E1E5EC !important; }
@@ -579,10 +581,10 @@
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:240px;">상품명</th>
-              <th class="px-3 py-2.5 text-right  font-bold border-b-2 border-brand-border w-[100px]">원가</th>
-              <th class="px-3 py-2.5 text-right  font-bold border-b-2 border-brand-border w-[100px]">판매가</th>
-              <th class="px-3 py-2.5 text-right  font-bold border-b-2 border-brand-border w-[100px]">공급가</th>
-              <th class="px-3 py-2.5 text-right  font-bold border-b-2 border-brand-border w-[100px]">택배비</th>
+              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">원가</th>
+              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">판매가</th>
+              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">공급가</th>
+              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">택배비</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:200px;">비고</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:140px;">키워드</th>
               <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:300px;">대표 카테고리</th>
@@ -6112,10 +6114,10 @@ function renderProductsList() {
         ${folderCell}
         <td class="px-3 py-2 align-middle text-center"><input type="text" data-field="code" value="${_pmEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pmEsc(item.name)}" placeholder="상품명을 입력하세요" class="pending-input font-semibold"></td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="cost"        value="${_pmFmtNum(item.cost)}"        placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="salePrice"   value="${_pmFmtNum(item.salePrice)}"   placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="supplyPrice" value="${_pmFmtNum(item.supplyPrice)}" placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
-        <td class="px-3 py-2 align-middle"><input type="text" data-field="shipping"    value="${_pmFmtNum(item.shipping)}"    placeholder="0" class="pending-input text-right" inputmode="numeric"></td>
+        <td class="px-1.5 py-2 align-middle"><input type="text" data-field="cost"        value="${_pmFmtNum(item.cost)}"        placeholder="0" class="pending-input pm-num-input text-right" inputmode="numeric"></td>
+        <td class="px-1.5 py-2 align-middle"><input type="text" data-field="salePrice"   value="${_pmFmtNum(item.salePrice)}"   placeholder="0" class="pending-input pm-num-input text-right" inputmode="numeric"></td>
+        <td class="px-1.5 py-2 align-middle"><input type="text" data-field="supplyPrice" value="${_pmFmtNum(item.supplyPrice)}" placeholder="0" class="pending-input pm-num-input text-right" inputmode="numeric"></td>
+        <td class="px-1.5 py-2 align-middle"><input type="text" data-field="shipping"    value="${_pmFmtNum(item.shipping)}"    placeholder="0" class="pending-input pm-num-input text-right" inputmode="numeric"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="note" value="${_pmEsc(item.note)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="keyword" value="${_pmEsc(item.keyword)}" placeholder="" class="pending-input"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="category" value="${_pmEsc(item.category)}" placeholder="" class="pending-input text-xs"></td>
@@ -6239,8 +6241,8 @@ function _pmCollapsedRow(rows, groupBg) {
     const v0 = Number(rows[0][field]) || 0;
     const same = rows.every(r => (Number(r[field]) || 0) === v0);
     return same
-      ? `<td class="px-3 py-2.5 align-middle text-right text-xs">${_pmFmtNum(v0) || '0'}</td>`
-      : `<td class="px-2 py-2.5 align-middle text-center"><button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button></td>`;
+      ? `<td class="px-2 py-2.5 align-middle text-right text-xs whitespace-nowrap">${_pmFmtNum(v0) || '0'}</td>`
+      : `<td class="px-1 py-2.5 align-middle text-center"><button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button></td>`;
   };
   const linkBtn = `<button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button>`;
   return `<tr data-pmid="${rep.id}" class="border-b border-brand-border hover:bg-blue-50/40 ${allReg ? 'opacity-50' : ''} ${groupBg}">
