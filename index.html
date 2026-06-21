@@ -577,19 +577,19 @@
         <table class="w-full text-sm border-collapse" id="pm-table">
           <thead>
             <tr class="bg-brand-bg">
-              <th class="px-2 py-2.5 text-center border-b-2 border-brand-border w-[36px]"></th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[90px]">폴더코드</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[100px]">상품코드</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:240px;">상품명</th>
-              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">원가</th>
-              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">판매가</th>
-              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">공급가</th>
-              <th class="px-2 py-2.5 text-right  font-bold border-b-2 border-brand-border" style="width:96px;min-width:96px;">택배비</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:200px;">비고</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:140px;">키워드</th>
-              <th class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border" style="min-width:300px;">대표 카테고리</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">등록</th>
-              <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
+              <th class="px-2 py-2.5 text-center border-b-2 border-brand-border" style="width:36px;"></th>
+              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:72px;min-width:72px;">폴더코드</th>
+              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:84px;min-width:84px;">상품코드</th>
+              <th class="py-2.5 text-left   font-bold border-b-2 border-brand-border whitespace-nowrap" style="min-width:240px;padding-left:20px;">상품명</th>
+              <th class="py-2.5 text-right  font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:96px;min-width:96px;padding-right:10px;">원가</th>
+              <th class="py-2.5 text-right  font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:96px;min-width:96px;padding-right:10px;">판매가</th>
+              <th class="py-2.5 text-right  font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:96px;min-width:96px;padding-right:10px;">공급가</th>
+              <th class="py-2.5 text-right  font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:96px;min-width:96px;padding-right:10px;">택배비</th>
+              <th class="py-2.5 text-left   font-bold border-b-2 border-brand-border whitespace-nowrap" style="min-width:200px;padding-left:20px;">비고</th>
+              <th class="py-2.5 text-left   font-bold border-b-2 border-brand-border whitespace-nowrap" style="min-width:140px;padding-left:20px;">키워드</th>
+              <th class="py-2.5 text-left   font-bold border-b-2 border-brand-border whitespace-nowrap" style="min-width:300px;padding-left:20px;">대표 카테고리</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:64px;">등록</th>
+              <th class="px-2 py-2.5 text-center border-b-2 border-brand-border" style="width:40px;"></th>
             </tr>
           </thead>
           <tbody id="pm-tbody"></tbody>
@@ -6241,7 +6241,7 @@ function _pmCollapsedRow(rows, groupBg) {
     const v0 = Number(rows[0][field]) || 0;
     const same = rows.every(r => (Number(r[field]) || 0) === v0);
     return same
-      ? `<td class="px-2 py-2.5 align-middle text-right text-xs whitespace-nowrap">${_pmFmtNum(v0) || '0'}</td>`
+      ? `<td class="pl-1 pr-2.5 py-2.5 align-middle text-right text-xs whitespace-nowrap">${_pmFmtNum(v0) || '0'}</td>`
       : `<td class="px-1 py-2.5 align-middle text-center"><button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button></td>`;
   };
   const linkBtn = `<button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button>`;
@@ -6249,12 +6249,12 @@ function _pmCollapsedRow(rows, groupBg) {
     <td class="px-2 py-2.5 text-center align-middle"><input type="checkbox" class="pm-row-cb w-4 h-4 rounded cursor-pointer" data-pmid="${rep.id}" data-folder="${fEsc}" onchange="_updatePmSelectLabel()"></td>
     <td class="px-3 py-2.5 align-middle text-center font-bold ${groupBg}"><input type="text" data-field="folder" value="${fEsc}" placeholder="0000" class="pending-input font-mono text-xs text-center"></td>
     <td class="px-3 py-2.5 align-middle text-center"><button onclick="openPmFolderModal('${fEsc}')" class="text-[11px] font-bold text-brand-blue bg-brand-blue-light rounded-full px-2 py-1 hover:opacity-80" title="상품 ${n}개 — 클릭해 편집">${n}개</button></td>
-    <td class="px-3 py-2.5 align-middle min-w-0"><button onclick="openPmFolderModal('${fEsc}')" class="text-left font-semibold hover:text-brand-blue hover:underline w-full truncate" title="클릭하면 폴더 안 상품 ${n}개를 펼쳐 편집">${_pmEsc(firstName)} <span class="text-brand-gray font-normal">외 ${n-1}개</span></button></td>
+    <td class="pl-5 pr-3 py-2.5 align-middle min-w-0"><button onclick="openPmFolderModal('${fEsc}')" class="text-left font-semibold hover:text-brand-blue hover:underline w-full truncate" title="클릭하면 폴더 안 상품 ${n}개를 펼쳐 편집">${_pmEsc(firstName)} <span class="text-brand-gray font-normal">외 ${n-1}개</span></button></td>
     ${numCell('cost')}
     ${numCell('salePrice')}
     ${numCell('supplyPrice')}
     ${numCell('shipping')}
-    <td class="px-3 py-2.5 align-middle"><button onclick="openPmFolderModal('${fEsc}')" class="text-left text-xs ${noteSummary ? 'text-brand-black' : 'text-brand-gray'} hover:text-brand-blue hover:underline w-full truncate" title="비고는 상품별 — 클릭해 편집">${noteSummary ? _pmEsc(noteSummary) : '상품별'}</button></td>
+    <td class="pl-5 pr-3 py-2.5 align-middle"><button onclick="openPmFolderModal('${fEsc}')" class="text-left text-xs ${noteSummary ? 'text-brand-black' : 'text-brand-gray'} hover:text-brand-blue hover:underline w-full truncate" title="비고는 상품별 — 클릭해 편집">${noteSummary ? _pmEsc(noteSummary) : '상품별'}</button></td>
     <td class="px-3 py-2.5 align-middle text-center">${linkBtn}</td>
     <td class="px-3 py-2.5 align-middle text-center">${linkBtn}</td>
     <td class="px-3 py-2.5 text-center align-middle"><input type="checkbox" ${allReg ? 'checked' : ''} onchange="toggleProductRegistered('${rep.id}', this.checked)" class="w-5 h-5 rounded cursor-pointer accent-brand-green" title="등록 (폴더 전체)"></td>
