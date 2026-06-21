@@ -593,8 +593,9 @@
           <thead>
             <tr class="bg-brand-bg">
               <th class="px-2 py-2.5 text-center border-b-2 border-brand-border" style="width:36px;"></th>
-              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:72px;min-width:72px;">폴더코드</th>
-              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:84px;min-width:84px;">상품코드</th>
+              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:48px;min-width:48px;">완료</th>
+              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:80px;min-width:80px;">폴더코드</th>
+              <th class="py-2.5 text-center font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:104px;min-width:104px;">상품코드</th>
               <th class="py-2.5 text-left   font-bold border-b-2 border-brand-border whitespace-nowrap" style="min-width:240px;padding-left:20px;">상품명</th>
               <th class="py-2.5 text-right  font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:96px;min-width:96px;padding-right:10px;">원가</th>
               <th class="py-2.5 text-right  font-bold border-b-2 border-brand-border whitespace-nowrap" style="width:96px;min-width:96px;padding-right:10px;">판매가</th>
@@ -6120,14 +6121,16 @@ function renderProductsList() {
     for (let j = 0; j < groupSize; j++) {
       const item = visible[i + j];
       const folderCell = (j === 0)
-        ? `<td rowspan="${groupSize}" class="px-3 py-2 align-middle text-center ${groupSize > 1 ? 'font-bold' : ''} ${groupBg}">
-             <input type="text" data-field="folder" value="${_pmEsc(item.folder)}" placeholder="0000" class="pending-input font-mono text-xs text-center">
+        ? `<td rowspan="${groupSize}" class="px-1 py-2 align-middle text-center ${groupSize > 1 ? 'font-bold' : ''} ${groupBg}">
+             <input type="text" data-field="folder" value="${_pmEsc(item.folder)}" placeholder="0000" class="pending-input pm-num-input text-center">
            </td>`
         : '';
+      const doneBtn = `<button type="button" onclick="toggleProductRegistered('${item.id}', ${item.registered ? 'false' : 'true'})" title="등록완료 — 누르면 같은 폴더 전체가 등록완료 처리됩니다" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.registered ? 'text-white' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-green-600'}" ${item.registered ? 'style="background:#16a34a;"' : ''}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button>`;
       rowsHtml.push(`<tr data-pmid="${item.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${item.registered ? 'opacity-50' : ''} ${groupBg}">
         <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pm-row-cb w-4 h-4 rounded cursor-pointer" data-pmid="${item.id}" onchange="_updatePmSelectLabel()"></td>
+        <td class="px-1 py-2 text-center align-middle">${doneBtn}</td>
         ${folderCell}
-        <td class="px-3 py-2 align-middle text-center"><input type="text" data-field="code" value="${_pmEsc(item.code)}" placeholder="GB0000" class="pending-input font-mono text-xs text-center"></td>
+        <td class="px-1 py-2 align-middle text-center"><input type="text" data-field="code" value="${_pmEsc(item.code)}" placeholder="GB0000" class="pending-input pm-num-input text-center"></td>
         <td class="px-3 py-2 align-middle"><input type="text" data-field="name" value="${_pmEsc(item.name)}" placeholder="상품명을 입력하세요" class="pending-input font-semibold"></td>
         <td class="px-1.5 py-2 align-middle"><input type="text" data-field="cost"        value="${_pmFmtNum(item.cost)}"        placeholder="0" class="pending-input pm-num-input text-right" inputmode="numeric"></td>
         <td class="px-1.5 py-2 align-middle"><input type="text" data-field="salePrice"   value="${_pmFmtNum(item.salePrice)}"   placeholder="0" class="pending-input pm-num-input text-right" inputmode="numeric"></td>
@@ -6260,9 +6263,11 @@ function _pmCollapsedRow(rows, groupBg) {
       : `<td class="px-1 py-2.5 align-middle text-center"><button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button></td>`;
   };
   const linkBtn = `<button onclick="openPmFolderModal('${fEsc}')" class="text-xs text-brand-gray hover:text-brand-blue hover:underline">상품별</button>`;
+  const doneBtn = `<button type="button" onclick="toggleProductRegistered('${rep.id}', ${allReg ? 'false' : 'true'})" title="등록완료 — 폴더 전체가 등록완료 처리됩니다" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${allReg ? 'text-white' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-green-600'}" ${allReg ? 'style="background:#16a34a;"' : ''}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></button>`;
   return `<tr data-pmid="${rep.id}" class="border-b border-brand-border hover:bg-blue-50/40 ${allReg ? 'opacity-50' : ''} ${groupBg}">
     <td class="px-2 py-2.5 text-center align-middle"><input type="checkbox" class="pm-row-cb w-4 h-4 rounded cursor-pointer" data-pmid="${rep.id}" data-folder="${fEsc}" onchange="_updatePmSelectLabel()"></td>
-    <td class="px-3 py-2.5 align-middle text-center font-bold ${groupBg}"><input type="text" data-field="folder" value="${fEsc}" placeholder="0000" class="pending-input font-mono text-xs text-center"></td>
+    <td class="px-1 py-2.5 text-center align-middle">${doneBtn}</td>
+    <td class="px-1 py-2.5 align-middle text-center font-bold ${groupBg}"><input type="text" data-field="folder" value="${fEsc}" placeholder="0000" class="pending-input pm-num-input text-center"></td>
     <td class="px-3 py-2.5 align-middle text-center"><button onclick="openPmFolderModal('${fEsc}')" class="pm-count-badge text-[11px] font-bold text-brand-blue bg-brand-blue-light rounded-full px-2 py-1 hover:opacity-80" title="상품 ${n}개 — 클릭해 편집">${n}개</button></td>
     <td class="pl-5 pr-3 py-2.5 align-middle min-w-0"><button onclick="openPmFolderModal('${fEsc}')" class="text-left font-semibold hover:text-brand-blue hover:underline w-full truncate" title="클릭하면 폴더 안 상품 ${n}개를 펼쳐 편집">${_pmEsc(firstName)} <span class="text-brand-gray font-normal">외 ${n-1}개</span></button></td>
     ${numCell('cost')}
