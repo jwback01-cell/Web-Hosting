@@ -582,6 +582,9 @@
           <input type="checkbox" id="pm-select-all" onchange="togglePmSelectAll(this.checked)" class="w-4 h-4 rounded">
           <span id="pm-select-all-label" class="text-xs font-bold text-brand-gray">전체 선택 (0개)</span>
         </label>
+        <button onclick="markSelectedRegistered(true)" class="text-xs font-bold hover:opacity-80" style="color:#16a34a;">선택 등록완료</button>
+        <button onclick="markSelectedRegistered(false)" class="text-xs font-bold text-brand-gray hover:opacity-80">등록 취소</button>
+        <span class="text-brand-border">|</span>
         <button onclick="deleteSelectedProducts()" class="text-xs font-bold text-brand-pink hover:opacity-80">선택 삭제</button>
       </div>
 
@@ -6433,6 +6436,20 @@ function deleteSelectedProducts() {
   if (!confirm(`선택한 ${ids.length}개 상품을 삭제할까요?`)) return;
   const idset = new Set(ids);
   pmList = pmList.filter(p => !idset.has(p.id));
+  _savePmToStorage();
+  renderProductsList();
+}
+
+// 선택한 행 일괄 등록완료/취소 — 폴더 행이면 폴더 전체 cascade (toggleProductRegistered 와 동일 규칙)
+function markSelectedRegistered(registered) {
+  const cbs = [...document.querySelectorAll('#pm-tbody .pm-row-cb:checked')];
+  if (!cbs.length) { alert(registered ? '등록완료 처리할 행을 선택해주세요.' : '등록취소할 행을 선택해주세요.'); return; }
+  const _pidSet = new Set(cbs.map(cb => cb.dataset.pmid));
+  const _folderSet = new Set(cbs.map(cb => cb.dataset.folder).filter(Boolean));
+  let n = 0;
+  pmList.forEach(p => {
+    if (_pidSet.has(p.id) || (p.folder && _folderSet.has(p.folder))) { p.registered = registered; n++; }
+  });
   _savePmToStorage();
   renderProductsList();
 }
