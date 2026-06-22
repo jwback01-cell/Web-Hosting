@@ -4339,10 +4339,13 @@ function renderPendingList() {
       let linkCell = '';
       if (linkSpan > 0) {
         const linkHtml = item.link
-          ? `<a href="${_pendingEsc(item.link)}" target="_blank" rel="noopener"
-                 ondblclick="_pendingEditLinkCell(event, '${item.id}')"
-                 class="text-brand-black hover:underline text-xs break-all cursor-pointer block"
-                 title="더블클릭하면 수정 · 클릭하면 새 탭에서 열림">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>`
+          ? `<div class="flex items-start gap-1.5">
+               <a href="${_pendingEsc(item.link)}" target="_blank" rel="noopener"
+                  ondblclick="_pendingEditLinkCell(event, '${item.id}')"
+                  class="text-brand-black hover:underline text-xs break-all cursor-pointer flex-1 min-w-0"
+                  title="클릭=새 탭 열기 · 더블클릭/연필=수정">${_pendingEsc(item.link.length > 80 ? item.link.slice(0,80)+'…' : item.link)}</a>
+               <button type="button" onclick="_pendingEditLinkCell(event, '${item.id}')" title="링크 수정" class="shrink-0 text-brand-gray hover:text-brand-blue p-0.5 rounded hover:bg-brand-blue-light/40"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+             </div>`
           : `<input type="text" data-field="link" value="" placeholder="https://… (Enter 입력)" class="pending-input text-xs">`;
         linkCell = `<td rowspan="${linkSpan}" class="px-3 py-2 align-middle">${linkHtml}</td>`;
       }
@@ -4656,7 +4659,10 @@ function _pendingCollapsedRow(rows, groupBg) {
   const addonCnt = rows.filter(r => r.addon).length;
   const noteSummary = (rows.find(r => r.note) || {}).note || '';
   const linkHtml = rep.link
-    ? `<a href="${_pendingEsc(rep.link)}" target="_blank" rel="noopener" ondblclick="_pendingEditLinkCell(event, '${rep.id}')" class="text-brand-black hover:underline text-xs break-all cursor-pointer block" title="더블클릭=수정(폴더 전체) · 클릭=새 탭">${_pendingEsc(rep.link.length > 80 ? rep.link.slice(0,80)+'…' : rep.link)}</a>`
+    ? `<div class="flex items-start gap-1.5">
+         <a href="${_pendingEsc(rep.link)}" target="_blank" rel="noopener" ondblclick="_pendingEditLinkCell(event, '${rep.id}')" class="text-brand-black hover:underline text-xs break-all cursor-pointer flex-1 min-w-0" title="클릭=새 탭 · 더블클릭/연필=수정(폴더 전체)">${_pendingEsc(rep.link.length > 80 ? rep.link.slice(0,80)+'…' : rep.link)}</a>
+         <button type="button" onclick="_pendingEditLinkCell(event, '${rep.id}')" title="링크 수정" class="shrink-0 text-brand-gray hover:text-brand-blue p-0.5 rounded hover:bg-brand-blue-light/40"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+       </div>`
     : `<span class="text-brand-gray text-xs">-</span>`;
   return `<tr data-pid="${rep.id}" class="border-b border-brand-border hover:bg-blue-50/40 transition-colors ${allDone ? 'opacity-50' : ''} ${groupBg}">
     <td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="pending-row-cb w-4 h-4 rounded cursor-pointer align-middle block mx-auto" data-pid="${rep.id}" data-folder="${fEsc}" onchange="_updatePendingSelectLabel()"></td>
