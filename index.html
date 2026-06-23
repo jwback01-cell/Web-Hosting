@@ -866,9 +866,18 @@
         <div class="bg-brand-bg rounded-2xl p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">연차 사용</div><div class="text-2xl font-black text-brand-pink"><span id="attend-leave">0</span><span class="text-sm text-brand-gray font-bold"> 일</span></div></div>
         <div class="bg-brand-bg rounded-2xl p-4 text-center"><div class="text-xs text-brand-gray font-bold mb-1">총 근무시간</div><div class="text-2xl font-black text-brand-blue"><span id="attend-hours">0</span><span class="text-sm text-brand-gray font-bold"> h</span></div></div>
       </div>
+      <!-- 선택 삭제 툴바 (마스터 전용) -->
+      <div id="attend-bulk-toolbar" class="hidden items-center gap-3 px-1">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="attend-select-all" onchange="_attendToggleSelectAll(this.checked)" class="w-4 h-4 rounded">
+          <span id="attend-select-label" class="text-xs font-bold text-brand-gray">전체 선택 (0개)</span>
+        </label>
+        <button onclick="deleteSelectedAttend()" class="text-xs font-bold text-brand-pink hover:opacity-80">선택 삭제</button>
+      </div>
       <div class="overflow-x-auto -mx-1 px-1">
         <table class="w-full text-sm border-collapse">
           <thead><tr class="bg-brand-bg">
+            <th id="attend-th-cb" class="hidden px-2 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
             <th id="attend-th-owner" class="hidden px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[140px]">직원</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[160px]">날짜</th>
             <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[200px]">출근</th>
@@ -3453,6 +3462,30 @@ function deleteAttendRow(id) {
   _saveAttend();
   renderAttendance();
 }
+// 선택 삭제 (마스터 본인 행만)
+function _attendToggleSelectAll(checked) {
+  document.querySelectorAll('#attend-tbody .attend-row-cb').forEach(cb => { cb.checked = checked; });
+  _attendUpdateSelectLabel();
+}
+function _attendUpdateSelectLabel() {
+  const cbs = document.querySelectorAll('#attend-tbody .attend-row-cb');
+  const n = [...cbs].filter(cb => cb.checked).length;
+  const label = document.getElementById('attend-select-label');
+  if (label) label.textContent = `전체 선택 (${n}개)`;
+  const all = document.getElementById('attend-select-all');
+  if (all) all.checked = (cbs.length > 0 && n === cbs.length);
+}
+function deleteSelectedAttend() {
+  const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
+  if (!isMaster) { alert('근태 기록 삭제는 관리자만 가능합니다.'); return; }
+  const checked = [...document.querySelectorAll('#attend-tbody .attend-row-cb:checked')];
+  if (!checked.length) { alert('삭제할 기록을 먼저 선택하세요.'); return; }
+  const ids = new Set(checked.map(cb => cb.dataset.aid));
+  if (!confirm(`선택한 ${ids.size}건의 근태 기록을 삭제할까요?`)) return;
+  attendList = attendList.filter(r => !ids.has(r.id));
+  _saveAttend();
+  renderAttendance();
+}
 // 출근/퇴근 체크박스 토글 — 체크 시 현재 시간 자동 기록, 해제 시 빈 값
 function _attendToggleCheck(id, field, checked) {
   const r = attendList.find(x => x.id === id);
@@ -3592,6 +3625,11 @@ function renderAttendance() {
   // 마스터일 때만 "직원" 컬럼 헤더 표시
   const ownerTh = document.getElementById('attend-th-owner');
   if (ownerTh) ownerTh.classList.toggle('hidden', !_isMaster);
+  // 마스터일 때만 선택 삭제 툴바·체크박스 열 표시
+  const bulkBar = document.getElementById('attend-bulk-toolbar');
+  if (bulkBar) { bulkBar.classList.toggle('hidden', !_isMaster); bulkBar.classList.toggle('flex', _isMaster); }
+  const cbTh = document.getElementById('attend-th-cb');
+  if (cbTh) cbTh.classList.toggle('hidden', !_isMaster);
   tbody.innerHTML = list.map(r => {
     const hrs = _fmtHours(_attendWorkHours(r));
     const opts = LEAVES.map(v => `<option value="${v}" ${r.leave === v ? 'selected' : ''}>${v || '정상근무'}</option>`).join('');
@@ -3610,8 +3648,9 @@ function renderAttendance() {
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시
     const _chkCell = (field, label) => {
       const v = r[field] || '';
-      // 읽기 전용 (마스터 본인 외 모든 계정/행)
-      if (!canEditFilled) {
+      // 본인 행의 빈 칸은 직원도 입력 가능(시계/직접입력). 채워진 칸은 마스터 본인만 수정. 남의 행은 읽기전용.
+      const canEnter = isMine && (!v || _isMaster);
+      if (!canEnter) {
         if (!v) return `<td class="p-1 align-middle text-center text-brand-gray text-xs">-</td>`;
         return `<td class="p-1 align-middle">
           <div class="flex items-center justify-center bg-brand-green-light/40 rounded-lg py-1.5 px-2">
@@ -3619,11 +3658,11 @@ function renderAttendance() {
           </div>
         </td>`;
       }
-      // 마스터 본인 row — 자유 타이핑 + 🕐 현재시각 입력 + ✕ 지우기
+      // 입력 가능 — 자유 타이핑 + 🕐 현재시각 입력 (✕ 지우기는 마스터만; 직원은 입력 후 잠김)
       const clockBtn = `<button onclick="_attendToggleCheck('${r.id}','${field}',true)" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-green flex items-center justify-center shrink-0" title="현재 시각 입력">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
         </button>`;
-      const clearBtn = v ? `<button onclick="_attendClearTime('${r.id}','${field}')" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 지우기">✕</button>` : '';
+      const clearBtn = (v && _isMaster) ? `<button onclick="_attendClearTime('${r.id}','${field}')" class="w-5 h-5 rounded-full text-brand-gray hover:text-white hover:bg-brand-pink flex items-center justify-center text-[11px] leading-none shrink-0" title="${label} 지우기">✕</button>` : '';
       return `<td class="p-1 align-middle">
         <div class="flex items-center justify-center gap-1 ${v ? 'bg-brand-green-light/40' : 'border border-dashed border-brand-border'} rounded-lg py-1 px-1.5">
           <input type="text" value="${_pmEsc(v)}" onchange="_onAttendTimeInput('${r.id}','${field}',this.value)"
@@ -3647,7 +3686,14 @@ function renderAttendance() {
     const delCell = _isMaster && isMine
       ? `<td class="px-2 py-2 text-center align-middle"><button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>`
       : `<td class="px-2 py-2"></td>`;
+    // 체크박스 셀 — 마스터 본인 행만 선택/삭제 가능 (그 외엔 빈 칸)
+    const cbCell = _isMaster
+      ? (isMine
+          ? `<td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="attend-row-cb w-4 h-4 rounded cursor-pointer" data-aid="${r.id}" onchange="_attendUpdateSelectLabel()"></td>`
+          : `<td class="px-2 py-2"></td>`)
+      : '';
     return `<tr class="border-b border-brand-border ${readonly ? 'bg-brand-bg/30' : 'hover:bg-blue-50/40'} ${dim}">
+      ${cbCell}
       ${ownerCell}
       ${dateCell}
       ${_chkCell('checkIn', '출근')}
