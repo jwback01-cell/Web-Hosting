@@ -3424,29 +3424,15 @@ function _dateAddDays(dateStr, n) {
 // 주말 제외 매일 자동 기록 추가 — 마지막 기록일 다음날부터 오늘까지 빠진 평일 채움
 //   처음 사용 시(기록 없음)은 오늘만 추가. 이미 오늘 기록 있으면 아무것도 안 함.
 function _ensureWeekdayAttendUpToToday() {
+  // ★오늘 행만 자동 생성★ — 과거 평일 backfill 안 함 (삭제한 과거 빈 행이 다시 살아나지 않도록).
+  //   과거 누락분은 "기록 추가" 로 직접 추가. 주말엔 생성 안 함.
   const today = _todayISO();
+  if (!_isWeekday(today)) return false;
   const haveByDate = new Set(attendList.map(r => r.date));
-  let cursor;
-  if (attendList.length) {
-    const sorted = attendList.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-    const last = sorted[0].date || '';
-    cursor = (last && last < today) ? _dateAddDays(last, 1) : today;
-  } else {
-    cursor = today;   // 빈 상태 — 오늘만
-  }
-  let added = false;
-  // 안전장치: 최대 60일치만 채움 (오래된 데이터 폭증 방지)
-  let safety = 60;
-  while (cursor <= today && safety-- > 0) {
-    if (_isWeekday(cursor) && !haveByDate.has(cursor)) {
-      attendList.push({ id: _attendNewId(), date: cursor, checkIn: '', checkOut: '', leave: '', note: '' });
-      haveByDate.add(cursor);
-      added = true;
-    }
-    cursor = _dateAddDays(cursor, 1);
-  }
-  if (added) _saveAttend();
-  return added;
+  if (haveByDate.has(today)) return false;   // 오늘 행 이미 있으면 skip
+  attendList.push({ id: _attendNewId(), date: today, checkIn: '', checkOut: '', leave: '', note: '' });
+  _saveAttend();
+  return true;
 }
 function addAttendRow() {
   attendList.unshift({ id: _attendNewId(), date: _todayISO(), checkIn: '', checkOut: '', leave: '', note: '' });
@@ -3489,6 +3475,16 @@ async function _attendDeleteOtherRows(uid, ids) {
       { onConflict: 'key' }
     );
     if (error) { console.warn('[attend del other]', error); alert('직원 기록 삭제 실패(권한/RLS 확인): ' + (error.message || error)); return false; }
+    // 검증 — 서버에 실제로 반영됐는지 재조회 (RLS 가 조용히 막는 경우 감지)
+    try {
+      const { data: chk } = await sb.from('ih_kv').select('data').eq('key', key).maybeSingle();
+      let remain = [];
+      if (chk && chk.data != null) { remain = (typeof chk.data === 'string') ? JSON.parse(chk.data) : chk.data; }
+      if (Array.isArray(remain) && remain.some(r => ids.has(r.id))) {
+        alert('⚠ 직원 기록이 서버에서 삭제되지 않았습니다.\nSupabase ih_kv 의 RLS 정책이 관리자의 타 직원 데이터 수정을 막고 있을 수 있습니다. (정책 확인 필요)');
+        return false;
+      }
+    } catch (_) {}
     if (window._attendOthersByUser) window._attendOthersByUser[uid] = next;
     return true;
   } catch (e) { console.warn('[attend del other]', e); alert('직원 기록 삭제 중 오류가 발생했습니다.'); return false; }
