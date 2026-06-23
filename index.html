@@ -6392,7 +6392,13 @@ function _renderPmfBody() {
   const inpCls = 'w-full bg-transparent border border-transparent hover:border-brand-border focus:border-brand-black focus:bg-white rounded px-1.5 py-1 focus:outline-none';
   box.innerHTML = `
     <div class="text-brand-black">
-      <div class="text-xs text-brand-gray mb-2">상품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
+      <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <div class="text-xs text-brand-gray">상품 <b class="text-brand-black">${rows.length}</b>개 — 칸을 클릭해 바로 수정, 자동 저장</div>
+        <div class="flex items-center gap-3">
+          <button onclick="_pmfCopyCol('name')" class="text-xs font-bold text-brand-blue hover:underline">📋 제품명 복사</button>
+          <button onclick="_pmfCopyCol('code')" class="text-xs font-bold text-brand-blue hover:underline">상품코드 복사</button>
+        </div>
+      </div>
       <div style="overflow-x:auto;">
       <table class="w-full text-sm border-collapse" style="min-width:1050px;">
         <thead><tr class="bg-brand-bg">
@@ -6428,6 +6434,25 @@ function _renderPmfBody() {
       </div>
       <button onclick="_pmfAddProduct()" class="mt-3 text-sm font-bold text-brand-blue hover:underline">+ 상품 추가</button>
     </div>`;
+}
+// 폴더 안 상품의 한 열(제품명/상품코드 등)을 줄바꿈으로 클립보드 복사 → 엑셀에 세로로 붙여넣기
+function _pmfCopyCol(field) {
+  const rows = pmList.filter(p => p.folder === _pmfFolder);
+  const text = rows.map(p => String(p[field] || '').trim()).join('\n');
+  if (!text.replace(/\n/g, '')) { alert('복사할 내용이 없습니다.'); return; }
+  const label = field === 'code' ? '상품코드' : '제품명';
+  const done = () => alert(`${label} ${rows.length}개를 복사했습니다.\n엑셀에서 붙여넣기(Ctrl+V) 하면 세로로 한 칸씩 들어갑니다.`);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => _pmfCopyFallback(text, done));
+  } else { _pmfCopyFallback(text, done); }
+}
+function _pmfCopyFallback(text, done) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    document.execCommand('copy'); ta.remove(); done();
+  } catch (_) { alert('복사 실패 — 브라우저 권한을 확인해 주세요.'); }
 }
 function _pmfEdit(pmid, field, val) {
   const it = pmList.find(p => p.id === pmid);
