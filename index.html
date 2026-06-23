@@ -3475,15 +3475,41 @@ function _attendUpdateSelectLabel() {
   const all = document.getElementById('attend-select-all');
   if (all) all.checked = (cbs.length > 0 && n === cbs.length);
 }
-function deleteSelectedAttend() {
+// 직원(다른 계정) 근태 행 삭제 — 그 직원의 클라우드 키(ih_attendance_v1__<uid>) 배열을 수정해 upsert
+async function _attendDeleteOtherRows(uid, ids) {
+  if (!sb) { alert('클라우드 연결이 없어 직원 기록을 삭제할 수 없습니다.'); return false; }
+  const cur = (window._attendOthersByUser && window._attendOthersByUser[uid]) || [];
+  const next = cur.filter(r => !ids.has(r.id));
+  const key = 'ih_attendance_v1__' + uid;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const masterUid = session ? session.user.id : _ihUserId;
+    const { error } = await sb.from('ih_kv').upsert(
+      { key, data: next, updated_by: masterUid, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) { console.warn('[attend del other]', error); alert('직원 기록 삭제 실패(권한/RLS 확인): ' + (error.message || error)); return false; }
+    if (window._attendOthersByUser) window._attendOthersByUser[uid] = next;
+    return true;
+  } catch (e) { console.warn('[attend del other]', e); alert('직원 기록 삭제 중 오류가 발생했습니다.'); return false; }
+}
+async function deleteSelectedAttend() {
   const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
   if (!isMaster) { alert('근태 기록 삭제는 관리자만 가능합니다.'); return; }
   const checked = [...document.querySelectorAll('#attend-tbody .attend-row-cb:checked')];
   if (!checked.length) { alert('삭제할 기록을 먼저 선택하세요.'); return; }
-  const ids = new Set(checked.map(cb => cb.dataset.aid));
-  if (!confirm(`선택한 ${ids.size}건의 근태 기록을 삭제할까요?`)) return;
-  attendList = attendList.filter(r => !ids.has(r.id));
-  _saveAttend();
+  // 본인 행 / 직원 행(uid별)로 분리
+  const myIds = new Set();
+  const byUid = {};
+  checked.forEach(cb => {
+    const ouid = cb.dataset.ouid || '__me__';
+    if (ouid === '__me__') myIds.add(cb.dataset.aid);
+    else (byUid[ouid] = byUid[ouid] || new Set()).add(cb.dataset.aid);
+  });
+  const total = myIds.size + Object.values(byUid).reduce((s, set) => s + set.size, 0);
+  if (!confirm(`선택한 ${total}건의 근태 기록을 삭제할까요?\n(직원 기록은 해당 직원 데이터에서도 삭제됩니다)`)) return;
+  if (myIds.size) { attendList = attendList.filter(r => !myIds.has(r.id)); _saveAttend(); }
+  for (const [uid, ids] of Object.entries(byUid)) { await _attendDeleteOtherRows(uid, ids); }
   renderAttendance();
 }
 // 출근/퇴근 체크박스 토글 — 체크 시 현재 시간 자동 기록, 해제 시 빈 값
@@ -3686,11 +3712,9 @@ function renderAttendance() {
     const delCell = _isMaster && isMine
       ? `<td class="px-2 py-2 text-center align-middle"><button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>`
       : `<td class="px-2 py-2"></td>`;
-    // 체크박스 셀 — 마스터 본인 행만 선택/삭제 가능 (그 외엔 빈 칸)
+    // 체크박스 셀 — 마스터는 본인+직원 모든 행 선택/삭제 가능 (data-ouid 로 소유자 구분)
     const cbCell = _isMaster
-      ? (isMine
-          ? `<td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="attend-row-cb w-4 h-4 rounded cursor-pointer" data-aid="${r.id}" onchange="_attendUpdateSelectLabel()"></td>`
-          : `<td class="px-2 py-2"></td>`)
+      ? `<td class="px-2 py-2 text-center align-middle"><input type="checkbox" class="attend-row-cb w-4 h-4 rounded cursor-pointer" data-aid="${r.id}" data-ouid="${isMine ? '__me__' : _pmEsc(r._ownerUid || '')}" onchange="_attendUpdateSelectLabel()"></td>`
       : '';
     return `<tr class="border-b border-brand-border ${readonly ? 'bg-brand-bg/30' : 'hover:bg-blue-50/40'} ${dim}">
       ${cbCell}
