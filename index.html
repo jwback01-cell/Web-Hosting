@@ -4239,6 +4239,12 @@ function _pendingNewId() {
 // 등록 예정 ↔ 상품관리 연동 헬퍼
 // 등록 예정 행을 만들 때 상품관리에도 매칭 행을 만들고 linkedPmId 로 묶음.
 // pending 의 folder/name/note 가 바뀌면 pm 도 자동 갱신. pending 삭제 시 pm 도 삭제.
+// 상품관리 제품명 = 등록예정 제품명 + 옵션명 (예: "...소형 케이스" + "블랙" → "...소형 케이스 블랙")
+function _pmNameWithOption(p) {
+  const nm = String((p && p.name) || '').trim();
+  const op = String((p && p.option) || '').trim();
+  return op ? (nm + ' ' + op) : nm;
+}
 function _ensureLinkedPmForPending(pending) {
   if (pending.linkedPmId) {
     const exist = pmList.find(p => p.id === pending.linkedPmId);
@@ -4249,7 +4255,7 @@ function _ensureLinkedPmForPending(pending) {
     id: _pmNewId(),
     folder:      pending.folder || '',
     code:        pending.code || '',
-    name:        pending.name || '',
+    name:        _pmNameWithOption(pending),
     cost:        0,
     salePrice:   0,
     supplyPrice: 0,
@@ -4268,7 +4274,10 @@ function _syncPmFromPending(pending, field) {
   if (!pending || !pending.linkedPmId) return;
   const pm = pmList.find(p => p.id === pending.linkedPmId);
   if (!pm) return;
-  if (field === 'folder' || field === 'name' || field === 'note' || field === 'code') {
+  if (field === 'name' || field === 'option') {
+    pm.name = _pmNameWithOption(pending);   // 제품명 뒤에 옵션명 붙여 반영
+    _savePmToStorage();
+  } else if (field === 'folder' || field === 'note' || field === 'code') {
     pm[field] = pending[field];
     _savePmToStorage();
   }
@@ -4324,7 +4333,27 @@ window.pendingSort = function(col){
   else { _pendingSort.col = col; _pendingSort.dir = 'asc'; }
   renderPendingList();
 };
+// 기존 연동 상품 제품명에 옵션 일괄 보완 (한 번만) — 옵션이 아직 안 붙은 경우에만
+function _migratePmOptionNames() {
+  try {
+    if (localStorage.getItem('ih_pm_option_migrated_v1')) return;
+    let changed = false;
+    (pendingList || []).forEach(pd => {
+      if (!pd.linkedPmId) return;
+      const op = String(pd.option || '').trim();
+      if (!op) return;
+      const pm = (pmList || []).find(p => p.id === pd.linkedPmId);
+      if (!pm) return;
+      const bare = String(pd.name || '').trim();
+      const withOpt = _pmNameWithOption(pd);
+      if (String(pm.name || '').trim() === bare && pm.name !== withOpt) { pm.name = withOpt; changed = true; }
+    });
+    if (changed) _savePmToStorage();
+    localStorage.setItem('ih_pm_option_migrated_v1', '1');
+  } catch (_) {}
+}
 function renderPendingList() {
+  _migratePmOptionNames();
   const tbody = document.getElementById('pending-tbody');
   const empty = document.getElementById('pending-empty');
   if (!tbody) return;
@@ -4876,7 +4905,7 @@ function _pfEdit(pid, field, val) {
     const frows = pendingList.filter(p => p.folder === it.folder);
     if (frows[0] && frows[0].id === pid) { frows.forEach(p => { if (p.id !== pid) p[field] = val; }); }
   }
-  if (field === 'code' || field === 'name' || field === 'note') {
+  if (field === 'code' || field === 'name' || field === 'note' || field === 'option') {
     if (!it.linkedPmId) _ensureLinkedPmForPending(it);
     _syncPmFromPending(it, field);
   }
