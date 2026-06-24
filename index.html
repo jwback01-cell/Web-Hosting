@@ -603,6 +603,10 @@
         <button onclick="markSelectedRegistered(false)" class="text-xs font-bold text-brand-gray hover:opacity-80">등록 취소</button>
         <span class="text-brand-border">|</span>
         <button onclick="deleteSelectedProducts()" class="text-xs font-bold text-brand-pink hover:opacity-80">선택 삭제</button>
+        <label class="flex items-center gap-2 cursor-pointer ml-auto">
+          <input type="checkbox" id="pm-expand-folders" checked onchange="renderProductsList()" class="w-4 h-4 rounded">
+          <span class="text-xs font-bold text-brand-gray">폴더 펼치기 (색상별 모두 표시)</span>
+        </label>
       </div>
 
       <div class="overflow-x-auto">
@@ -6223,6 +6227,7 @@ function renderProductsList() {
 
   // 연속된 같은 폴더코드 → rowspan 으로 병합 (폴더가 비어있으면 병합 안 함)
   // 그룹마다 배경색을 번갈아 적용 (격자 스타일)
+  const expandFolders = document.getElementById('pm-expand-folders')?.checked !== false;   // 기본 펼침
   const rowsHtml = [];
   let i = 0;
   let groupIdx = 0;
@@ -6234,8 +6239,8 @@ function renderProductsList() {
     }
     // 폴더 그룹별 배경색 — 홀수/짝수 번갈아
     const groupBg = (groupIdx % 2 === 0) ? '' : 'pm-row-alt';
-    if (groupSize >= 2) {
-      // 폴더에 상품 2개 이상 → 1줄로 접어서 표시 (개별 상품은 제품명 클릭 팝업에서 편집)
+    if (groupSize >= 2 && !expandFolders) {
+      // 접기 모드 — 폴더에 상품 2개 이상이면 1줄로 접어서 표시 (제품명 클릭 시 펼쳐 편집)
       rowsHtml.push(_pmCollapsedRow(visible.slice(i, i + groupSize), groupBg));
     } else
     for (let j = 0; j < groupSize; j++) {
