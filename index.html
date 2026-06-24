@@ -4333,23 +4333,24 @@ window.pendingSort = function(col){
   else { _pendingSort.col = col; _pendingSort.dir = 'asc'; }
   renderPendingList();
 };
-// 기존 연동 상품 제품명에 옵션 일괄 보완 (한 번만) — 옵션이 아직 안 붙은 경우에만
+// 연동 상품 제품명에 옵션 보완 — 옵션이 아직 안 붙은 경우에만(이미 붙었으면 그대로). 매 렌더 안전 실행.
 function _migratePmOptionNames() {
   try {
-    if (localStorage.getItem('ih_pm_option_migrated_v1')) return;
+    if ((!pendingList || !pendingList.length) && typeof _loadPendingFromStorage === 'function') { try { _loadPendingFromStorage(); } catch (_) {} }
     let changed = false;
+    const byId = new Map((pmList || []).map(p => [p.id, p]));
     (pendingList || []).forEach(pd => {
       if (!pd.linkedPmId) return;
       const op = String(pd.option || '').trim();
       if (!op) return;
-      const pm = (pmList || []).find(p => p.id === pd.linkedPmId);
+      const pm = byId.get(pd.linkedPmId);
       if (!pm) return;
       const bare = String(pd.name || '').trim();
       const withOpt = _pmNameWithOption(pd);
+      // pm.name 이 아직 옵션 없는 '맨 이름' 일 때만 옵션 붙임 (수동 편집/이미 적용은 건드리지 않음)
       if (String(pm.name || '').trim() === bare && pm.name !== withOpt) { pm.name = withOpt; changed = true; }
     });
     if (changed) _savePmToStorage();
-    localStorage.setItem('ih_pm_option_migrated_v1', '1');
   } catch (_) {}
 }
 function renderPendingList() {
@@ -6192,6 +6193,7 @@ function addProductRow() {
 }
 
 function renderProductsList() {
+  try { if (typeof _migratePmOptionNames === 'function') _migratePmOptionNames(); } catch (_) {}
   const tbody = document.getElementById('pm-tbody');
   const empty = document.getElementById('pm-empty');
   const countEl = document.getElementById('pm-count');
