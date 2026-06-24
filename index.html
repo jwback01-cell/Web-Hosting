@@ -4304,6 +4304,19 @@ function _nextPendingCode() {
   pendingList.forEach(p => { const m = String(p.code || '').match(/^([A-Za-z]+)\s*(\d+)$/); if (m) { const n = parseInt(m[2], 10); if (!isNaN(n)) { if (n > max) { max = n; prefix = m[1]; } width = Math.max(width, m[2].length); } } });
   return max < 0 ? '' : (prefix + String(max + 1).padStart(width, '0'));
 }
+// ── 중복 코드 검사 ──────────────────────────────
+//  상품코드: 전역 고유 / 폴더코드: 다른 그룹이 이미 쓰고 있으면 중복
+function _pendNorm(v){ return String(v||'').trim().toLowerCase(); }
+function _pendingCodeDup(code, exceptId){
+  const c = _pendNorm(code); if (!c) return false;
+  return pendingList.some(p => p.id !== exceptId && _pendNorm(p.code) === c);
+}
+function _pendingFolderDup(newFolder, oldFolder){
+  const f = _pendNorm(newFolder); if (!f) return false;
+  if (f === _pendNorm(oldFolder)) return false;   // 같은 그룹(변경 없음)은 허용
+  return pendingList.some(p => _pendNorm(p.folder) === f);
+}
+
 function addPendingRow() {
   const pending = {
     id: _pendingNewId(),
@@ -4628,8 +4641,30 @@ function _onPendingCellPaste(e, el) {
     }
   }
 
+  // 중복 차단용 스냅샷 (시작 행은 제외 — 자기 자신과 충돌하지 않도록)
+  const startItem0 = pendingList[startIdx];
+  const existCodes   = new Set(pendingList.filter(p => p !== startItem0).map(p => _pendNorm(p.code)).filter(Boolean));
+  const existFolders = new Set(pendingList.filter(p => p !== startItem0).map(p => _pendNorm(p.folder)).filter(Boolean));
+  const importCodes  = new Set();
+  let inserted = 0, pasteSkipped = 0;
+
   // 매트릭스 각 행 처리 — 첫 행은 기존, 나머지는 새 행 생성해 시작 위치 바로 아래에 삽입
   for (let r = 0; r < matrix.length; r++) {
+    // 이 행의 값 먼저 수집 (삽입 전에 중복 판정)
+    const cols = matrix[r];
+    const vals = {};
+    for (let c = 0; c < cols.length; c++) {
+      const field = colFields[c];
+      if (!field) continue;
+      const value = String(cols[c] || '').trim();
+      if (!value) continue;
+      vals[field] = value;
+    }
+    const pc = _pendNorm(vals.code), pf = _pendNorm(vals.folder);
+    // 상품코드(전역 고유) / 폴더코드(기존 그룹과 충돌)면 건너뜀 — 붙여넣기 내 같은 폴더 반복은 허용
+    if (pc && (existCodes.has(pc) || importCodes.has(pc))) { pasteSkipped++; continue; }
+    if (pf && existFolders.has(pf)) { pasteSkipped++; continue; }
+
     let item;
     if (r === 0) {
       item = pendingList[startIdx];
@@ -4640,25 +4675,23 @@ function _onPendingCellPaste(e, el) {
         addon: false, grade: '',
         done: false, linkedPmId: '',
       };
-      pendingList.splice(startIdx + r, 0, newItem);
+      pendingList.splice(startIdx + 1 + inserted, 0, newItem);
       _ensureLinkedPmForPending(newItem);
       item = newItem;
+      inserted++;
     }
     if (!item) continue;
-    const cols = matrix[r];
-    for (let c = 0; c < cols.length; c++) {
-      const field = colFields[c];
-      if (!field) continue;
-      const value = String(cols[c] || '').trim();
-      if (!value) continue;
-      item[field] = value;
+    Object.keys(vals).forEach(field => {
+      item[field] = vals[field];
       if (field === 'folder' || field === 'code' || field === 'name' || field === 'note') {
         _syncPmFromPending(item, field);
       }
-    }
+    });
+    if (pc) importCodes.add(pc);
   }
   _savePendingToStorage();
   renderPendingList();
+  if (pasteSkipped) alert(`중복 ${pasteSkipped}건(상품코드/폴더코드)은 붙여넣지 않았습니다.`);
 }
 
 // 링크 셀 더블클릭 → 입력 모드로 전환 (수정 후 blur 시 자동으로 a 태그로 복원)
@@ -5006,6 +5039,13 @@ function _onPendingCellEdit(el, isBlur) {
   const newVal = (el.value !== undefined ? el.value : el.innerText || '').trim();
   if (item[field] === newVal) return;
 
+  // 상품코드 중복 차단 — 다른 상품이 이미 쓰는 코드는 거부 후 원복
+  if (field === 'code' && newVal && _pendingCodeDup(newVal, item.id)) {
+    alert('이미 등록된 상품코드입니다: ' + newVal);
+    renderPendingList();
+    return;
+  }
+
   // 폴더코드 — 빈 값 입력은 무시 (실수로 폴더 사라지는 사고 방지)
   // 정상 변경 시에만 cascade 로 같은 그룹 전체 갱신
   if (field === 'folder') {
@@ -5013,6 +5053,12 @@ function _onPendingCellEdit(el, isBlur) {
     // 기존에 폴더가 있는데 빈 값으로 바꾸려고 하면 무시하고 원상복구
     if (oldFolder && newVal === '') {
       if (isBlur) renderPendingList();   // 화면도 원래 값으로 복원
+      return;
+    }
+    // 폴더코드 중복 차단 — 다른 그룹이 이미 쓰는 코드는 거부 후 원복
+    if (newVal && _pendingFolderDup(newVal, oldFolder)) {
+      alert('이미 사용 중인 폴더코드입니다: ' + newVal);
+      renderPendingList();
       return;
     }
     if (oldFolder) {
@@ -6835,7 +6881,11 @@ async function uploadPendingExcel(event) {
     const isHeader = /날짜|제품명|date|name/i.test(first);
     const hasFolderCol = isHeader && /폴더코드/.test(first);
     const dataRows = isHeader ? rows.slice(1) : rows;
-    let added = 0;
+    let added = 0, skipped = 0;
+    // 기존 목록의 코드/폴더 스냅샷 + 이번 업로드 내 상품코드 추적 (폴더코드는 같은 그룹이면 반복 허용)
+    const existCodes   = new Set(pendingList.map(p => _pendNorm(p.code)).filter(Boolean));
+    const existFolders = new Set(pendingList.map(p => _pendNorm(p.folder)).filter(Boolean));
+    const importCodes  = new Set();
     for (const cols of dataRows) {
       if (!cols || !cols.length || !cols.join('').toString().trim()) continue;
       let p;
@@ -6894,14 +6944,19 @@ async function uploadPendingExcel(event) {
           done:    /완료|done|true|1|✓|☑|o/i.test(String(cols[5] || '').trim()),
         };
       }
+      // 중복 차단 — 상품코드(전역 고유) / 폴더코드(기존 그룹과 충돌)
+      const pc = _pendNorm(p.code), pf = _pendNorm(p.folder);
+      if (pc && (existCodes.has(pc) || importCodes.has(pc))) { skipped++; continue; }
+      if (pf && existFolders.has(pf)) { skipped++; continue; }
+      if (pc) importCodes.add(pc);
       pendingList.unshift(p);
       _ensureLinkedPmForPending(p);
       added++;
     }
-    if (!added) { alert('업로드할 유효한 행이 없습니다.'); return; }
+    if (!added) { alert('업로드할 유효한 행이 없습니다.' + (skipped ? `\n(중복 ${skipped}건 제외)` : '')); return; }
     _savePendingToStorage();
     renderPendingList();
-    alert(`${added}개 행 추가 완료 (${file.name}) — 상품관리에도 ${added}건 연동됨`);
+    alert(`${added}개 행 추가 완료 (${file.name}) — 상품관리에도 ${added}건 연동됨` + (skipped ? `\n중복 ${skipped}건은 건너뜀` : ''));
   } catch (e) {
     alert('엑셀 파일 읽기 실패: ' + (e.message || e));
   }
