@@ -819,9 +819,15 @@
   <!-- 메뉴 6: 수정요청 -->
   <div id="menu-revise" class="hidden flex-1 px-4 md:px-6 pb-6">
     <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
-      <div>
-        <h2 class="text-2xl font-bold">수정요청 <span id="revise-count" class="text-brand-pink">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
-        <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 <b>폴더코드별로 1개씩</b> 모입니다. '수정 내용'을 클릭하면 팝업에서 항목별로 글과 사진을 추가할 수 있어요.</p>
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="text-2xl font-bold">수정요청 <span id="revise-count" class="text-brand-pink">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
+          <p class="text-brand-gray text-sm mt-1">등록 예정 리스트에서 '수정'을 체크한 항목이 <b>폴더코드별로 1개씩</b> 모입니다. '수정 내용'을 클릭하면 팝업에서 항목별로 글과 사진을 추가할 수 있어요.</p>
+        </div>
+        <button onclick="openReviseAddModal()" class="shrink-0 px-4 py-2 rounded-full bg-brand-black text-white text-sm font-bold hover:bg-[#333] flex items-center gap-1.5">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          수정요청 추가
+        </button>
       </div>
       <div class="overflow-x-auto -mx-1 px-1">
         <table id="revise-table" class="text-sm border-collapse" style="table-layout:fixed;width:100%;">
@@ -1009,6 +1015,37 @@
       <div class="flex gap-2 mt-2">
         <button onclick="ihtodoCloseModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm">취소</button>
         <button id="ihtodo-modal-submit" onclick="ihtodoSubmitAdd()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 수정요청 직접 추가 모달 -->
+  <div id="revise-add-modal" class="hidden fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target===this)closeReviseAddModal()">
+    <div class="bg-white rounded-3xl panel p-6 md:p-7 w-full max-w-md flex flex-col gap-4">
+      <h3 class="text-lg font-bold">수정요청 추가 ✏️</h3>
+      <div class="flex flex-col gap-3">
+        <div>
+          <label class="block text-xs font-bold text-brand-gray mb-1.5">제품명 <span class="text-brand-pink">*</span></label>
+          <input id="revise-add-name" type="text" placeholder="예: 빅픽 오즈모 포켓4 하드 케이스" onkeydown="if(event.key==='Enter'){event.preventDefault();submitReviseAdd();}" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+        </div>
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-brand-gray mb-1.5">폴더코드 (선택)</label>
+            <input id="revise-add-folder" type="text" placeholder="0000" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm font-mono focus:outline-none focus:border-brand-black">
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-brand-gray mb-1.5">상품코드 (선택)</label>
+            <input id="revise-add-code" type="text" placeholder="GB0000" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm font-mono focus:outline-none focus:border-brand-black">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-brand-gray mb-1.5">링크 (선택)</label>
+          <input id="revise-add-link" type="text" placeholder="https://detail.1688.com/offer/..." onkeydown="if(event.key==='Enter'){event.preventDefault();submitReviseAdd();}" class="w-full px-4 py-3 bg-brand-bg border border-brand-border rounded-xl text-sm focus:outline-none focus:border-brand-black">
+        </div>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button onclick="closeReviseAddModal()" class="flex-1 py-3 rounded-full bg-brand-bg hover:bg-brand-border font-bold text-sm">취소</button>
+        <button onclick="submitReviseAdd()" class="flex-1 py-3 rounded-full bg-brand-black text-white hover:bg-[#333] font-bold text-sm">추가</button>
       </div>
     </div>
   </div>
@@ -5301,6 +5338,36 @@ function _reviseGroups() {
       itemCount: (reviseItems || []).length,
     };
   });
+}
+// ── 수정요청 직접 추가 ──
+function openReviseAddModal() {
+  const m = document.getElementById('revise-add-modal');
+  if (!m) return;
+  ['revise-add-name','revise-add-folder','revise-add-code','revise-add-link'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+  m.classList.remove('hidden');
+  setTimeout(() => document.getElementById('revise-add-name')?.focus(), 50);
+}
+function closeReviseAddModal() {
+  document.getElementById('revise-add-modal')?.classList.add('hidden');
+}
+function submitReviseAdd() {
+  const name = (document.getElementById('revise-add-name')?.value || '').trim();
+  const folder = (document.getElementById('revise-add-folder')?.value || '').trim();
+  const code = (document.getElementById('revise-add-code')?.value || '').trim();
+  const link = (document.getElementById('revise-add-link')?.value || '').trim();
+  if (!name) { toast('제품명을 입력하세요.', 'error'); document.getElementById('revise-add-name')?.focus(); return; }
+  const item = {
+    id: _pendingNewId(),
+    date: '', folder, code, name, link, note: '', keyword: '',
+    addon: false, grade: '', done: false, linkedPmId: '',
+    revise: true, reviseCheckedAt: (typeof _todayStr === 'function' ? _todayStr() : ''),
+    reviseItems: [], reviseImages: [], reviseDoneImages: [],
+  };
+  pendingList.unshift(item);
+  _savePendingToStorage();
+  closeReviseAddModal();
+  renderReviseList();
+  toast('수정요청이 추가되었습니다.');
 }
 function renderReviseList() {
   const tbody = document.getElementById('revise-tbody');
