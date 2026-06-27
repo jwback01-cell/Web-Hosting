@@ -337,6 +337,7 @@
       <div id="work-submenu" class="hidden flex-col gap-1.5 ml-7 mb-1">
         <a class="nav-sub menu-tab" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</a>
         <a class="nav-sub menu-tab" data-menu="revise"  onclick="switchMenu('revise')">수정요청</a>
+        <a class="nav-sub menu-tab" data-menu="revisedone" onclick="switchMenu('revisedone')">완료이미지</a>
         <a class="nav-sub menu-tab" data-menu="images"  onclick="switchMenu('images')">이미지 저장소</a>
         <a class="nav-sub menu-tab" data-menu="fakebuy" onclick="switchMenu('fakebuy')">가구매</a>
       </div>
@@ -386,6 +387,7 @@
         <button class="menu-tab active px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap" data-menu="dashboard" onclick="switchMenu('dashboard')">대시보드</button>
         <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="pending" onclick="switchMenu('pending')">등록 예정 리스트</button>
         <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="revise" onclick="switchMenu('revise')">수정요청</button>
+        <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="revisedone" onclick="switchMenu('revisedone')">완료이미지</button>
         <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="images" onclick="switchMenu('images')">이미지 저장소</button>
         <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="products" onclick="switchMenu('products')">상품관리</button>
         <button class="menu-tab px-3 py-1.5 rounded-full text-xs font-bold text-brand-gray hover:bg-brand-bg transition-colors whitespace-nowrap" data-menu="attend" onclick="switchMenu('attend')">근태관리</button>
@@ -848,6 +850,36 @@
       </div>
       <div id="revise-empty" class="text-center py-12 text-brand-gray text-sm hidden">
         수정요청된 항목이 없습니다. 등록 예정 리스트에서 '수정'을 체크하세요.
+      </div>
+    </div>
+  </div>
+
+  <!-- 메뉴 6-2: 완료이미지 (수정요청에서 '해제'한 항목) -->
+  <div id="menu-revisedone" class="hidden flex-1 px-4 md:px-6 pb-6">
+    <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
+      <div>
+        <h2 class="text-2xl font-bold">완료이미지 <span id="revisedone-count" class="text-brand-blue">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
+        <p class="text-brand-gray text-sm mt-1">수정요청에서 <b>'해제'</b>를 누른 항목이 여기로 모입니다. '복원'을 누르면 다시 수정요청으로 돌아갑니다.</p>
+      </div>
+      <div class="overflow-x-auto -mx-1 px-1">
+        <table class="text-sm border-collapse" style="table-layout:fixed;width:100%;">
+          <thead>
+            <tr class="bg-brand-bg">
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:9%;">날짜</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:16%;">제품 (폴더 내)</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:20%;">이미지</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:9%;">링크</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:12%;">수정 내용</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:12%;">추가수정내용</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:18%;">수정완료</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:6%;">복원</th>
+            </tr>
+          </thead>
+          <tbody id="revisedone-tbody"></tbody>
+        </table>
+      </div>
+      <div id="revisedone-empty" class="text-center py-12 text-brand-gray text-sm hidden">
+        완료이미지로 이동된 항목이 없습니다. 수정요청에서 '해제'를 누르면 여기로 모입니다.
       </div>
     </div>
   </div>
@@ -2876,7 +2908,7 @@ function toggleDutyGroup(e) {
 
 // 메뉴 전환 — 'images' | 'products' | 'pending' | 'fakebuy' | 'addon' | 'grade'
 function switchMenu(menuId) {
-  ['dashboard', 'images', 'products', 'pending', 'fakebuy', 'revise', 'attend', 'addon', 'todo'].forEach(m => {
+  ['dashboard', 'images', 'products', 'pending', 'fakebuy', 'revise', 'revisedone', 'attend', 'addon', 'todo'].forEach(m => {
     const panel = document.getElementById('menu-' + m);
     if (panel) panel.classList.toggle('hidden', m !== menuId);
   });
@@ -2887,7 +2919,7 @@ function switchMenu(menuId) {
   // 그룹 자동 펼침/접힘 — 활성 메뉴가 속한 그룹은 펼침
   const workSub = document.getElementById('work-submenu');
   const dutySub = document.getElementById('duty-submenu');
-  const inWork = ['pending', 'fakebuy', 'revise', 'images'].includes(menuId);
+  const inWork = ['pending', 'fakebuy', 'revise', 'revisedone', 'images'].includes(menuId);
   const inDuty = ['attend', 'addon', 'todo'].includes(menuId);
   if (workSub) {
     if (inWork) { workSub.classList.remove('hidden'); workSub.classList.add('flex'); }
@@ -2902,6 +2934,7 @@ function switchMenu(menuId) {
   if (dutyHeader) dutyHeader.classList.toggle('active', inDuty);
   if (menuId === 'dashboard') renderDashboard();
   if (menuId === 'revise')   renderReviseList();
+  if (menuId === 'revisedone') renderReviseDoneList();
   if (menuId === 'pending')  renderPendingList();
   if (menuId === 'fakebuy')  renderFakebuyList();
   if (menuId === 'products') renderProductsList();
@@ -5340,6 +5373,7 @@ function _reviseGroups() {
       reviseImages,
       reviseDoneImages,
       reviseDone: rows.length > 0 && rows.every(r => r.reviseDone),
+      archived: rows.length > 0 && rows.every(r => r.reviseArchived),   // 해제됨 → 완료이미지로 이동
       itemCount: (reviseItems || []).length,
       itemCount2: (reviseItems2 || []).length,
     };
@@ -5379,7 +5413,7 @@ function renderReviseList() {
   const tbody = document.getElementById('revise-tbody');
   const empty = document.getElementById('revise-empty');
   if (!tbody) return;
-  const groups = _reviseGroups();
+  const groups = _reviseGroups().filter(g => !g.archived);   // 해제된(완료이미지) 항목 제외
   const cntEl = document.getElementById('revise-count');
   if (cntEl) cntEl.textContent = groups.length;
   if (!groups.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
@@ -5391,7 +5425,35 @@ function renderReviseList() {
     if (dv) return dv;
     return (a.folder || '￿').localeCompare(b.folder || '￿');
   });
-  tbody.innerHTML = groups.map(g => {
+  tbody.innerHTML = groups.map(g => _reviseRowHtml(g, 'active')).join('');
+}
+// 완료이미지 목록 — 해제(archived)된 항목
+function renderReviseDoneList() {
+  const tbody = document.getElementById('revisedone-tbody');
+  const empty = document.getElementById('revisedone-empty');
+  if (!tbody) return;
+  const groups = _reviseGroups().filter(g => g.archived);
+  const cntEl = document.getElementById('revisedone-count');
+  if (cntEl) cntEl.textContent = groups.length;
+  if (!groups.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
+  if (empty) empty.classList.add('hidden');
+  const _gDateNum = (g) => { const d = _parseCompletedDate(g.date); return d ? (d.y * 10000 + d.m * 100 + d.d) : 0; };
+  groups.sort((a, b) => { const dv = _gDateNum(b) - _gDateNum(a); if (dv) return dv; return (a.folder || '￿').localeCompare(b.folder || '￿'); });
+  tbody.innerHTML = groups.map(g => _reviseRowHtml(g, 'done')).join('');
+}
+// 해제 → 완료이미지로 이동 / 복원 → 수정요청으로 되돌림
+function reviseArchive(groupKey, val) {
+  const g = _reviseGroups().find(x => x.key === groupKey);
+  if (!g) return;
+  g.rows.forEach(r => { r.reviseArchived = !!val; });
+  _savePendingToStorage();
+  renderReviseList();
+  renderReviseDoneList();
+  toast(val ? '완료이미지로 이동됨' : '수정요청으로 복원됨', 'success');
+}
+// 수정요청/완료이미지 공용 행 HTML (mode: 'active' | 'done')
+function _reviseRowHtml(g, mode) {
+  {
     const linkCell = g.link
       ? `<a href="${_pendingEsc(g.link)}" target="_blank" rel="noopener" class="text-brand-blue hover:underline truncate block max-w-full align-bottom" title="${_pendingEsc(g.link)}">${_pendingEsc(g.link)}</a>`
       : '<span class="text-brand-gray">-</span>';
@@ -5456,10 +5518,12 @@ function renderReviseList() {
         return `<div class="flex items-center justify-center gap-1.5 flex-wrap">${btn}${dthumbs}${more}</div>`;
       })()}</td>
       <td class="px-3 py-2.5 text-center align-middle">
-        <button onclick="togglePendingRevise('${g.rep.id}', false)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="수정요청 해제">해제</button>
+        ${mode === 'done'
+          ? `<button onclick="reviseArchive('${g.key}', false)" class="text-xs font-bold text-brand-blue hover:underline px-2 py-1 rounded hover:bg-brand-blue-light/30" title="수정요청으로 복원">복원</button>`
+          : `<button onclick="reviseArchive('${g.key}', true)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="완료이미지로 이동">해제</button>`}
       </td>
     </tr>`;
-  }).join('');
+  }
 }
 
 // 목록의 "이미지" 셀에서 바로 사진 추가 — 목록 전용 갤러리(reviseImages)에 cascade 저장 (수정 내용과 별개)
