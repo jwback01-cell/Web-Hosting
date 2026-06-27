@@ -835,11 +835,12 @@
             <tr class="bg-brand-bg">
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:9%;">날짜</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:16%;">제품 (폴더 내)</th>
-              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:24%;">이미지</th>
-              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:10%;">링크</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:13%;">수정 내용</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:21%;">수정완료</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:7%;">해제</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:20%;">이미지</th>
+              <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:9%;">링크</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:12%;">수정 내용</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:12%;">추가수정내용</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:18%;">수정완료</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:6%;">해제</th>
             </tr>
           </thead>
           <tbody id="revise-tbody"></tbody>
@@ -5313,6 +5314,9 @@ function _reviseGroups() {
     // reviseItems 는 폴더 내 어느 행이든 동일 (cascade 저장). 비어있으면 []
     const reviseItems = (rows.find(r => Array.isArray(r.reviseItems) && r.reviseItems.length) || {}).reviseItems
                         || (Array.isArray(rep.reviseItems) ? rep.reviseItems : []);
+    // 추가수정내용 (수정내용과 동일 구조의 별도 필드)
+    const reviseItems2 = (rows.find(r => Array.isArray(r.reviseItems2) && r.reviseItems2.length) || {}).reviseItems2
+                        || (Array.isArray(rep.reviseItems2) ? rep.reviseItems2 : []);
     // 목록 '이미지' 컬럼 전용 갤러리 — 수정 내용(reviseItems)과 완전히 별개
     const reviseImages = (rows.find(r => Array.isArray(r.reviseImages) && r.reviseImages.length) || {}).reviseImages
                         || (Array.isArray(rep.reviseImages) ? rep.reviseImages : []);
@@ -5332,10 +5336,12 @@ function _reviseGroups() {
       names: rows.map(r => r.name).filter(Boolean),
       codes: rows.map(r => r.code).filter(Boolean),
       reviseItems,
+      reviseItems2,
       reviseImages,
       reviseDoneImages,
       reviseDone: rows.length > 0 && rows.every(r => r.reviseDone),
       itemCount: (reviseItems || []).length,
+      itemCount2: (reviseItems2 || []).length,
     };
   });
 }
@@ -5397,6 +5403,11 @@ function renderReviseList() {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         ${cnt ? cnt + '개 항목' : '작성하기'}
       </button>`;
+    const cnt2 = g.itemCount2;
+    const editBtn2 = `<button onclick="openReviseModal('${g.key}', 2)" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${cnt2 ? 'bg-blue-100 text-blue-700 hover:bg-blue-200' : 'bg-brand-bg text-brand-gray hover:bg-brand-border'} transition-colors" title="클릭하면 추가 수정 내용 팝업이 열립니다">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        ${cnt2 ? cnt2 + '개 항목' : '작성하기'}
+      </button>`;
     // 이미지 셀 — 목록 전용 갤러리(reviseImages). 수정 내용(reviseItems)과는 별개.
     const allImgs = g.reviseImages || [];
     const thumbs = allImgs.slice(0, 3).map((url, k) =>
@@ -5427,6 +5438,7 @@ function renderReviseList() {
       <td class="px-3 py-2.5 align-middle">${imageCell}</td>
       <td class="px-3 py-2.5 align-middle">${linkCell}</td>
       <td class="px-3 py-2.5 text-center align-middle">${editBtn}</td>
+      <td class="px-3 py-2.5 text-center align-middle">${editBtn2}</td>
       <td class="px-3 py-2.5 text-center align-middle">${(() => {
         const dimgs = g.reviseDoneImages || [];
         const dthumbs = dimgs.slice(0, 2).map((url, k) =>
@@ -5506,16 +5518,18 @@ document.addEventListener('paste', _reviseListHandlePaste);
 
 // ── 수정 내용 팝업 (폴더별, 항목마다 글 + 사진) ───────────────────
 let _reviseModal = null;   // { key, folder, items: [{text, images:[url]}] }
-function openReviseModal(groupKey) {
+function openReviseModal(groupKey, which) {
   const groups = _reviseGroups();
   const g = groups.find(x => x.key === groupKey);
   if (!g) return;
+  const field = which === 2 ? 'reviseItems2' : 'reviseItems';   // 추가수정내용 / 수정내용
+  const src = which === 2 ? (g.reviseItems2 || []) : (g.reviseItems || []);
   // 깊은 복사로 편집 임시본 생성 (확인 눌러야 저장)
-  const items = (g.reviseItems || []).map(it => ({ text: it.text || '', images: Array.isArray(it.images) ? it.images.slice() : [] }));
+  const items = src.map(it => ({ text: it.text || '', images: Array.isArray(it.images) ? it.images.slice() : [] }));
   if (!items.length) items.push({ text: '', images: [] });
-  _reviseModal = { key: groupKey, folder: g.folder, rows: g.rows, title: g.folder ? ('폴더 ' + g.folder) : (g.names[0] || '항목'), items };
+  _reviseModal = { key: groupKey, folder: g.folder, rows: g.rows, title: g.folder ? ('폴더 ' + g.folder) : (g.names[0] || '항목'), items, field };
   openModal({
-    title: '수정 내용 — ' + _reviseModal.title,
+    title: (which === 2 ? '추가 수정 내용 — ' : '수정 내용 — ') + _reviseModal.title,
     descHtml: '<div id="revise-modal-body" style="max-height:60vh;overflow-y:auto;text-align:left;"></div>',
     okText: '저장',
     wide: true,
@@ -5857,11 +5871,12 @@ function _saveReviseModal() {
     .map(it => ({ text: (it.text || '').trim(), images: it.images || [] }))
     .filter(it => it.text || it.images.length);
   // 같은 폴더(그룹)의 모든 행에 동일하게 저장 (cascade → 클라우드 동기화)
-  _reviseModal.rows.forEach(r => { r.reviseItems = clean.map(it => ({ text: it.text, images: it.images.slice() })); });
+  const field = _reviseModal.field || 'reviseItems';
+  _reviseModal.rows.forEach(r => { r[field] = clean.map(it => ({ text: it.text, images: it.images.slice() })); });
   _savePendingToStorage();
   _reviseModal = null;
   renderReviseList();
-  toast('수정 내용 저장됨', 'success');
+  toast((field === 'reviseItems2' ? '추가 수정 내용' : '수정 내용') + ' 저장됨', 'success');
 }
 
 function deletePendingRow(pid) {
