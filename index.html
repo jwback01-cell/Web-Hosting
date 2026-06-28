@@ -6510,9 +6510,9 @@ function renderProductsList() {
   _updatePmSelectLabel();
 }
 
-// 화면 직접 붙여넣기 — 같은 행 안에서만 채움 (다음 행 침범 금지)
-//  - 다중 행을 복사한 경우: 그 값을 콤마로 묶어 시작 셀 1개에만 넣음
-//  - 다중 열을 복사한 경우: 시작 셀부터 오른쪽으로 같은 행 안에서만 채움
+// 화면 직접 붙여넣기 — 엑셀처럼 시작 셀 기준 아래(행)·오른쪽(열)로 채움
+//  - 다중 행/열 복사: 표의 보이는 행 순서대로 한 행씩 채움 (표 끝 넘으면 무시)
+//  - 키워드 셀 2/3컬럼 특수 paste 는 별도 처리(아래)
 const _PM_COLUMN_ORDER = ['folder','code','name','cost','salePrice','supplyPrice','shipping','note','keyword','category'];
 function _onPmCellPaste(e, el) {
   const cd = e.clipboardData || window.clipboardData;
@@ -6564,21 +6564,34 @@ function _onPmCellPaste(e, el) {
     }
   }
 
-  // 일반: 다중 행이면 각 열을 콤마로 묶어 같은 행에만 채움 (다음 행 침범 금지)
-  const numCols = Math.max(...matrix.map(r => r.length));
+  // 일반: 엑셀처럼 시작 셀부터 아래(행)·오른쪽(열)으로 그대로 채움
   const numericFields = ['cost','salePrice','supplyPrice','shipping'];
-  for (let c = 0; c < numCols; c++) {
-    const fieldIdx = startColIdx + c;
-    if (fieldIdx >= _PM_COLUMN_ORDER.length) break;
-    const field = _PM_COLUMN_ORDER[fieldIdx];
-    const colValues = matrix.map(row => String(row[c] || '').trim()).filter(Boolean);
-    if (!colValues.length) continue;
-    if (numericFields.includes(field)) {
-      item[field] = _pmParseNum(colValues[0]);
-    } else {
-      item[field] = colValues.join(', ');
-    }
+  const tbody = el.closest('tbody');
+  const trs = tbody ? [...tbody.querySelectorAll('tr[data-pmid]')] : [];
+  const startTrIdx = trs.indexOf(tr);
+  if (startTrIdx < 0) {
+    // 안전 폴백 — 행 위치를 못 찾으면 시작 행에만 채움
+    matrix[0].forEach((v, c) => {
+      const fi = startColIdx + c; if (fi >= _PM_COLUMN_ORDER.length) return;
+      const f = _PM_COLUMN_ORDER[fi]; const raw = String(v || '').trim(); if (!raw) return;
+      item[f] = numericFields.includes(f) ? _pmParseNum(raw) : raw;
+    });
+    _savePmToStorage(); renderProductsList(); return;
   }
+  matrix.forEach((rowVals, r) => {
+    const targetTr = trs[startTrIdx + r];
+    if (!targetTr) return;                       // 표 끝을 넘으면 무시
+    const tItem = pmList.find(p => p.id === targetTr.dataset.pmid);
+    if (!tItem) return;
+    for (let c = 0; c < rowVals.length; c++) {
+      const fieldIdx = startColIdx + c;
+      if (fieldIdx >= _PM_COLUMN_ORDER.length) break;
+      const field = _PM_COLUMN_ORDER[fieldIdx];
+      const raw = String(rowVals[c] || '').trim();
+      if (!raw) continue;                        // 빈 셀은 기존 값 유지
+      tItem[field] = numericFields.includes(field) ? _pmParseNum(raw) : raw;
+    }
+  });
   _savePmToStorage();
   renderProductsList();
 }
