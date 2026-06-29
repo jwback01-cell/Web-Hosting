@@ -736,6 +736,10 @@
           <span id="pending-select-all-label" class="text-xs font-bold text-brand-gray">전체 선택 (0개)</span>
         </label>
         <button onclick="deleteSelectedPending()" class="text-xs font-bold text-brand-pink hover:opacity-80">선택 삭제</button>
+        <div class="relative ml-auto">
+          <svg class="absolute left-3 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="pending-search" oninput="renderPendingList()" placeholder="제품명·상품코드·폴더코드·키워드·비고·링크 검색" class="pl-9 pr-3 py-1.5 rounded-full border border-brand-border bg-brand-bg text-xs font-medium outline-none focus:border-brand-black w-72">
+        </div>
       </div>
 
       <div class="overflow-x-auto">
@@ -4455,7 +4459,15 @@ function renderPendingList() {
   if (!tbody) return;
   const showCompleted = document.getElementById('pending-show-completed')?.checked || false;
   // 수정요청(revise) 켜진 항목은 '수정요청' 메뉴로 이동했으므로 등록 예정 리스트에서는 숨김
-  const visible = pendingList.filter(p => (showCompleted || !p.done) && !p.revise);
+  let visible = pendingList.filter(p => (showCompleted || !p.done) && !p.revise);
+  // 검색 — 제품명·상품코드·폴더코드·키워드·비고·링크
+  const _q = (document.getElementById('pending-search')?.value || '').trim().toLowerCase();
+  if (_q) {
+    visible = visible.filter(p =>
+      [p.name, p.code, p.folder, p.keyword, p.note, p.link, p.grade]
+        .some(v => String(v == null ? '' : v).toLowerCase().includes(_q))
+    );
+  }
   if (!visible.length) {
     tbody.innerHTML = '';
     if (empty) empty.classList.remove('hidden');
