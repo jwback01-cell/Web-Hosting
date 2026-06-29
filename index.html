@@ -862,9 +862,15 @@
   <!-- 메뉴 6-2: 완료이미지 (수정요청에서 '해제'한 항목) -->
   <div id="menu-revisedone" class="hidden flex-1 px-4 md:px-6 pb-6">
     <div class="bg-white rounded-4xl panel p-5 md:p-7 flex flex-col gap-4">
-      <div>
-        <h2 class="text-2xl font-bold">완료이미지 <span id="revisedone-count" class="text-brand-blue">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
-        <p class="text-brand-gray text-sm mt-1">수정요청에서 <b>'해제'</b>를 누른 항목이 여기로 모입니다. '복원'을 누르면 다시 수정요청으로 돌아갑니다.</p>
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="text-2xl font-bold">완료이미지 <span id="revisedone-count" class="text-brand-blue">0</span><span class="text-brand-gray font-normal text-lg"> 건</span></h2>
+          <p class="text-brand-gray text-sm mt-1">수정요청에서 <b>'해제'</b>를 누른 항목이 여기로 모입니다. '복원'을 누르면 다시 수정요청으로 돌아갑니다.</p>
+        </div>
+        <label class="flex items-center gap-1.5 text-xs font-semibold text-brand-gray cursor-pointer shrink-0">
+          <input type="checkbox" id="revisedone-show-completed" onchange="renderReviseDoneList()" class="w-4 h-4 rounded">
+          완료 항목도 보기
+        </label>
       </div>
       <div class="overflow-x-auto -mx-1 px-1">
         <table class="text-sm border-collapse" style="table-layout:fixed;width:100%;">
@@ -5442,7 +5448,10 @@ function renderReviseDoneList() {
   const tbody = document.getElementById('revisedone-tbody');
   const empty = document.getElementById('revisedone-empty');
   if (!tbody) return;
-  const groups = _reviseGroups().filter(g => g.archived);
+  // 완료(done) 항목은 기본 숨김 — '완료 항목도 보기' 체크 시 표시 (등록 예정 리스트와 동일)
+  const showCompleted = document.getElementById('revisedone-show-completed')?.checked || false;
+  let groups = _reviseGroups().filter(g => g.archived);
+  if (!showCompleted) groups = groups.filter(g => !g.done);
   const cntEl = document.getElementById('revisedone-count');
   if (cntEl) cntEl.textContent = groups.length;
   if (!groups.length) { tbody.innerHTML = ''; if (empty) empty.classList.remove('hidden'); return; }
