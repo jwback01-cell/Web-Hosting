@@ -4300,7 +4300,12 @@ function _loadPendingFromStorage() {
   } catch (_) { pendingList = []; }
 }
 function _savePendingToStorage() {
-  try { localStorage.setItem(PENDING_LS_KEY, JSON.stringify(pendingList)); } catch (_) {}
+  try { localStorage.setItem(PENDING_LS_KEY, JSON.stringify(pendingList)); }
+  catch (e) {
+    // 저장 실패(용량초과 등)를 조용히 묻지 않고 알림 — '저장 안 됨' 원인 진단용
+    console.error('[pending] localStorage 저장 실패', e);
+    try { if (typeof toast === 'function') toast('⚠ 저장 실패: ' + ((e && e.name) === 'QuotaExceededError' ? '브라우저 저장 용량 초과' : (e && e.message) || e), 'error'); } catch (_) {}
+  }
 }
 function _pendingEsc(s) {
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -6228,13 +6233,15 @@ function _ihNotifyPushError(error) {
   } catch (_) {}
 }
 function _ihCloudPushKey(key) {
-  if (!_ihCloudReady) return;
   // IH_SYNC_KEYS 에 있는 키 또는 user-specific attendance 키만 push
   const isUserAttend = (typeof key === 'string') && key.startsWith('ih_attendance_v1__');
   if (!IH_SYNC_KEYS.includes(key) && !isUserAttend) return;
   if (key === 'ih_kv_mtime') return;   // mtime 자체는 동기화 대상 아님
+  // 수정시각/대기 표시는 PULL 완료 전이라도 항상 기록 — PULL 전에 저장한 값이
+  //  뒤늦게 도착한 클라우드 옛 데이터로 덮어써지는 것을 방지(추가수정내용 저장 유실 버그)
   _ihDirtyKeys[key] = true;   // 종료 직전 flush 대상
   _ihMarkMtime(key);          // 로컬 수정시각 기록 (PULL 덮어쓰기 방지용)
+  if (!_ihCloudReady) return; // 아직 PULL 전이면 실제 PUSH 는 보류(mtime 보호로 충분, PULL 후 _keepLocalKeys 가 재푸시)
   clearTimeout(_ihPushTimers[key]);
   _ihPushTimers[key] = setTimeout(async () => {
     try {
