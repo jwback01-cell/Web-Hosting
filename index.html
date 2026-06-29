@@ -3526,13 +3526,18 @@ function addAttendRow() {
   _saveAttend();
   renderAttendance();
 }
-function deleteAttendRow(id) {
-  // 마스터(사장님)만 삭제 가능 — 직원 계정의 기록은 영구
+async function deleteAttendRow(id) {
+  // 마스터(사장님)만 삭제 가능 — 본인·직원 기록 모두
   const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
   if (!isMaster) { alert('근태 기록 삭제는 관리자만 가능합니다.'); return; }
   if (!confirm('이 기록을 삭제할까요?')) return;
-  attendList = attendList.filter(r => r.id !== id);
-  _saveAttend();
+  const { r, uid } = _attendLocate(id);
+  if (!r) return;
+  if (!uid) { attendList = attendList.filter(x => x.id !== id); _saveAttend(); }
+  else {
+    const arr = ((window._attendOthersByUser && window._attendOthersByUser[uid]) || []).filter(x => x.id !== id);
+    await _attendSaveOtherRows(uid, arr);
+  }
   renderAttendance();
 }
 // 선택 삭제 (마스터 본인 행만)
@@ -3576,6 +3581,39 @@ async function _attendDeleteOtherRows(uid, ids) {
     return true;
   } catch (e) { console.warn('[attend del other]', e); alert('직원 기록 삭제 중 오류가 발생했습니다.'); return false; }
 }
+// 행 찾기 — 본인 배열 또는 (마스터) 다른 직원 배열. {r, uid:null=본인 | ownerUid}
+function _attendLocate(id) {
+  let r = attendList.find(x => x.id === id);
+  if (r) return { r, uid: null };
+  const others = window._attendOthersByUser || {};
+  for (const uid of Object.keys(others)) {
+    const row = (others[uid] || []).find(x => x.id === id);
+    if (row) return { r: row, uid };
+  }
+  return { r: null, uid: null };
+}
+// 다른 직원 근태 배열을 그 직원 클라우드 키로 저장(upsert)
+async function _attendSaveOtherRows(uid, arr) {
+  if (!sb) { alert('클라우드 연결이 없어 직원 기록을 저장할 수 없습니다.'); return false; }
+  const key = 'ih_attendance_v1__' + uid;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const masterUid = session ? session.user.id : _ihUserId;
+    const { error } = await sb.from('ih_kv').upsert(
+      { key, data: arr, updated_by: masterUid, updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+    if (error) { console.warn('[attend save other]', error); alert('직원 기록 저장 실패(권한/RLS 확인): ' + (error.message || error)); return false; }
+    if (window._attendOthersByUser) window._attendOthersByUser[uid] = arr;
+    return true;
+  } catch (e) { console.warn('[attend save other]', e); alert('직원 기록 저장 중 오류가 발생했습니다.'); return false; }
+}
+// 변경 저장 — 본인이면 로컬, 다른 직원이면 클라우드 upsert
+function _attendCommit(uid) {
+  if (!uid) { _saveAttend(); return Promise.resolve(true); }
+  const arr = (window._attendOthersByUser && window._attendOthersByUser[uid]) || [];
+  return _attendSaveOtherRows(uid, arr);
+}
 async function deleteSelectedAttend() {
   const isMaster = !!(currentUser && currentUser.email === 'jwback01@nate.com');
   if (!isMaster) { alert('근태 기록 삭제는 관리자만 가능합니다.'); return; }
@@ -3597,7 +3635,7 @@ async function deleteSelectedAttend() {
 }
 // 출근/퇴근 체크박스 토글 — 체크 시 현재 시간 자동 기록, 해제 시 빈 값
 function _attendToggleCheck(id, field, checked) {
-  const r = attendList.find(x => x.id === id);
+  const { r, uid } = _attendLocate(id);
   if (!r) return;
   if (checked) {
     const n = new Date();
@@ -3605,7 +3643,7 @@ function _attendToggleCheck(id, field, checked) {
   } else {
     r[field] = '';
   }
-  _saveAttend();
+  _attendCommit(uid);
   renderAttendance();
 }
 // 자유 입력 시간 파싱 — "09:00", "9시", "오후 6시", "오후 6:30", "18:30", "1830" 등 → "HH:MM"(24시간)
@@ -3640,26 +3678,29 @@ function _attendParseTime(raw) {
 }
 // 출근/퇴근 시간 직접 타이핑 입력 (마스터 본인)
 function _onAttendTimeInput(id, field, raw) {
-  const r = attendList.find(x => x.id === id);
+  const { r, uid } = _attendLocate(id);
   if (!r) return;
   r[field] = _attendParseTime(raw);   // 빈값/해석불가 → '' (지움)
-  _saveAttend();
+  _attendCommit(uid);
   renderAttendance();
 }
 function _attendClearTime(id, field) {
-  const r = attendList.find(x => x.id === id);
+  const { r, uid } = _attendLocate(id);
   if (!r) return;
   r[field] = '';
-  _saveAttend();
+  _attendCommit(uid);
   renderAttendance();
 }
 function _onAttendEdit(id, field, val) {
-  const r = attendList.find(x => x.id === id);
+  const { r, uid } = _attendLocate(id);
   if (!r) return;
   r[field] = val;
-  clearTimeout(_attendSaveTimer);
-  _attendSaveTimer = setTimeout(_saveAttend, 300);
-  if (field !== 'note') { _saveAttend(); renderAttendance(); }   // 시간/구분/날짜 변경 → 계산·정렬 즉시 갱신
+  if (field === 'note') {
+    clearTimeout(_attendSaveTimer);
+    _attendSaveTimer = setTimeout(() => { _attendCommit(uid); }, 400);   // 비고는 타이핑 중 디바운스 저장
+  } else {
+    _attendCommit(uid); renderAttendance();   // 시간/구분/날짜 변경 → 즉시 저장·재정렬
+  }
 }
 function renderAttendance() {
   _loadAttend();
@@ -3749,16 +3790,16 @@ function renderAttendance() {
     //   - 빈 셀: 본인 row 면 출근/퇴근 버튼 (직원·마스터 모두 클릭 가능)
     //   - 채워진 셀: 마스터 본인 row 만 수정 가능. 그 외(직원 본인 row, 마스터의 직원 row) read-only
     const isOtherEmployee = !isMine;            // 마스터가 다른 직원 row 보는 경우
-    // jwback01@nate.com(마스터) 본인 row 만 수정 가능 — 그 외 모든 계정/행은 읽기 전용
-    const canEditFilled = _isMaster && isMine;  // 수정 권한 (마스터 본인만)
-    const readonly = !canEditFilled;            // date/leave/note 도 마스터 본인만 수정
+    // 마스터(jwback01@nate.com)는 본인+모든 직원 행 수정 가능. 직원은 읽기 전용(빈 칸 입력만).
+    const canEditFilled = _isMaster;            // 수정 권한 (마스터 = 전체)
+    const readonly = !canEditFilled;            // date/leave/note 는 마스터만 수정
     // 직원 표시 — 이름 매핑 우선, 없으면 uid 8자
     const ownerShort = isMine ? '나' : _employeeName(r._ownerUid);
     // 셀 전체 클릭으로 시간 체크 — 빈 셀이면 "출근/퇴근" 버튼, 채워지면 시간 표시
     const _chkCell = (field, label) => {
       const v = r[field] || '';
       // 본인 행의 빈 칸은 직원도 입력 가능(시계/직접입력). 채워진 칸은 마스터 본인만 수정. 남의 행은 읽기전용.
-      const canEnter = isMine && (!v || _isMaster);
+      const canEnter = _isMaster || (isMine && !v);
       if (!canEnter) {
         if (!v) return `<td class="p-1 align-middle text-center text-brand-gray text-xs">-</td>`;
         return `<td class="p-1 align-middle">
@@ -3792,7 +3833,7 @@ function renderAttendance() {
     const noteCell = readonly
       ? `<td class="px-3 py-2 align-middle text-sm text-brand-gray">${_pmEsc(r.note || '')}</td>`
       : `<td class="px-3 py-2 align-middle"><input type="text" value="${_pmEsc(r.note)}" oninput="_onAttendEdit('${r.id}','note',this.value)" placeholder="" class="${cell} text-left"></td>`;
-    const delCell = _isMaster && isMine
+    const delCell = _isMaster
       ? `<td class="px-2 py-2 text-center align-middle"><button onclick="deleteAttendRow('${r.id}')" class="text-brand-gray hover:text-brand-pink p-1 rounded hover:bg-brand-pink-light/30 transition-colors" title="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>`
       : `<td class="px-2 py-2"></td>`;
     // 체크박스 셀 — 마스터는 본인+직원 모든 행 선택/삭제 가능 (data-ouid 로 소유자 구분)
