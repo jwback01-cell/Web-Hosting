@@ -839,7 +839,6 @@
         <table id="revise-table" class="text-sm border-collapse" style="table-layout:fixed;width:100%;">
           <thead>
             <tr class="bg-brand-bg">
-              <th class="px-2 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:48px;">완료</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:9%;">날짜</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:15%;">제품 (폴더 내)</th>
               <th class="px-3 py-2.5 text-left font-bold border-b-2 border-brand-border" style="width:19%;">이미지</th>
@@ -847,7 +846,8 @@
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:12%;">수정 내용</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:12%;">추가수정내용</th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:17%;">수정완료</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:6%;">해제</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:6%;">완료</th>
+              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border" style="width:6%;">복원</th>
             </tr>
           </thead>
           <tbody id="revise-tbody"></tbody>
@@ -5511,6 +5511,18 @@ function reviseArchive(groupKey, val) {
   renderReviseDoneList();
   toast(val ? '완료이미지로 이동됨' : '수정요청으로 복원됨', 'success');
 }
+// 수정요청 → 등록 예정 리스트로 복원 (revise 해제)
+function reviseRestoreToPending(groupKey) {
+  const g = _reviseGroups().find(x => x.key === groupKey);
+  if (!g) return;
+  if (!confirm('이 항목을 등록 예정 리스트로 복원할까요?')) return;
+  g.rows.forEach(r => { r.revise = false; r.reviseArchived = false; });
+  _savePendingToStorage();
+  renderReviseList();
+  renderReviseDoneList();
+  if (typeof renderPendingList === 'function') renderPendingList();
+  toast('등록 예정 리스트로 복원됨', 'success');
+}
 // 완료 토글 (등록예정 리스트의 완료 버튼과 동일 — 폴더 cascade + 완료날짜 기록)
 function reviseToggleDone(groupKey) {
   const g = _reviseGroups().find(x => x.key === groupKey);
@@ -5567,11 +5579,11 @@ function _reviseRowHtml(g, mode) {
         </label>
       </div>`;
     return `<tr class="border-b border-brand-border hover:bg-orange-50/40 transition-colors ${(g.done || g.reviseDone) ? 'opacity-60' : ''}" data-revise-key="${g.key}">
-      <td class="px-2 py-2.5 text-center align-middle">
+      ${mode === 'done' ? `<td class="px-2 py-2.5 text-center align-middle">
         <button onclick="reviseToggleDone('${g.key}')" title="완료" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${g.done ? 'bg-brand-green text-white' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-brand-green'}">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </button>
-      </td>
+      </td>` : ''}
       <td class="px-3 py-2.5 text-center align-middle whitespace-nowrap">${_pendingEsc(g.date || '-')}</td>
       <td class="px-3 py-2.5 align-middle"><div class="font-semibold truncate">${_pendingEsc(firstName)}${extra}</div>${codesLine}</td>
       <td class="px-3 py-2.5 align-middle">${imageCell}</td>
@@ -5594,11 +5606,10 @@ function _reviseRowHtml(g, mode) {
           </button>`;
         return `<div class="flex items-center justify-center gap-1.5 flex-wrap">${btn}${dthumbs}${more}</div>`;
       })()}</td>
-      <td class="px-3 py-2.5 text-center align-middle">
-        ${mode === 'done'
-          ? `<button onclick="reviseArchive('${g.key}', false)" class="text-xs font-bold text-brand-blue hover:underline px-2 py-1 rounded hover:bg-brand-blue-light/30" title="수정요청으로 복원">복원</button>`
-          : `<button onclick="reviseArchive('${g.key}', true)" class="text-xs font-bold text-brand-pink hover:underline px-2 py-1 rounded hover:bg-brand-pink-light/30" title="완료이미지로 이동">해제</button>`}
-      </td>
+      ${mode === 'done'
+        ? `<td class="px-3 py-2.5 text-center align-middle"><button onclick="reviseArchive('${g.key}', false)" class="text-xs font-bold text-brand-blue hover:underline px-2 py-1 rounded hover:bg-brand-blue-light/30" title="수정요청으로 복원">복원</button></td>`
+        : `<td class="px-3 py-2.5 text-center align-middle"><button onclick="reviseArchive('${g.key}', true)" class="text-xs font-bold text-brand-green hover:underline px-2 py-1 rounded hover:bg-green-100" title="완료이미지로 이동">완료</button></td>
+           <td class="px-3 py-2.5 text-center align-middle"><button onclick="reviseRestoreToPending('${g.key}')" class="text-xs font-bold text-brand-blue hover:underline px-2 py-1 rounded hover:bg-brand-blue-light/30" title="등록 예정 리스트로 복원">복원</button></td>`}
     </tr>`;
   }
 }
