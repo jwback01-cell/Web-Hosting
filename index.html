@@ -6296,13 +6296,19 @@ async function ihCloudPullAll() {
 let _ihPushErrAt = 0;
 function _ihNotifyPushError(error) {
   try {
+    console.error('[ih-push] 클라우드 저장 실패 상세:', error);   // F12 콘솔에서 원인 확인용
     if (Date.now() - _ihPushErrAt < 10000) return;
     _ihPushErrAt = Date.now();
-    const msg = String((error && (error.message || error.hint || error.code)) || '').toLowerCase();
-    const isRls = /row-level|rls|policy|permission|denied|42501|not authorized|violates/.test(msg);
-    if (typeof toast === 'function') {
-      toast(isRls ? '⚠ 클라우드 저장 권한 없음 — 다른 PC와 동기화 안 됨 (ih_kv RLS 확인 필요)' : '⚠ 클라우드 저장 실패 — 동기화 안 됨', 'error');
-    }
+    const rawMsg = String((error && (error.message || error.hint || error.details || error.code)) || '알 수 없는 오류');
+    const msg = rawMsg.toLowerCase();
+    const code = String((error && error.code) || '');
+    let reason;
+    if (/row-level|rls|policy|permission|denied|42501|not authorized|violates/.test(msg)) reason = '저장 권한 없음(ih_kv RLS 확인)';
+    else if (/payload|too large|413|exceed|quota|disk|storage|over.?limit|size/.test(msg) || code === '413') reason = '데이터 용량 초과(또는 DB 한도)';
+    else if (/jwt|expired|token|401|403|auth|unauthor|로그인/.test(msg) || code === '401' || code === '403') reason = '로그인 만료 — 새로고침 후 재로그인';
+    else if (/network|fetch|timeout|failed to fetch|503|502|paused/.test(msg)) reason = '네트워크/서버 오류(프로젝트 일시정지 가능)';
+    else reason = rawMsg.slice(0, 90);
+    if (typeof toast === 'function') toast('⚠ 클라우드 저장 실패 — ' + reason, 'error');
   } catch (_) {}
 }
 function _ihCloudPushKey(key) {
