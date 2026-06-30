@@ -5511,17 +5511,26 @@ function reviseArchive(groupKey, val) {
   renderReviseDoneList();
   toast(val ? '완료이미지로 이동됨' : '수정요청으로 복원됨', 'success');
 }
-// 수정요청 → 등록 예정 리스트로 복원 (revise 해제)
+// 수정요청 → 등록 예정 리스트로 복원 (revise 해제). 이미지·수정내용은 그대로 보존.
 function reviseRestoreToPending(groupKey) {
-  const g = _reviseGroups().find(x => x.key === groupKey);
-  if (!g) return;
-  if (!confirm('이 항목을 등록 예정 리스트로 복원할까요?')) return;
-  g.rows.forEach(r => { r.revise = false; r.reviseArchived = false; });
-  _savePendingToStorage();
-  renderReviseList();
-  renderReviseDoneList();
-  if (typeof renderPendingList === 'function') renderPendingList();
-  toast('등록 예정 리스트로 복원됨', 'success');
+  if (!_reviseGroups().find(x => x.key === groupKey)) return;
+  openModal({
+    title: '등록 예정 리스트로 복원',
+    desc: '이 항목을 등록 예정 리스트로 복원할까요?\n수정 내용·이미지는 그대로 보존되어, 다시 ‘수정’ 체크하면 다시 나타납니다.',
+    okText: '복원',
+    onOk: () => {
+      // 콜백 시점의 최신 그룹을 다시 조회 (혹시 그 사이 데이터가 갱신됐어도 안전)
+      const g = _reviseGroups().find(x => x.key === groupKey);
+      if (!g) return;
+      // revise/archived 플래그만 변경 — reviseItems·reviseItems2·reviseImages·reviseDoneImages 는 보존
+      g.rows.forEach(r => { r.revise = false; r.reviseArchived = false; });
+      _savePendingToStorage();
+      renderReviseList();
+      renderReviseDoneList();
+      if (typeof renderPendingList === 'function') renderPendingList();
+      toast('등록 예정 리스트로 복원됨', 'success');
+    },
+  });
 }
 // 완료 토글 (등록예정 리스트의 완료 버튼과 동일 — 폴더 cascade + 완료날짜 기록)
 function reviseToggleDone(groupKey) {
