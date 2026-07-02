@@ -759,7 +759,6 @@
               <th onclick="pendingSort('grade')" class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[80px] cursor-pointer select-none hover:text-brand-blue">등급<span id="psort-grade"></span></th>
               <th onclick="pendingSort('note')" class="px-3 py-2.5 text-left   font-bold border-b-2 border-brand-border min-w-[140px] cursor-pointer select-none hover:text-brand-blue">비고<span id="psort-note"></span></th>
               <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">수정</th>
-              <th class="px-3 py-2.5 text-center font-bold border-b-2 border-brand-border w-[70px]">완료</th>
               <th class="px-3 py-2.5 text-center border-b-2 border-brand-border w-[40px]"></th>
             </tr>
           </thead>
@@ -4650,11 +4649,6 @@ function renderPendingList() {
         <td class="px-3 py-2 text-center align-middle">
           <button type="button" onclick="togglePendingRevise('${item.id}', ${item.revise ? 'false' : 'true'})" title="수정요청 — 켜면 '수정요청' 메뉴에 모입니다" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.revise ? 'bg-orange-500 text-white' : 'bg-brand-bg text-brand-gray hover:bg-orange-100 hover:text-orange-500'}">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>
-        </td>
-        <td class="px-3 py-2 text-center align-middle">
-          <button type="button" onclick="togglePendingDone('${item.id}', ${item.done ? 'false' : 'true'})" title="완료" class="w-7 h-7 rounded-full inline-flex items-center justify-center transition-colors ${item.done ? 'bg-brand-green text-white' : 'bg-brand-bg text-brand-gray hover:bg-green-100 hover:text-brand-green'}">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
           </button>
         </td>
         <td class="px-2 py-2 text-center align-middle whitespace-nowrap">
